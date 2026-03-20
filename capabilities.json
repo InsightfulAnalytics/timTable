@@ -1,0 +1,377 @@
+{
+    "dataRoles": [
+        {
+            "displayName": "Category",
+            "name": "category",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Measure",
+            "name": "measure",
+            "kind": "Measure"
+        }
+    ],
+    "objects": {
+        "table": {
+            "properties": {
+                "headerFontSize": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "headerBold": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "totalRowBold": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "totalRowUnderline": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "borderColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "categoryWordWrap": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "categoryColumnWidth": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "headerWordWrap": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "columnWidth": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "headerRowHeight": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "valueRowHeight": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "alternateValueRowHeight": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "totalRowHeight": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "headerBackgroundColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "totalRowBackgroundColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "switchValuesToRows": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "gridTransparency": {
+                    "type": {
+                        "numeric": true
+                    }
+                }
+            }
+        },
+        "categoryConditionalFormatting": {
+            "properties": {
+                "textColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "valueConditionalFormatting": {
+            "properties": {
+                "textColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "dataBarsFormatting": {
+            "properties": {
+                "showDataBars": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "positiveColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "negativeColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "dataBarHeight": {
+                    "type": {
+                        "numeric": true
+                    }
+                }
+            }
+        },
+        "dataBarMarkers": {
+            "properties": {
+                "showMarker": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "markerShape": {
+                    "type": {
+                        "enumeration": [
+                            {
+                                "value": "cross",
+                                "displayName": "Cross"
+                            },
+                            {
+                                "value": "circle",
+                                "displayName": "Circle"
+                            },
+                            {
+                                "value": "horizontalLine",
+                                "displayName": "Horizontal Line"
+                            },
+                            {
+                                "value": "verticalLine",
+                                "displayName": "Vertical Line"
+                            },
+                            {
+                                "value": "semiCircle",
+                                "displayName": "Semi Circle"
+                            }
+                        ]
+                    }
+                },
+                "markerColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "markerSize": {
+                    "type": {
+                        "numeric": true
+                    }
+                }
+            }
+        },
+        "totals": {
+            "properties": {
+                "showTotalRow": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "totalBehavior": {
+                    "type": {
+                        "enumeration": [
+                            {
+                                "value": "Measure",
+                                "displayName": "Measure"
+                            },
+                            {
+                                "value": "Sum",
+                                "displayName": "Sum"
+                            },
+                            {
+                                "value": "Average",
+                                "displayName": "Average"
+                            },
+                            {
+                                "value": "Count",
+                                "displayName": "Count"
+                            },
+                            {
+                                "value": "Count Distinct",
+                                "displayName": "Count Distinct"
+                            },
+                            {
+                                "value": "Max",
+                                "displayName": "Max"
+                            },
+                            {
+                                "value": "Min",
+                                "displayName": "Min"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        "values": {
+            "properties": {
+                "fontFamily": {
+                    "type": {
+                        "formatting": {
+                            "fontFamily": true
+                        }
+                    }
+                },
+                "fontSize": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "bold": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "italic": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "underline": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "textColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "backgroundColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "alternateTextColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "alternateBackgroundColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "textWrap": {
+                    "type": {
+                        "bool": true
+                    }
+                }
+            }
+        }
+    },
+    "dataViewMappings": [
+        {
+            "conditions": [
+                {
+                    "category": {
+                        "max": 1
+                    },
+                    "measure": {
+                        "min": 1
+                    }
+                }
+            ],
+            "categorical": {
+                "categories": {
+                    "for": {
+                        "in": "category"
+                    },
+                    "dataReductionBehavior": {
+                        "default": {
+                            "window": {
+                                "count": 30000
+                            }
+                        }
+                    }
+                },
+                "values": {
+                    "select": [
+                        {
+                            "bind": {
+                                "to": "measure"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "privileges": []
+}

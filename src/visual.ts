@@ -1,0 +1,1108 @@
+/*
+*  Power BI Visual CLI
+*
+*  Copyright (c) Microsoft Corporation
+*  All rights reserved.
+*  MIT License
+*
+*  Permission is hereby granted, free of charge, to any person obtaining a copy
+*  of this software and associated documentation files (the ""Software""), to deal
+*  in the Software without restriction, including without limitation the rights
+*  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+*  copies of the Software, and to permit persons to whom the Software is
+*  furnished to do so, subject to the following conditions:
+*
+*  The above copyright notice and this permission notice shall be included in
+*  all copies or substantial portions of the Software.
+*
+*  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+*  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+*  THE SOFTWARE.
+*/
+"use strict";
+
+import "./../style/visual.less";
+import powerbi from "powerbi-visuals-api";
+import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
+import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
+import IVisual = powerbi.extensibility.visual.IVisual;
+import DataView = powerbi.DataView;
+import { VisualSettings } from "./settings";
+import { FormattingSettingsService, formattingSettings } from "powerbi-visuals-utils-formattingmodel";
+import { dataViewObjects } from "powerbi-visuals-utils-dataviewutils";
+
+export class Visual implements IVisual {
+    private table: HTMLTableElement;
+    private formattingSettingsService: FormattingSettingsService;
+    private visualSettings: VisualSettings;
+
+    constructor(options: VisualConstructorOptions) {
+        const tableContainer = document.createElement("div");
+        tableContainer.className = "table-container";
+        options.element.appendChild(tableContainer);
+
+        this.table = document.createElement('table');
+        this.table.className = 'pbi-table';
+        tableContainer.appendChild(this.table);
+
+        this.formattingSettingsService = new FormattingSettingsService();
+        this.visualSettings = new VisualSettings();
+    }
+
+    public update(options: VisualUpdateOptions) {
+        if (options.dataViews && options.dataViews[0]) {
+            this.visualSettings = this.formattingSettingsService.populateFormattingSettingsModel(VisualSettings, options.dataViews[0]);
+        }
+        
+        const tableSettings = this.visualSettings.table;
+        const valuesSettings = this.visualSettings.valuesMenu;
+        const cellItalic = valuesSettings.font.italic?.value || false;
+        const cellUnderline = valuesSettings.font.underline?.value || false;
+        const textColor = valuesSettings.textColor.value.value;
+        const alternateTextColor = valuesSettings.alternateTextColor.value.value;
+        const cellFontFamily = valuesSettings.font.fontFamily.value;
+        const totalsSettings = this.visualSettings.totals;
+        const showTotalRow = totalsSettings.showTotalRow.value;
+        const categoryColumnWidth = tableSettings.categoryColumnWidth.value;
+        const categoryWordWrap = tableSettings.categoryWordWrap.value;
+        const valueWordWrap = valuesSettings.textWrap.value;
+        const headerWordWrap = tableSettings.headerWordWrap?.value || false;
+        const columnWidth = tableSettings.columnWidth.value;
+        const headerRowHeight = tableSettings.headerRowHeight.value;
+        const valueRowHeight = tableSettings.valueRowHeight.value;
+        const alternateValueRowHeight = tableSettings.alternateValueRowHeight.value;
+        const totalRowHeight = tableSettings.totalRowHeight.value;
+        const headerFontSize = tableSettings.headerFontSize.value;
+        const headerBold = tableSettings.headerBold.value;
+        const cellFontSize = valuesSettings.font.fontSize.value;
+        const valueBold = valuesSettings.font.bold?.value || false;
+        const totalRowBold = tableSettings.totalRowBold.value;
+        const totalRowUnderline = tableSettings.totalRowUnderline.value;
+        const borderColor = tableSettings.borderColor.value.value;
+        const backgroundColor = valuesSettings.backgroundColor.value.value;
+        const alternateBackgroundColor = valuesSettings.alternateBackgroundColor.value.value;
+        const headerBackgroundColor = tableSettings.headerBackgroundColor.value.value;
+        const totalRowBackgroundColor = tableSettings.totalRowBackgroundColor.value.value;
+        const gridTransparency = tableSettings.gridTransparency.value;
+
+        const categoryCFSettings = this.visualSettings.categoryConditionalFormatting;
+        const defaultCategoryTextColor = categoryCFSettings.textColor.value.value;
+
+        const valueCFSettings = this.visualSettings.valueConditionalFormatting;
+        valueCFSettings.slices = []; // Will be populated dynamically per-measure
+
+        totalsSettings.slices = [totalsSettings.showTotalRow];
+
+        const dataBarsSettings = this.visualSettings.dataBarsFormatting;
+        dataBarsSettings.slices = []; // Will be populated dynamically per-measure
+
+        const dataBarMarkersSettings = this.visualSettings.dataBarMarkers;
+        dataBarMarkersSettings.slices = []; // Will be populated dynamically per-measure
+
+        // Helper function to convert hex to rgba
+        const applyTransparency = (hex: string, transparencyPct: number): string => {
+            if (!hex) return hex;
+            let alpha = Math.max(0, Math.min(1, 1 - (transparencyPct / 100)));
+            if (hex.startsWith("#")) {
+                let r = 0, g = 0, b = 0;
+                if (hex.length === 4) {
+                    r = parseInt(hex[1] + hex[1], 16);
+                    g = parseInt(hex[2] + hex[2], 16);
+                    b = parseInt(hex[3] + hex[3], 16);
+                } else if (hex.length === 7) {
+                    r = parseInt(hex[1] + hex[2], 16);
+                    g = parseInt(hex[3] + hex[4], 16);
+                    b = parseInt(hex[5] + hex[6], 16);
+                }
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+            return hex; // fallback if not hex
+        };
+
+        const gridBorderColor = applyTransparency(borderColor, gridTransparency);
+
+        // Helper function to get text color for a category row, supporting conditional formatting
+        const getCategoryTextColor = (rowIndex: number, dataView: DataView): string => {
+            if (dataView.categorical && dataView.categorical.categories && dataView.categorical.categories.length > 0) {
+                const category = dataView.categorical.categories[0];
+                if (category.objects && category.objects[rowIndex]) {
+                    const color = dataViewObjects.getFillColor(
+                        category.objects[rowIndex],
+                        { objectName: "categoryConditionalFormatting", propertyName: "textColor" }
+                    );
+                    if (color) {
+                        return color;
+                    }
+                }
+            }
+            return defaultCategoryTextColor;
+        };
+
+        // Helper function to apply squashing row height
+        const applyRowSquash = (cell: HTMLElement, rowHeight: number, fontSize: number, wordWrap: boolean) => {
+            if (rowHeight <= 2) {
+                cell.style.fontSize = "0px";
+                cell.style.color = "transparent";
+                cell.style.padding = "0px";
+                cell.style.lineHeight = "0px";
+                cell.style.height = `${rowHeight}px`;
+            } else {
+                cell.style.fontSize = `${Math.min(fontSize, Math.max(8, rowHeight - 6))}px`;
+                cell.style.height = `${rowHeight}px`;
+                cell.style.padding = ""; // fallback to CSS padding
+                if (!wordWrap) {
+                    cell.style.lineHeight = `${rowHeight}px`;
+                } else {
+                    cell.style.lineHeight = "normal";
+                }
+            }
+        };
+
+        // Helper function to get background color for a row, supporting conditional formatting
+        const getRowBackgroundColor = (rowIndex: number, isEvenRow: boolean, dataView: DataView): string => {
+            const targetColorProp = isEvenRow ? "backgroundColor" : "alternateBackgroundColor";
+            const defaultColor = isEvenRow ? backgroundColor : alternateBackgroundColor;
+
+            if (dataView.categorical && dataView.categorical.categories && dataView.categorical.categories.length > 0) {
+                const category = dataView.categorical.categories[0];
+                if (category.objects && category.objects[rowIndex]) {
+                    const color = dataViewObjects.getFillColor(
+                        category.objects[rowIndex],
+                        { objectName: "table", propertyName: targetColorProp }
+                    );
+                    if (color) {
+                        return color;
+                    }
+                }
+            }
+            return defaultColor;
+        };
+
+        // Helper function to get header color, supporting conditional formatting
+        const getHeaderColor = (dataView: DataView): string => {
+            if (dataView.metadata && dataView.metadata.objects) {
+                const color = dataViewObjects.getFillColor(
+                    dataView.metadata.objects,
+                    { objectName: "table", propertyName: "headerBackgroundColor" }
+                );
+                if (color) return color;
+            }
+            return headerBackgroundColor;
+        };
+
+        // Helper function to get total row color, supporting conditional formatting
+        const getTotalRowColor = (dataView: DataView): string => {
+            if (dataView.metadata && dataView.metadata.objects) {
+                const color = dataViewObjects.getFillColor(
+                    dataView.metadata.objects,
+                    { objectName: "table", propertyName: "totalRowBackgroundColor" }
+                );
+                if (color) return color;
+            }
+            return totalRowBackgroundColor;
+        };
+
+        // Clear the table
+        while (this.table.firstChild) {
+            this.table.removeChild(this.table.firstChild);
+        }
+
+        if (!options.dataViews || options.dataViews.length === 0) {
+            let row = this.table.insertRow();
+            let cell = row.insertCell();
+            cell.textContent = "No data available";
+            return;
+        }
+
+        let dataView: DataView = options.dataViews[0];
+
+        let hasCategories = dataView.categorical && dataView.categorical.categories && dataView.categorical.categories.length > 0;
+        let categories = hasCategories ? dataView.categorical.categories[0] : null;
+        let values = dataView.categorical && dataView.categorical.values ? dataView.categorical.values : null;
+
+        if (!values || values.length === 0) {
+            let row = this.table.insertRow();
+            let cell = row.insertCell();
+            cell.textContent = "No data available";
+            return;
+        }
+
+        const switchValuesToRows = tableSettings.switchValuesToRows?.value || false;
+        let rowCount = hasCategories && categories.values ? categories.values.length : (values[0].values ? values[0].values.length : 1);
+
+        // Pre-process measure settings to populate formatting model properly
+        let measureHeaders: string[] = [];
+        values.forEach((valueColumn) => {
+            let displayName = valueColumn.source.displayName || `Measure ${measureHeaders.length + 1}`;
+            measureHeaders.push(displayName);
+            
+            // Build dynamic settings slice for this measure
+            const queryName = valueColumn.source.queryName;
+            const defaultMeasureTextColor = dataViewObjects.getFillColor(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueConditionalFormatting", propertyName: "textColor" },
+                        textColor
+                    );
+            valueCFSettings.slices.push(new formattingSettings.ColorPicker({
+                name: "textColor",
+                displayName: displayName + " Text Color",
+                value: { value: defaultMeasureTextColor },
+                visible: true,
+                selector: { metadata: queryName },
+                instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
+            }));
+
+            // Data bars settings
+            const objects = valueColumn.source.objects || {};
+            const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+            const positiveColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "positiveColor" }, "#31b6fd");
+            const negativeColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "negativeColor" }, "#d96570");
+
+            dataBarsSettings.slices.push(new formattingSettings.ToggleSwitch({
+                name: "showDataBars",
+                displayName: displayName + " Show Data Bars",
+                value: showDataBars,
+                visible: true,
+                selector: { metadata: queryName }
+            }));
+            
+            if (showDataBars) {
+                dataBarsSettings.slices.push(new formattingSettings.ColorPicker({
+                    name: "positiveColor",
+                    displayName: displayName + " Positive Color",
+                    value: { value: positiveColor },
+                    visible: true,
+                    selector: { metadata: queryName },
+                    instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
+                }));
+
+                dataBarsSettings.slices.push(new formattingSettings.ColorPicker({
+                    name: "negativeColor",
+                    displayName: displayName + " Negative Color",
+                    value: { value: negativeColor },
+                    visible: true,
+                    selector: { metadata: queryName },
+                    instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
+                }));
+                
+                const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+                dataBarsSettings.slices.push(new formattingSettings.NumUpDown({
+                    name: "dataBarHeight",
+                    displayName: displayName + " Data Bar Height (%)",
+                    value: dataBarHeight,
+                    visible: true,
+                    selector: { metadata: queryName }
+                }));
+            }
+
+            // Data bar markers settings
+            const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
+            let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
+            const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
+            const markerColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarMarkers", propertyName: "markerColor" }, "#000000");
+            const markerSize = dataViewObjects.getValue<number>(objects, { objectName: "dataBarMarkers", propertyName: "markerSize" }, 10);
+
+            dataBarMarkersSettings.slices.push(new formattingSettings.ToggleSwitch({
+                name: "showMarker",
+                displayName: displayName + " Show Marker",
+                value: showMarker,
+                visible: true,
+                selector: { metadata: queryName }
+            }));
+
+            if (showMarker) {
+                const markerShapeItems = [
+                    { value: "cross", displayName: "Cross" },
+                    { value: "circle", displayName: "Circle" },
+                    { value: "horizontalLine", displayName: "Horizontal Line" },
+                    { value: "verticalLine", displayName: "Vertical Line" },
+                    { value: "semiCircle", displayName: "Semi Circle" }
+                ];
+                const currentShapeItem = markerShapeItems.find(x => x.value === markerShape) || markerShapeItems[1];
+
+                dataBarMarkersSettings.slices.push(new formattingSettings.ItemDropdown({
+                    name: "markerShape",
+                    displayName: displayName + " Marker Shape",
+                    value: currentShapeItem,
+                    items: markerShapeItems,
+                    visible: true,
+                    selector: { metadata: queryName }
+                }));
+
+                dataBarMarkersSettings.slices.push(new formattingSettings.ColorPicker({
+                    name: "markerColor",
+                    displayName: displayName + " Marker Color",
+                    value: { value: markerColor },
+                    visible: true,
+                    selector: { metadata: queryName },
+                    instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
+                }));
+
+                dataBarMarkersSettings.slices.push(new formattingSettings.NumUpDown({
+                    name: "markerSize",
+                    displayName: displayName + " Marker Size",
+                    value: markerSize,
+                    visible: true,
+                    selector: { metadata: queryName }
+                }));
+            }
+
+              let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Sum");
+              const totalBehaviorVal = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Sum");
+
+              const totalBehaviorItems = [
+                  { value: "Measure", displayName: "Measure" },
+                  { value: "Sum", displayName: "Sum" },
+                  { value: "Average", displayName: "Average" },
+                  { value: "Count", displayName: "Count" },
+                  { value: "Count Distinct", displayName: "Count Distinct" },
+                  { value: "Max", displayName: "Max" },
+                  { value: "Min", displayName: "Min" }
+              ];
+              const currentBehaviorItem = totalBehaviorItems.find(x => x.value === totalBehaviorVal) || totalBehaviorItems[1];
+
+              totalsSettings.slices.push(new formattingSettings.ItemDropdown({
+                  name: "totalBehavior",
+                  displayName: displayName + " Measure Selection",
+                  value: currentBehaviorItem,
+                  items: totalBehaviorItems,
+                  visible: true,
+                  selector: { metadata: queryName }
+              }));
+          });
+
+          // Compute min and max values for data bars AND Calculate totals based on selection
+          let measureMins: number[] = new Array(values.length).fill(0);
+          let measureMaxs: number[] = new Array(values.length).fill(0);
+          let totals: number[] = new Array(values.length).fill(0);
+
+          values.forEach((valueColumn, measureIndex) => {
+            let numValues = valueColumn.values.filter(v => v !== null && v !== undefined).map(v => Number(v));
+            if (numValues.length > 0) {
+                measureMins[measureIndex] = Math.min(0, ...numValues); // Standard data bars anchor to 0
+                measureMaxs[measureIndex] = Math.max(0, ...numValues);
+            }
+
+            const objects = valueColumn.source.objects || {};
+            let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Sum");
+            const totalBehavior = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Sum");
+
+            if (numValues.length > 0) {
+                if (totalBehavior === "Sum" || totalBehavior === "Measure") {
+                    totals[measureIndex] = numValues.reduce((a, b) => a + b, 0);
+                } else if (totalBehavior === "Average") {
+                    totals[measureIndex] = numValues.reduce((a, b) => a + b, 0) / numValues.length;
+                } else if (totalBehavior === "Count") {
+                    totals[measureIndex] = numValues.length;
+                } else if (totalBehavior === "Count Distinct") {
+                    totals[measureIndex] = new Set(numValues).size;
+                } else if (totalBehavior === "Max") {
+                    totals[measureIndex] = Math.max(...numValues);
+                } else if (totalBehavior === "Min") {
+                    totals[measureIndex] = Math.min(...numValues);
+                }
+            }
+        });
+
+        if (!switchValuesToRows) {
+            // Normal horizontal table structure
+            let headerRow = this.table.insertRow();
+            headerRow.className = 'table-header-row';
+            headerRow.style.borderBottom = `2px solid ${gridBorderColor}`;
+            headerRow.style.height = `${headerRowHeight}px`;
+            const headerBgColor = getHeaderColor(dataView);
+
+            // Add category column header if categories exist
+            if (hasCategories) {
+                let categoryHeader = headerRow.insertCell();
+                categoryHeader.textContent = categories.source.displayName || 'Category';
+                categoryHeader.className = 'table-header-cell';
+                categoryHeader.style.width = `${categoryColumnWidth}px`;
+                categoryHeader.style.minWidth = `${categoryColumnWidth}px`;
+                categoryHeader.style.maxWidth = `${categoryColumnWidth}px`;
+                applyRowSquash(categoryHeader, headerRowHeight, headerFontSize, headerWordWrap);
+                categoryHeader.style.fontWeight = headerBold ? "bold" : "normal";
+                categoryHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+                categoryHeader.style.backgroundColor = headerBgColor;
+                categoryHeader.style.overflow = "hidden";
+                categoryHeader.style.textOverflow = "ellipsis";
+                categoryHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                if (headerWordWrap) {
+                    categoryHeader.style.wordBreak = "break-word";
+                }
+            }
+
+            // Add measure column headers
+            measureHeaders.forEach((displayName) => {
+                let header = headerRow.insertCell();
+                header.textContent = displayName;
+                header.className = 'table-header-cell';
+                header.style.width = `${columnWidth}px`;
+                header.style.minWidth = `${columnWidth}px`;
+                header.style.maxWidth = `${columnWidth}px`;
+                applyRowSquash(header, headerRowHeight, headerFontSize, headerWordWrap);
+                header.style.fontWeight = headerBold ? "bold" : "normal";
+                header.style.borderRight = `1px solid ${gridBorderColor}`;
+                header.style.backgroundColor = headerBgColor;
+                header.style.overflow = "hidden";
+                header.style.textOverflow = "ellipsis";
+                header.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                if (headerWordWrap) {
+                    header.style.wordBreak = "break-word";
+                }
+            });
+
+            // Create data rows
+            for (let i = 0; i < rowCount; i++) {
+                let row = this.table.insertRow();
+                row.className = 'table-data-row';
+                row.style.borderBottom = `1px solid ${gridBorderColor}`;
+                // Apply alternating background colors with support for conditional formatting
+                const isEvenRow = i % 2 === 0;
+                const rowHeight = isEvenRow ? valueRowHeight : alternateValueRowHeight;
+                row.style.height = `${rowHeight}px`;
+                const rowBgColor = getRowBackgroundColor(i, isEvenRow, dataView);
+                row.style.backgroundColor = rowBgColor;
+
+                // Add category value
+                if (hasCategories) {
+                    let categoryCell = row.insertCell();
+                    categoryCell.textContent = String(categories.values[i]);
+                    categoryCell.className = 'table-category-cell';
+                    categoryCell.style.width = `${categoryColumnWidth}px`;
+                    categoryCell.style.minWidth = `${categoryColumnWidth}px`;
+                    categoryCell.style.maxWidth = `${categoryColumnWidth}px`;
+                    applyRowSquash(categoryCell, rowHeight, cellFontSize, categoryWordWrap);
+                    categoryCell.style.fontWeight = valueBold ? "bold" : "normal";
+                    categoryCell.style.borderRight = `1px solid ${gridBorderColor}`;
+                    categoryCell.style.backgroundColor = rowBgColor;
+                    categoryCell.style.color = getCategoryTextColor(i, dataView);
+                    categoryCell.style.overflow = "hidden";
+                    categoryCell.style.textOverflow = "ellipsis";
+                    categoryCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
+                    if (categoryWordWrap) {
+                        categoryCell.style.wordBreak = "break-word";
+                    }
+                }
+
+                // Add measure values
+                values.forEach((valueColumn, measureIndex) => {
+                    const defaultMeasureTextColor = dataViewObjects.getFillColor(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueConditionalFormatting", propertyName: "textColor" },
+                        (typeof isEvenRow !== 'undefined') ? (isEvenRow ? textColor : alternateTextColor) : textColor
+                    );
+
+                    let cellTextColor = defaultMeasureTextColor;
+                    if (valueColumn.objects && valueColumn.objects[i]) {
+                        const cfColor = dataViewObjects.getFillColor(
+                            valueColumn.objects[i],
+                            { objectName: "valueConditionalFormatting", propertyName: "textColor" }
+                        );
+                        if (cfColor) {
+                            cellTextColor = cfColor;
+                        }
+                    }
+
+                    let cell = row.insertCell();
+                    let value = valueColumn.values[i];
+                    cell.style.position = "relative"; // for data bar positioning
+
+                    if (value !== null && value !== undefined) {
+                        let numValue = Number(value);
+                        const formattedValue = numValue.toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                            minimumFractionDigits: 0
+                        });
+
+                        const objects = valueColumn.source.objects || {};
+                        const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+                        
+                        if (showDataBars) {
+                            let cellPositiveColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "positiveColor" }, "#31b6fd");
+                            if (valueColumn.objects && valueColumn.objects[i]) {
+                                const cfPosColor = dataViewObjects.getFillColor(
+                                    valueColumn.objects[i],
+                                    { objectName: "dataBarsFormatting", propertyName: "positiveColor" }
+                                );
+                                if (cfPosColor) {
+                                    cellPositiveColor = cfPosColor;
+                                }
+                            }
+
+                            let cellNegativeColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "negativeColor" }, "#d96570");
+                            if (valueColumn.objects && valueColumn.objects[i]) {
+                                const cfNegColor = dataViewObjects.getFillColor(
+                                    valueColumn.objects[i],
+                                    { objectName: "dataBarsFormatting", propertyName: "negativeColor" }
+                                );
+                                if (cfNegColor) {
+                                    cellNegativeColor = cfNegColor;
+                                }
+                            }
+
+                            const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+
+                            const min = measureMins[measureIndex];
+                            const max = measureMaxs[measureIndex];
+                            const range = max - min;
+                            
+                            // Calculate width percentage
+                            let widthPct = 0;
+                            let leftPct = 0;
+
+                            if (range > 0) {
+                                if (numValue >= 0) {
+                                    widthPct = (numValue / range) * 100;
+                                    leftPct = ((0 - min) / range) * 100;
+                                } else {
+                                    widthPct = (Math.abs(numValue) / range) * 100;
+                                    leftPct = ((numValue - min) / range) * 100;
+                                }
+                            }
+
+                            // Create data bar div
+                            let dataBar = document.createElement("div");
+                            dataBar.style.position = "absolute";
+                            const topPct = (100 - dataBarHeight) / 2;
+                            dataBar.style.top = `${topPct}%`;
+                            dataBar.style.height = `${dataBarHeight}%`;
+                            dataBar.style.left = `${leftPct}%`;
+                            dataBar.style.width = `${widthPct}%`;
+                            dataBar.style.backgroundColor = numValue >= 0 ? cellPositiveColor : cellNegativeColor;
+                            dataBar.style.opacity = "0.6"; // semi-transparent so text is readable
+                            dataBar.style.zIndex = "1";
+                            cell.appendChild(dataBar);
+
+                            const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
+                            if (showMarker) {
+                                let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
+                                const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
+                                const markerSize = dataViewObjects.getValue<number>(objects, { objectName: "dataBarMarkers", propertyName: "markerSize" }, 10);
+                                
+                                let cellMarkerColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarMarkers", propertyName: "markerColor" }, "#000000");
+                                if (valueColumn.objects && valueColumn.objects[i]) {
+                                    const cfMarkerColor = dataViewObjects.getFillColor(
+                                        valueColumn.objects[i],
+                                        { objectName: "dataBarMarkers", propertyName: "markerColor" }
+                                    );
+                                    if (cfMarkerColor) {
+                                        cellMarkerColor = cfMarkerColor;
+                                    }
+                                }
+
+                                let marker = document.createElement("div");
+                                marker.style.position = "absolute";
+                                marker.style.zIndex = "3";
+                                
+                                // Calculate marker left position (end of the bar)
+                                let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
+                                marker.style.top = `calc(50% - ${markerSize / 2}px)`;
+                                marker.style.width = `${markerSize}px`;
+                                marker.style.height = `${markerSize}px`;
+
+                                if (markerShape === "circle") {
+                                    marker.style.backgroundColor = cellMarkerColor;
+                                    marker.style.borderRadius = "50%";
+                                } else if (markerShape === "cross") {
+                                    marker.style.backgroundColor = "transparent";
+                                    let line1 = document.createElement("div");
+                                    line1.style.position = "absolute";
+                                    line1.style.backgroundColor = cellMarkerColor;
+                                    line1.style.width = "100%";
+                                    line1.style.height = "2px";
+                                    line1.style.top = "calc(50% - 1px)";
+                                    line1.style.transform = "rotate(45deg)";
+                                    
+                                    let line2 = document.createElement("div");
+                                    line2.style.position = "absolute";
+                                    line2.style.backgroundColor = cellMarkerColor;
+                                    line2.style.width = "100%";
+                                    line2.style.height = "2px";
+                                    line2.style.top = "calc(50% - 1px)";
+                                    line2.style.transform = "rotate(-45deg)";
+                                    
+                                    marker.appendChild(line1);
+                                    marker.appendChild(line2);
+                                } else if (markerShape === "horizontalLine") {
+                                    marker.style.backgroundColor = cellMarkerColor;
+                                    marker.style.height = "2px";
+                                    marker.style.top = "calc(50% - 1px)";
+                                    marker.style.width = `${markerSize}px`;
+                                } else if (markerShape === "verticalLine") {
+                                    marker.style.backgroundColor = cellMarkerColor;
+                                    marker.style.width = "2px";
+                                    marker.style.left = `calc(${markerLeftPct}% - 1px)`;
+                                } else if (markerShape === "semiCircle") {
+                                    marker.style.backgroundColor = cellMarkerColor;
+                                    // Draw semi circle pointing outwards
+                                    if (numValue >= 0) {
+                                        marker.style.borderTopRightRadius = `${markerSize}px`;
+                                        marker.style.borderBottomRightRadius = `${markerSize}px`;
+                                        marker.style.width = `${markerSize / 2}px`;
+                                        marker.style.left = `calc(${markerLeftPct}%)`;
+                                    } else {
+                                        marker.style.borderTopLeftRadius = `${markerSize}px`;
+                                        marker.style.borderBottomLeftRadius = `${markerSize}px`;
+                                        marker.style.width = `${markerSize / 2}px`;
+                                        marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
+                                    }
+                                }
+
+                                cell.appendChild(marker);
+                            }
+                            
+                            // Create text div
+                            let textDiv = document.createElement("div");
+                            textDiv.style.position = "relative";
+                            textDiv.style.zIndex = "2";
+                            textDiv.textContent = formattedValue;
+                            cell.appendChild(textDiv);
+                        } else {
+                            cell.textContent = formattedValue;
+                        }
+                    } else {
+                        cell.textContent = '-';
+                    }
+
+                    cell.className = 'table-data-cell';
+                    cell.style.width = `${columnWidth}px`;
+                    cell.style.minWidth = `${columnWidth}px`;
+                    cell.style.maxWidth = `${columnWidth}px`;
+                    applyRowSquash(cell, rowHeight, cellFontSize, valueWordWrap);
+                    cell.style.fontWeight = valueBold ? "bold" : "normal";
+                      cell.style.fontFamily = cellFontFamily;
+                      cell.style.fontStyle = cellItalic ? "italic" : "normal";
+                      cell.style.textDecoration = cellUnderline ? "underline" : "none";
+                    cell.style.borderRight = `1px solid ${gridBorderColor}`;
+                    cell.style.backgroundColor = rowBgColor;
+                    cell.style.color = cellTextColor;
+                    cell.style.overflow = "hidden";
+                    cell.style.textOverflow = "ellipsis";
+                    cell.style.whiteSpace = valueWordWrap ? "normal" : "nowrap";
+                    if (valueWordWrap) {
+                        cell.style.wordBreak = "break-word";
+                    }
+                });
+            }
+
+            // Create total row
+            if (showTotalRow) {
+                let totalRow = this.table.insertRow();
+                totalRow.className = 'table-total-row';
+            totalRow.style.borderTop = `2px solid ${gridBorderColor}`;
+            totalRow.style.borderBottom = `2px solid ${gridBorderColor}`;
+            totalRow.style.height = `${totalRowHeight}px`;
+            const totalBgColor = getTotalRowColor(dataView);
+
+            if (hasCategories) {
+                let totalLabelCell = totalRow.insertCell();
+                totalLabelCell.textContent = 'Total';
+                totalLabelCell.className = 'table-total-label-cell';
+                totalLabelCell.style.width = `${categoryColumnWidth}px`;
+                totalLabelCell.style.minWidth = `${categoryColumnWidth}px`;
+                totalLabelCell.style.maxWidth = `${categoryColumnWidth}px`;
+                applyRowSquash(totalLabelCell, totalRowHeight, cellFontSize, categoryWordWrap);
+                totalLabelCell.style.fontWeight = totalRowBold ? "bold" : "normal";
+                totalLabelCell.style.textDecoration = totalRowUnderline ? "underline" : "none";
+                totalLabelCell.style.borderRight = `1px solid ${gridBorderColor}`;
+                totalLabelCell.style.backgroundColor = totalBgColor; totalLabelCell.style.color = textColor;
+                totalLabelCell.style.overflow = "hidden";
+                totalLabelCell.style.textOverflow = "ellipsis";
+                totalLabelCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
+                if (categoryWordWrap) {
+                    totalLabelCell.style.wordBreak = "break-word";
+                }
+            } else {
+                let totalLabelCell = totalRow.insertCell();
+                totalLabelCell.textContent = 'Total';
+                totalLabelCell.style.display = "none";
+            }
+
+            totals.forEach((total) => {
+                let cell = totalRow.insertCell();
+                cell.textContent = total.toLocaleString(undefined, {
+                    maximumFractionDigits: 2,
+                    minimumFractionDigits: 0
+                });
+                cell.className = 'table-total-cell';
+                cell.style.width = `${columnWidth}px`;
+                cell.style.minWidth = `${columnWidth}px`;
+                cell.style.maxWidth = `${columnWidth}px`;
+                applyRowSquash(cell, totalRowHeight, cellFontSize, valueWordWrap);
+                cell.style.fontWeight = totalRowBold ? "bold" : "normal";
+                cell.style.textDecoration = totalRowUnderline ? "underline" : "none";
+                cell.style.borderRight = `1px solid ${gridBorderColor}`;
+                cell.style.backgroundColor = totalBgColor; cell.style.color = textColor;
+                cell.style.overflow = "hidden";
+                cell.style.textOverflow = "ellipsis";
+                cell.style.whiteSpace = valueWordWrap ? "normal" : "nowrap";
+                if (valueWordWrap) {
+                    cell.style.wordBreak = "break-word";
+                }
+            });
+            }
+        } else {
+            // switchValuesToRows IS TRUE (Transpose layout)
+            
+            // Create Header Row
+            let headerRow = this.table.insertRow();
+            headerRow.className = 'table-header-row';
+            headerRow.style.borderBottom = `2px solid ${gridBorderColor}`;
+            headerRow.style.height = `${headerRowHeight}px`;
+            const headerBgColor = getHeaderColor(dataView);
+
+            // First header is "Measure"
+            let measureHeader = headerRow.insertCell();
+            measureHeader.textContent = "Measure";
+            measureHeader.className = 'table-header-cell';
+            measureHeader.style.width = `${categoryColumnWidth}px`;
+            measureHeader.style.minWidth = `${categoryColumnWidth}px`;
+            measureHeader.style.maxWidth = `${categoryColumnWidth}px`;
+            applyRowSquash(measureHeader, headerRowHeight, headerFontSize, headerWordWrap);
+            measureHeader.style.fontWeight = headerBold ? "bold" : "normal";
+            measureHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+            measureHeader.style.backgroundColor = headerBgColor;
+            measureHeader.style.overflow = "hidden";
+            measureHeader.style.textOverflow = "ellipsis";
+            measureHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+            if (headerWordWrap) {
+                measureHeader.style.wordBreak = "break-word";
+            }
+            
+            // Next headers are Category values (or just "Value" if no categories)
+            if (hasCategories) {
+                for (let i = 0; i < rowCount; i++) {
+                    let catHeader = headerRow.insertCell();
+                    catHeader.textContent = String(categories.values[i]);
+                    catHeader.className = 'table-header-cell';
+                    catHeader.style.width = `${columnWidth}px`;
+                    catHeader.style.minWidth = `${columnWidth}px`;
+                    catHeader.style.maxWidth = `${columnWidth}px`;
+                    applyRowSquash(catHeader, headerRowHeight, headerFontSize, headerWordWrap);
+                    catHeader.style.fontWeight = headerBold ? "bold" : "normal";
+                    catHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+                    catHeader.style.backgroundColor = headerBgColor;
+                    catHeader.style.overflow = "hidden";
+                    catHeader.style.textOverflow = "ellipsis";
+                    catHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                    if (headerWordWrap) {
+                        catHeader.style.wordBreak = "break-word";
+                    }
+                }
+            } else {
+                let catHeader = headerRow.insertCell();
+                catHeader.textContent = "Value";
+                catHeader.className = 'table-header-cell';
+                catHeader.style.width = `${columnWidth}px`;
+                catHeader.style.minWidth = `${columnWidth}px`;
+                catHeader.style.maxWidth = `${columnWidth}px`;
+                applyRowSquash(catHeader, headerRowHeight, headerFontSize, headerWordWrap);
+                catHeader.style.fontWeight = headerBold ? "bold" : "normal";
+                catHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+                catHeader.style.backgroundColor = headerBgColor;
+                catHeader.style.overflow = "hidden";
+                catHeader.style.textOverflow = "ellipsis";
+                catHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                if (headerWordWrap) {
+                    catHeader.style.wordBreak = "break-word";
+                }
+            }
+
+                        if (showTotalRow) {
+                let totalHeader = headerRow.insertCell();
+                totalHeader.textContent = "Total";
+                totalHeader.className = 'table-header-cell';
+                totalHeader.style.width = `${columnWidth}px`;
+                totalHeader.style.minWidth = `${columnWidth}px`;
+                totalHeader.style.maxWidth = `${columnWidth}px`;
+                applyRowSquash(totalHeader, headerRowHeight, headerFontSize, headerWordWrap);
+                totalHeader.style.fontWeight = headerBold ? "bold" : "normal";
+                totalHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+                totalHeader.style.backgroundColor = headerBgColor;
+                totalHeader.style.overflow = "hidden";
+                totalHeader.style.textOverflow = "ellipsis";
+                totalHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                if (headerWordWrap) {
+                    totalHeader.style.wordBreak = "break-word";
+                }
+            }
+
+                        if (showTotalRow) {
+                let totalHeader = headerRow.insertCell();
+                totalHeader.textContent = "Total";
+                totalHeader.className = 'table-header-cell';
+                totalHeader.style.width = `${columnWidth}px`;
+                totalHeader.style.minWidth = `${columnWidth}px`;
+                totalHeader.style.maxWidth = `${columnWidth}px`;
+                applyRowSquash(totalHeader, headerRowHeight, headerFontSize, headerWordWrap);
+                totalHeader.style.fontWeight = headerBold ? "bold" : "normal";
+                totalHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+                totalHeader.style.backgroundColor = headerBgColor;
+                totalHeader.style.overflow = "hidden";
+                totalHeader.style.textOverflow = "ellipsis";
+                totalHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                if (headerWordWrap) {
+                    totalHeader.style.wordBreak = "break-word";
+                }
+            }
+
+            // Create Rows (each row is a Measure)
+            values.forEach((valueColumn, measureIndex) => {
+                let row = this.table.insertRow();
+                row.className = 'table-data-row';
+                row.style.borderBottom = `1px solid ${gridBorderColor}`;
+                
+                const isEvenRow = measureIndex % 2 === 0;
+                const rowHeight = isEvenRow ? valueRowHeight : alternateValueRowHeight;
+                row.style.height = `${rowHeight}px`;
+                const rowBgColor = isEvenRow ? backgroundColor : alternateBackgroundColor;
+                row.style.backgroundColor = rowBgColor;
+
+                // Cell 1: Measure Name
+                let measureNameCell = row.insertCell();
+                measureNameCell.textContent = measureHeaders[measureIndex];
+                measureNameCell.className = 'table-category-cell';
+                measureNameCell.style.width = `${categoryColumnWidth}px`;
+                measureNameCell.style.minWidth = `${categoryColumnWidth}px`;
+                measureNameCell.style.maxWidth = `${categoryColumnWidth}px`;
+                applyRowSquash(measureNameCell, rowHeight, cellFontSize, categoryWordWrap);
+                measureNameCell.style.fontWeight = valueBold ? "bold" : "normal";
+                      measureNameCell.style.fontFamily = cellFontFamily;
+                      measureNameCell.style.fontStyle = cellItalic ? "italic" : "normal";
+                      measureNameCell.style.textDecoration = cellUnderline ? "underline" : "none";
+                measureNameCell.style.borderRight = `1px solid ${gridBorderColor}`;
+                measureNameCell.style.backgroundColor = rowBgColor;
+                measureNameCell.style.color = defaultCategoryTextColor; // or some specific color
+                measureNameCell.style.overflow = "hidden";
+                measureNameCell.style.textOverflow = "ellipsis";
+                measureNameCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
+                if (categoryWordWrap) {
+                    measureNameCell.style.wordBreak = "break-word";
+                }
+
+                const defaultMeasureTextColor = dataViewObjects.getFillColor(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueConditionalFormatting", propertyName: "textColor" },
+                        (typeof isEvenRow !== 'undefined') ? (isEvenRow ? textColor : alternateTextColor) : textColor
+                    );
+
+                const objects = valueColumn.source.objects || {};
+                const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+                const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
+                
+                let cellPositiveColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "positiveColor" }, "#31b6fd");
+                let cellNegativeColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "negativeColor" }, "#d96570");
+                const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+                
+                let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
+                const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
+                const markerSize = dataViewObjects.getValue<number>(objects, { objectName: "dataBarMarkers", propertyName: "markerSize" }, 10);
+                let cellMarkerColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarMarkers", propertyName: "markerColor" }, "#000000");
+
+                const min = measureMins[measureIndex];
+                const max = measureMaxs[measureIndex];
+                const range = max - min;
+
+                // Data Cells: Values for each category (or the 1 value if no categories)
+                for (let i = 0; i < rowCount; i++) {
+                    let cell = row.insertCell();
+                    cell.style.position = "relative";
+                    
+                    let cellTextColor = defaultMeasureTextColor;
+                    if (valueColumn.objects && valueColumn.objects[i]) {
+                        const cfColor = dataViewObjects.getFillColor(
+                            valueColumn.objects[i],
+                            { objectName: "valueConditionalFormatting", propertyName: "textColor" }
+                        );
+                        if (cfColor) cellTextColor = cfColor;
+                        
+                        const cfPosColor = dataViewObjects.getFillColor(
+                            valueColumn.objects[i],
+                            { objectName: "dataBarsFormatting", propertyName: "positiveColor" }
+                        );
+                        if (cfPosColor) cellPositiveColor = cfPosColor;
+
+                        const cfNegColor = dataViewObjects.getFillColor(
+                            valueColumn.objects[i],
+                            { objectName: "dataBarsFormatting", propertyName: "negativeColor" }
+                        );
+                        if (cfNegColor) cellNegativeColor = cfNegColor;
+
+                        const cfMarkerColor = dataViewObjects.getFillColor(
+                            valueColumn.objects[i],
+                            { objectName: "dataBarMarkers", propertyName: "markerColor" }
+                        );
+                        if (cfMarkerColor) cellMarkerColor = cfMarkerColor;
+                    }
+
+                    let value = valueColumn.values[i];
+                    if (value !== null && value !== undefined) {
+                        let numValue = Number(value);
+                        const formattedValue = numValue.toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                            minimumFractionDigits: 0
+                        });
+
+                        if (showDataBars) {
+                            let widthPct = 0;
+                            let leftPct = 0;
+
+                            if (range > 0) {
+                                if (numValue >= 0) {
+                                    widthPct = (numValue / range) * 100;
+                                    leftPct = ((0 - min) / range) * 100;
+                                } else {
+                                    widthPct = (Math.abs(numValue) / range) * 100;
+                                    leftPct = ((numValue - min) / range) * 100;
+                                }
+                            }
+
+                            // Create data bar div
+                            let dataBar = document.createElement("div");
+                            dataBar.style.position = "absolute";
+                            const topPct = (100 - dataBarHeight) / 2;
+                            dataBar.style.top = `${topPct}%`;
+                            dataBar.style.height = `${dataBarHeight}%`;
+                            dataBar.style.left = `${leftPct}%`;
+                            dataBar.style.width = `${widthPct}%`;
+                            dataBar.style.backgroundColor = numValue >= 0 ? cellPositiveColor : cellNegativeColor;
+                            dataBar.style.opacity = "0.6";
+                            dataBar.style.zIndex = "1";
+                            cell.appendChild(dataBar);
+
+                            if (showMarker) {
+                                let marker = document.createElement("div");
+                                marker.style.position = "absolute";
+                                marker.style.zIndex = "3";
+                                
+                                let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
+                                marker.style.top = `calc(50% - ${markerSize / 2}px)`;
+                                marker.style.width = `${markerSize}px`;
+                                marker.style.height = `${markerSize}px`;
+
+                                if (markerShape === "circle") {
+                                    marker.style.backgroundColor = cellMarkerColor;
+                                    marker.style.borderRadius = "50%";
+                                } else if (markerShape === "cross") {
+                                    marker.style.backgroundColor = "transparent";
+                                    let line1 = document.createElement("div");
+                                    line1.style.position = "absolute";
+                                    line1.style.backgroundColor = cellMarkerColor;
+                                    line1.style.width = "100%";
+                                    line1.style.height = "2px";
+                                    line1.style.top = "calc(50% - 1px)";
+                                    line1.style.transform = "rotate(45deg)";
+                                    
+                                    let line2 = document.createElement("div");
+                                    line2.style.position = "absolute";
+                                    line2.style.backgroundColor = cellMarkerColor;
+                                    line2.style.width = "100%";
+                                    line2.style.height = "2px";
+                                    line2.style.top = "calc(50% - 1px)";
+                                    line2.style.transform = "rotate(-45deg)";
+                                    
+                                    marker.appendChild(line1);
+                                    marker.appendChild(line2);
+                                } else if (markerShape === "horizontalLine") {
+                                    marker.style.backgroundColor = cellMarkerColor;
+                                    marker.style.height = "2px";
+                                    marker.style.top = "calc(50% - 1px)";
+                                    marker.style.width = `${markerSize}px`;
+                                } else if (markerShape === "verticalLine") {
+                                    marker.style.backgroundColor = cellMarkerColor;
+                                    marker.style.width = "2px";
+                                    marker.style.left = `calc(${markerLeftPct}% - 1px)`;
+                                } else if (markerShape === "semiCircle") {
+                                    marker.style.backgroundColor = cellMarkerColor;
+                                    if (numValue >= 0) {
+                                        marker.style.borderTopRightRadius = `${markerSize}px`;
+                                        marker.style.borderBottomRightRadius = `${markerSize}px`;
+                                        marker.style.width = `${markerSize / 2}px`;
+                                        marker.style.left = `calc(${markerLeftPct}%)`;
+                                    } else {
+                                        marker.style.borderTopLeftRadius = `${markerSize}px`;
+                                        marker.style.borderBottomLeftRadius = `${markerSize}px`;
+                                        marker.style.width = `${markerSize / 2}px`;
+                                        marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
+                                    }
+                                }
+
+                                cell.appendChild(marker);
+                            }
+
+                            let textDiv = document.createElement("div");
+                            textDiv.style.position = "relative";
+                            textDiv.style.zIndex = "2";
+                            textDiv.textContent = formattedValue;
+                            cell.appendChild(textDiv);
+                        } else {
+                            cell.textContent = formattedValue;
+                        }
+                    } else {
+                        cell.textContent = '-';
+                    }
+
+                    cell.className = 'table-data-cell';
+                    cell.style.width = `${columnWidth}px`;
+                    cell.style.minWidth = `${columnWidth}px`;
+                    cell.style.maxWidth = `${columnWidth}px`;
+                    applyRowSquash(cell, rowHeight, cellFontSize, valueWordWrap);
+                    cell.style.fontWeight = valueBold ? "bold" : "normal";
+                      cell.style.fontFamily = cellFontFamily;
+                      cell.style.fontStyle = cellItalic ? "italic" : "normal";
+                      cell.style.textDecoration = cellUnderline ? "underline" : "none";
+                    cell.style.borderRight = `1px solid ${gridBorderColor}`;
+                    cell.style.backgroundColor = rowBgColor;
+                    cell.style.color = cellTextColor;
+                    cell.style.overflow = "hidden";
+                    cell.style.textOverflow = "ellipsis";
+                    cell.style.whiteSpace = valueWordWrap ? "normal" : "nowrap";
+                    if (valueWordWrap) {
+                        cell.style.wordBreak = "break-word";
+                    }
+                }
+                
+                // Add the Total column cell for this measure if enabled
+                if (showTotalRow) {
+                    let totalCell = row.insertCell();
+                    let totalVal = totals[measureIndex];
+                    totalCell.textContent = totalVal.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                        minimumFractionDigits: 0
+                    });
+                    totalCell.className = 'table-data-cell';
+                    totalCell.style.width = `${columnWidth}px`;
+                    totalCell.style.minWidth = `${columnWidth}px`;
+                    totalCell.style.maxWidth = `${columnWidth}px`;
+                    applyRowSquash(totalCell, rowHeight, cellFontSize, valueWordWrap);
+                    totalCell.style.fontWeight = totalRowBold ? "bold" : "normal";
+                      totalCell.style.fontFamily = cellFontFamily;
+                      totalCell.style.fontStyle = cellItalic ? "italic" : "normal";
+                      // Note: totalRowUnderline is defined in table settings, so we append to it or replace.
+                      // Let's keep totalRowUnderline overriding or adding to it. 
+                      // In original it just set underline or none, let's keep original totalRowUnderline.
+                    totalCell.style.textDecoration = totalRowUnderline ? "underline" : "none";
+                    totalCell.style.borderRight = `1px solid ${gridBorderColor}`;
+                    totalCell.style.backgroundColor = getTotalRowColor(dataView);
+                    totalCell.style.overflow = "hidden";
+                    totalCell.style.textOverflow = "ellipsis";
+                    totalCell.style.whiteSpace = valueWordWrap ? "normal" : "nowrap";
+                    if (valueWordWrap) {
+                        totalCell.style.wordBreak = "break-word";
+                    }
+                }
+            });
+        }
+    }
+
+    public getFormattingModel(): powerbi.visuals.FormattingModel {
+        return this.formattingSettingsService.buildFormattingModel(this.visualSettings);
+    }
+}
