@@ -90,14 +90,7 @@ export class TableSettings extends FormattingSettingsCard{
     name: string = "table";
     displayName: string = "Table";
     visible: boolean = true;
-    public headerFontSize = new formattingSettings.NumUpDown({
-        name: "headerFontSize",
-        displayName: "Header Font Size",
-        value: 14,
-        visible: true
-    });
-
-    public headerBold = new formattingSettings.ToggleSwitch({
+public headerBold = new formattingSettings.ToggleSwitch({
         name: "headerBold",
         displayName: "Header Bold",
         value: true,
@@ -126,28 +119,14 @@ export class TableSettings extends FormattingSettingsCard{
 
     
 
-    public headerWordWrap = new formattingSettings.ToggleSwitch({
-        name: "headerWordWrap",
-        displayName: "Header Word Wrap",
-        value: false,
-        visible: true
-    });
-
-    public columnWidth = new formattingSettings.NumUpDown({
+public columnWidth = new formattingSettings.NumUpDown({
         name: "columnWidth",
         displayName: "Value Column Width",
         value: 100,
         visible: true
     });
 
-    public headerRowHeight = new formattingSettings.NumUpDown({
-        name: "headerRowHeight",
-        displayName: "Header Row Height",
-        value: 35,
-        visible: true
-    });
-
-    public valueRowHeight = new formattingSettings.NumUpDown({
+public valueRowHeight = new formattingSettings.NumUpDown({
         name: "valueRowHeight",
         displayName: "Value Row Height",
         value: 30,
@@ -172,13 +151,7 @@ export class TableSettings extends FormattingSettingsCard{
 
     
 
-    public headerBackgroundColor = new formattingSettings.ColorPicker({
-        name: "headerBackgroundColor",
-        displayName: "Header Background Color",
-        value: { value: "#e8e8e8" },
-        visible: true
-    });
-    public slices: FormattingSettingsSlice[] = [this.switchValuesToRows, this.headerFontSize, this.headerBold,  this.categoryWordWrap, this.categoryColumnWidth,  this.headerWordWrap, this.columnWidth, this.headerRowHeight, this.valueRowHeight, this.alternateValueRowHeight, this.totalRowHeight,  this.headerBackgroundColor]
+public slices: FormattingSettingsSlice[] = [this.switchValuesToRows, this.categoryWordWrap, this.categoryColumnWidth, this.columnWidth, this.valueRowHeight, this.alternateValueRowHeight, this.totalRowHeight]
 }
 
 export class ValueConditionalFormattingSettings extends FormattingSettingsCard {
@@ -374,8 +347,95 @@ export class GridSettings extends FormattingSettingsCard {
     ];
 }
 
+
+export class ColumnHeadersSettings extends formattingSettings.CompositeCard {
+    public font = new formattingSettings.FontControl({
+        name: "font",
+        displayName: "Font",
+        fontFamily: new formattingSettings.FontPicker({
+            name: "fontFamily",
+            displayName: "Font Family",
+            value: "Arial, sans-serif"
+        }),
+        fontSize: new formattingSettings.NumUpDown({
+            name: "fontSize",
+            displayName: "Font Size",
+            value: 11
+        }),
+        bold: new formattingSettings.ToggleSwitch({
+            name: "bold",
+            displayName: "Bold",
+            value: false
+        }),
+        italic: new formattingSettings.ToggleSwitch({
+            name: "italic",
+            displayName: "Italic",
+            value: false
+        }),
+        underline: new formattingSettings.ToggleSwitch({
+            name: "underline",
+            displayName: "Underline",
+            value: false
+        })
+    });
+
+    public textColor = new formattingSettings.ColorPicker({
+        name: "textColor",
+        displayName: "Text color",
+        value: { value: "#1e3a8a" },
+        visible: true
+    });
+
+    public backgroundColor = new formattingSettings.ColorPicker({
+        name: "backgroundColor",
+        displayName: "Background color",
+        value: { value: "#ffffff" },
+        visible: true
+    });
+
+    public alignment = new formattingSettings.AlignmentGroup({
+        name: "alignment",
+        displayName: "Header alignment",
+        value: "left",
+        mode: powerbi.visuals.AlignmentGroupMode.Horizonal,
+        visible: true
+    });
+
+    public textWrap = new formattingSettings.ToggleSwitch({
+        name: "textWrap",
+        displayName: "Text wrap",
+        value: true,
+        visible: true
+    });
+
+    public textGroup = new formattingSettings.Group({
+        displayName: "Text",
+        name: "text",
+        slices: [this.font, this.textColor, this.backgroundColor, this.alignment, this.textWrap]
+    });
+
+    public headerRowHeight = new formattingSettings.NumUpDown({
+        name: "headerRowHeight",
+        displayName: "Header row height",
+        value: 35,
+        visible: true
+    });
+
+    public optionsGroup = new formattingSettings.Group({
+        displayName: "Options",
+        name: "options",
+        slices: [this.headerRowHeight]
+    });
+
+    public name: string = "columnHeaders";
+    public displayName: string = "Column headers";
+    public visible: boolean = true;
+    public groups: formattingSettings.Group[] = [this.textGroup, this.optionsGroup];
+}
+
 export class VisualSettings extends FormattingSettingsModel {
     public valuesMenu: ValuesSettings = new ValuesSettings();
+    public columnHeaders: ColumnHeadersSettings = new ColumnHeadersSettings();
     public table: TableSettings = new TableSettings();
     public categoryConditionalFormatting: CategoryConditionalFormattingSettings = new CategoryConditionalFormattingSettings();
     public valueConditionalFormatting: ValueConditionalFormattingSettings = new ValueConditionalFormattingSettings();
@@ -384,5 +444,5 @@ export class VisualSettings extends FormattingSettingsModel {
     public totals: TotalsSettings = new TotalsSettings();
     public gridMenu: GridSettings = new GridSettings();
     
-    public cards: FormattingSettingsCard[] = [this.valuesMenu, this.table, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
+    public cards: FormattingSettingsCard[] = [this.columnHeaders, this.valuesMenu, this.table, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
 }

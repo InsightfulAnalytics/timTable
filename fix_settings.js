@@ -1,18 +1,22 @@
 const fs = require('fs');
-let settings = fs.readFileSync('B:\\VS Code Files\\Visuals\\timTable\\src\\settings.ts', 'utf8');
+let code = fs.readFileSync('B:/VS Code Files/Visuals/timTable/src/settings.ts', 'utf8');
 
-settings = settings.replace(/public cellFontSize =[\s\S]*?visible: true\s*\}\);/, '');
-settings = settings.replace(/public valueBold =[\s\S]*?visible: true\s*\}\);/, '');
-settings = settings.replace(/public valueWordWrap =[\s\S]*?visible: true\s*\}\);/, '');
-settings = settings.replace(/public backgroundColor =[\s\S]*?instanceKind: powerbi\.VisualEnumerationInstanceKinds\.ConstantOrRule\s*\}\);/, '');
-settings = settings.replace(/public alternateBackgroundColor =[\s\S]*?instanceKind: powerbi\.VisualEnumerationInstanceKinds\.ConstantOrRule\s*\}\);/, '');
+// remove old variables
+code = code.replace(/    public headerFontSize = new formattingSettings\.NumUpDown\(\{\s*name: "headerFontSize",\s*displayName: "Header Font Size",\s*value: 14,\s*visible: true\s*\}\);\s*/g, '');
+code = code.replace(/    public headerBold = new formattingSettings\.ToggleSwitch\(\{\s*name: "headerBold",\s*displayName: "Header Bold",\s*value: true,\s*visible: true\s*\}\);\s*/g, '');
+code = code.replace(/    public headerWordWrap = new formattingSettings\.ToggleSwitch\(\{\s*name: "headerWordWrap",\s*displayName: "Header Word Wrap",\s*value: false,\s*visible: true\s*\}\);\s*/g, '');
+code = code.replace(/    public headerRowHeight = new formattingSettings\.NumUpDown\(\{\s*name: "headerRowHeight",\s*displayName: "Header Row Height",\s*value: 35,\s*visible: true\s*\}\);\s*/g, '');
+code = code.replace(/    public headerBackgroundColor = new formattingSettings\.ColorPicker\(\{\s*name: "headerBackgroundColor",\s*displayName: "Header Background Color",\s*value: \{ value: "#e8e8e8" \},\s*visible: true\s*\}\);\s*/g, '');
 
-settings = settings.replace('this.cellFontSize, this.valueBold,', '');
-settings = settings.replace('this.valueWordWrap,', '');
-settings = settings.replace('this.backgroundColor, this.alternateBackgroundColor,', '');
+// update TableSettings slices array
+code = code.replace(
+    /public slices: FormattingSettingsSlice\[\] = \[this\.switchValuesToRows, this\.headerFontSize, this\.headerBold,  this\.categoryWordWrap, this\.categoryColumnWidth,  this\.headerWordWrap, this\.columnWidth, this\.headerRowHeight, this\.valueRowHeight, this\.alternateValueRowHeight, this\.totalRowHeight,  this\.headerBackgroundColor\]/g,
+    'public slices: FormattingSettingsSlice[] = [this.switchValuesToRows, this.categoryWordWrap, this.categoryColumnWidth, this.columnWidth, this.valueRowHeight, this.alternateValueRowHeight, this.totalRowHeight]'
+);
 
-const valuesSettingsClass = `
-export class ValuesSettings extends FormattingSettingsCard {
+// add ColumnHeadersSettings class
+const newClass = `
+export class ColumnHeadersSettings extends formattingSettings.CompositeCard {
     public font = new formattingSettings.FontControl({
         name: "font",
         displayName: "Font",
@@ -24,7 +28,7 @@ export class ValuesSettings extends FormattingSettingsCard {
         fontSize: new formattingSettings.NumUpDown({
             name: "fontSize",
             displayName: "Font Size",
-            value: 12
+            value: 11
         }),
         bold: new formattingSettings.ToggleSwitch({
             name: "bold",
@@ -46,7 +50,7 @@ export class ValuesSettings extends FormattingSettingsCard {
     public textColor = new formattingSettings.ColorPicker({
         name: "textColor",
         displayName: "Text color",
-        value: { value: "#333333" },
+        value: { value: "#1e3a8a" },
         visible: true
     });
 
@@ -57,44 +61,58 @@ export class ValuesSettings extends FormattingSettingsCard {
         visible: true
     });
 
-    public alternateTextColor = new formattingSettings.ColorPicker({
-        name: "alternateTextColor",
-        displayName: "Alternate text color",
-        value: { value: "#333333" },
-        visible: true
-    });
-
-    public alternateBackgroundColor = new formattingSettings.ColorPicker({
-        name: "alternateBackgroundColor",
-        displayName: "Alternate background color",
-        value: { value: "#f5f5f5" },
+    public alignment = new formattingSettings.AlignmentGroup({
+        name: "alignment",
+        displayName: "Header alignment",
+        value: "left",
+        mode: powerbi.visuals.AlignmentGroupMode.Horizonal,
         visible: true
     });
 
     public textWrap = new formattingSettings.ToggleSwitch({
         name: "textWrap",
         displayName: "Text wrap",
-        value: false,
+        value: true,
         visible: true
     });
 
-    public name: string = "values";
-    public displayName: string = "Values";
+    public textGroup = new formattingSettings.Group({
+        displayName: "Text",
+        name: "text",
+        slices: [this.font, this.textColor, this.backgroundColor, this.alignment, this.textWrap]
+    });
+
+    public headerRowHeight = new formattingSettings.NumUpDown({
+        name: "headerRowHeight",
+        displayName: "Header row height",
+        value: 35,
+        visible: true
+    });
+
+    public optionsGroup = new formattingSettings.Group({
+        displayName: "Options",
+        name: "options",
+        slices: [this.headerRowHeight]
+    });
+
+    public name: string = "columnHeaders";
+    public displayName: string = "Column headers";
     public visible: boolean = true;
-    public slices: FormattingSettingsSlice[] = [
-        this.font, 
-        this.textColor, 
-        this.backgroundColor, 
-        this.alternateTextColor, 
-        this.alternateBackgroundColor, 
-        this.textWrap
-    ];
+    public groups: formattingSettings.Group[] = [this.textGroup, this.optionsGroup];
 }
 `;
 
-settings = settings.replace('export class TableSettings extends FormattingSettingsCard{', valuesSettingsClass + '\nexport class TableSettings extends FormattingSettingsCard{');
+code = code.replace(/export class VisualSettings extends FormattingSettingsModel \{/g, newClass + '\nexport class VisualSettings extends FormattingSettingsModel {');
 
-settings = settings.replace('public table: TableSettings = new TableSettings();', 'public valuesMenu: ValuesSettings = new ValuesSettings();\n    public table: TableSettings = new TableSettings();');
-settings = settings.replace('public cards: FormattingSettingsCard[] = [this.table,', 'public cards: FormattingSettingsCard[] = [this.valuesMenu, this.table,');
+code = code.replace(
+    /public table: TableSettings = new TableSettings\(\);/g,
+    'public columnHeaders: ColumnHeadersSettings = new ColumnHeadersSettings();\n    public table: TableSettings = new TableSettings();'
+);
 
-fs.writeFileSync('B:\\VS Code Files\\Visuals\\timTable\\src\\settings.ts', settings);
+code = code.replace(
+    /public cards: FormattingSettingsCard\[\] = \[this\.valuesMenu, this\.table,/g,
+    'public cards: FormattingSettingsCard[] = [this.columnHeaders, this.valuesMenu, this.table,'
+);
+
+fs.writeFileSync('B:/VS Code Files/Visuals/timTable/src/settings.ts', code);
+console.log('Done settings.ts update');

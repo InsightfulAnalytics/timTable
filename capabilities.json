@@ -14,16 +14,6 @@
     "objects": {
         "table": {
             "properties": {
-                "headerFontSize": {
-                    "type": {
-                        "numeric": true
-                    }
-                },
-                "headerBold": {
-                    "type": {
-                        "bool": true
-                    }
-                },
                 "categoryWordWrap": {
                     "type": {
                         "bool": true
@@ -34,17 +24,7 @@
                         "numeric": true
                     }
                 },
-                "headerWordWrap": {
-                    "type": {
-                        "bool": true
-                    }
-                },
                 "columnWidth": {
-                    "type": {
-                        "numeric": true
-                    }
-                },
-                "headerRowHeight": {
                     "type": {
                         "numeric": true
                     }
@@ -62,15 +42,6 @@
                 "totalRowHeight": {
                     "type": {
                         "numeric": true
-                    }
-                },
-                "headerBackgroundColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
                     }
                 },
                 "switchValuesToRows": {
@@ -398,6 +369,83 @@
                     }
                 },
                 "verticalGridTransparency": {
+                    "type": {
+                        "numeric": true
+                    }
+                }
+            }
+        },
+        "columnHeaders": {
+            "properties": {
+                "fontFamily": {
+                    "type": {
+                        "formatting": {
+                            "fontFamily": true
+                        }
+                    }
+                },
+                "fontSize": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "bold": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "italic": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "underline": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "textColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "backgroundColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "alignment": {
+                    "type": {
+                        "enumeration": [
+                            {
+                                "value": "left",
+                                "displayName": "Left"
+                            },
+                            {
+                                "value": "center",
+                                "displayName": "Center"
+                            },
+                            {
+                                "value": "right",
+                                "displayName": "Right"
+                            }
+                        ]
+                    }
+                },
+                "textWrap": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "headerRowHeight": {
                     "type": {
                         "numeric": true
                     }

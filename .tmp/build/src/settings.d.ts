@@ -18,18 +18,14 @@ export declare class TableSettings extends FormattingSettingsCard {
     name: string;
     displayName: string;
     visible: boolean;
-    headerFontSize: formattingSettings.NumUpDown;
     headerBold: formattingSettings.ToggleSwitch;
     switchValuesToRows: formattingSettings.ToggleSwitch;
     categoryWordWrap: formattingSettings.ToggleSwitch;
     categoryColumnWidth: formattingSettings.NumUpDown;
-    headerWordWrap: formattingSettings.ToggleSwitch;
     columnWidth: formattingSettings.NumUpDown;
-    headerRowHeight: formattingSettings.NumUpDown;
     valueRowHeight: formattingSettings.NumUpDown;
     alternateValueRowHeight: formattingSettings.NumUpDown;
     totalRowHeight: formattingSettings.NumUpDown;
-    headerBackgroundColor: formattingSettings.ColorPicker;
     slices: FormattingSettingsSlice[];
 }
 export declare class ValueConditionalFormattingSettings extends FormattingSettingsCard {
@@ -83,8 +79,23 @@ export declare class GridSettings extends FormattingSettingsCard {
     visible: boolean;
     slices: FormattingSettingsSlice[];
 }
+export declare class ColumnHeadersSettings extends formattingSettings.CompositeCard {
+    font: formattingSettings.FontControl;
+    textColor: formattingSettings.ColorPicker;
+    backgroundColor: formattingSettings.ColorPicker;
+    alignment: formattingSettings.AlignmentGroup;
+    textWrap: formattingSettings.ToggleSwitch;
+    textGroup: formattingSettings.Group;
+    headerRowHeight: formattingSettings.NumUpDown;
+    optionsGroup: formattingSettings.Group;
+    name: string;
+    displayName: string;
+    visible: boolean;
+    groups: formattingSettings.Group[];
+}
 export declare class VisualSettings extends FormattingSettingsModel {
     valuesMenu: ValuesSettings;
+    columnHeaders: ColumnHeadersSettings;
     table: TableSettings;
     categoryConditionalFormatting: CategoryConditionalFormattingSettings;
     valueConditionalFormatting: ValueConditionalFormattingSettings;
