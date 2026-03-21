@@ -67,6 +67,11 @@ export class Visual implements IVisual {
         const cellFontFamily = valuesSettings.font.fontFamily.value;
         const totalsSettings = this.visualSettings.totals;
         const showTotalRow = totalsSettings.showTotalRow.value;
+        const totalRowItalic = totalsSettings.font.italic?.value || false;
+        const totalRowWordWrap = totalsSettings.textWrap.value;
+        const totalRowFontSize = totalsSettings.font.fontSize.value;
+        const totalRowFontFamily = totalsSettings.font.fontFamily.value;
+        const totalRowTextColor = totalsSettings.textColor.value.value;
         const categoryColumnWidth = tableSettings.categoryColumnWidth.value;
         const categoryWordWrap = tableSettings.categoryWordWrap.value;
         const valueWordWrap = valuesSettings.textWrap.value;
@@ -80,22 +85,26 @@ export class Visual implements IVisual {
         const headerBold = tableSettings.headerBold.value;
         const cellFontSize = valuesSettings.font.fontSize.value;
         const valueBold = valuesSettings.font.bold?.value || false;
-        const totalRowBold = tableSettings.totalRowBold.value;
-        const totalRowUnderline = tableSettings.totalRowUnderline.value;
-        const borderColor = tableSettings.borderColor.value.value;
+        const totalRowBold = totalsSettings.font.bold?.value || false;
+        const totalRowUnderline = totalsSettings.font.underline?.value || false;
         const backgroundColor = valuesSettings.backgroundColor.value.value;
         const alternateBackgroundColor = valuesSettings.alternateBackgroundColor.value.value;
         const headerBackgroundColor = tableSettings.headerBackgroundColor.value.value;
-        const totalRowBackgroundColor = tableSettings.totalRowBackgroundColor.value.value;
-        const gridTransparency = tableSettings.gridTransparency.value;
-
+        const totalRowBackgroundColor = totalsSettings.backgroundColor.value.value;
+        const gridSettings = this.visualSettings.gridMenu;
+        const gridBorderColor = gridSettings.horizontalGridColor.value.value;
         const categoryCFSettings = this.visualSettings.categoryConditionalFormatting;
         const defaultCategoryTextColor = categoryCFSettings.textColor.value.value;
-
         const valueCFSettings = this.visualSettings.valueConditionalFormatting;
         valueCFSettings.slices = []; // Will be populated dynamically per-measure
 
-        totalsSettings.slices = [totalsSettings.showTotalRow];
+        totalsSettings.slices = [
+            totalsSettings.showTotalRow,
+            totalsSettings.font,
+            totalsSettings.textColor,
+            totalsSettings.backgroundColor,
+            totalsSettings.textWrap
+        ];
 
         const dataBarsSettings = this.visualSettings.dataBarsFormatting;
         dataBarsSettings.slices = []; // Will be populated dynamically per-measure
@@ -123,7 +132,16 @@ export class Visual implements IVisual {
             return hex; // fallback if not hex
         };
 
-        const gridBorderColor = applyTransparency(borderColor, gridTransparency);
+        const horizLines = gridSettings.horizontalGridlines.value;
+        const horizColor = applyTransparency(gridSettings.horizontalGridColor.value.value, gridSettings.horizontalGridTransparency.value);
+        const horizWidth = gridSettings.horizontalGridWidth.value;
+        const horizBorderValue = horizLines ? `${horizWidth}px solid ${horizColor}` : 'none';
+        const horizBorder2xValue = horizLines ? `${horizWidth * 2}px solid ${horizColor}` : 'none';
+
+        const vertLines = gridSettings.verticalGridlines.value;
+        const vertColor = applyTransparency(gridSettings.verticalGridColor.value.value, gridSettings.verticalGridTransparency.value);
+        const vertWidth = gridSettings.verticalGridWidth.value;
+        const vertBorderValue = vertLines ? `${vertWidth}px solid ${vertColor}` : 'none';
 
         // Helper function to get text color for a category row, supporting conditional formatting
         const getCategoryTextColor = (rowIndex: number, dataView: DataView): string => {
@@ -162,6 +180,32 @@ export class Visual implements IVisual {
             }
         };
 
+        const applyVerticalGridBorder = (cell: HTMLElement, isLastCell: boolean) => {
+            if (!isLastCell) {
+                cell.style.borderRight = vertBorderValue;
+            } else {
+                cell.style.borderRight = "none";
+            }
+        };
+
+        const applyTotalRowStyles = (cell: HTMLElement, width: number, wordWrap: boolean) => {
+            cell.style.width = `${width}px`;
+            cell.style.minWidth = `${width}px`;
+            cell.style.maxWidth = `${width}px`;
+            applyRowSquash(cell, totalRowHeight, totalRowFontSize, wordWrap);
+            cell.style.fontWeight = totalRowBold ? "bold" : "normal";
+            cell.style.textDecoration = totalRowUnderline ? "underline" : "none";
+            cell.style.fontFamily = totalRowFontFamily;
+            cell.style.fontStyle = totalRowItalic ? "italic" : "normal";
+            cell.style.backgroundColor = totalRowBackgroundColor;
+            cell.style.color = totalRowTextColor;
+            cell.style.overflow = "hidden";
+            cell.style.textOverflow = "ellipsis";
+            cell.style.whiteSpace = wordWrap ? "normal" : "nowrap";
+            if (wordWrap) {
+                cell.style.wordBreak = "break-word";
+            }
+        }
         // Helper function to get background color for a row, supporting conditional formatting
         const getRowBackgroundColor = (rowIndex: number, isEvenRow: boolean, dataView: DataView): string => {
             const targetColorProp = isEvenRow ? "backgroundColor" : "alternateBackgroundColor";
@@ -182,31 +226,7 @@ export class Visual implements IVisual {
             return defaultColor;
         };
 
-        // Helper function to get header color, supporting conditional formatting
-        const getHeaderColor = (dataView: DataView): string => {
-            if (dataView.metadata && dataView.metadata.objects) {
-                const color = dataViewObjects.getFillColor(
-                    dataView.metadata.objects,
-                    { objectName: "table", propertyName: "headerBackgroundColor" }
-                );
-                if (color) return color;
-            }
-            return headerBackgroundColor;
-        };
-
-        // Helper function to get total row color, supporting conditional formatting
-        const getTotalRowColor = (dataView: DataView): string => {
-            if (dataView.metadata && dataView.metadata.objects) {
-                const color = dataViewObjects.getFillColor(
-                    dataView.metadata.objects,
-                    { objectName: "table", propertyName: "totalRowBackgroundColor" }
-                );
-                if (color) return color;
-            }
-            return totalRowBackgroundColor;
-        };
-
-        // Clear the table
+        // Helper function to get row background color, supporting conditional formatting
         while (this.table.firstChild) {
             this.table.removeChild(this.table.firstChild);
         }
@@ -365,7 +385,7 @@ export class Visual implements IVisual {
               ];
               const currentBehaviorItem = totalBehaviorItems.find(x => x.value === totalBehaviorVal) || totalBehaviorItems[1];
 
-              totalsSettings.slices.push(new formattingSettings.ItemDropdown({
+              totalsSettings.slices.splice(measureHeaders.length, 0, new formattingSettings.ItemDropdown({
                   name: "totalBehavior",
                   displayName: displayName + " Measure Selection",
                   value: currentBehaviorItem,
@@ -412,9 +432,9 @@ export class Visual implements IVisual {
             // Normal horizontal table structure
             let headerRow = this.table.insertRow();
             headerRow.className = 'table-header-row';
-            headerRow.style.borderBottom = `2px solid ${gridBorderColor}`;
+            headerRow.style.borderBottom = horizBorder2xValue;
             headerRow.style.height = `${headerRowHeight}px`;
-            const headerBgColor = getHeaderColor(dataView);
+            const headerBgColor = headerBackgroundColor;
 
             // Add category column header if categories exist
             if (hasCategories) {
@@ -426,7 +446,7 @@ export class Visual implements IVisual {
                 categoryHeader.style.maxWidth = `${categoryColumnWidth}px`;
                 applyRowSquash(categoryHeader, headerRowHeight, headerFontSize, headerWordWrap);
                 categoryHeader.style.fontWeight = headerBold ? "bold" : "normal";
-                categoryHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+                categoryHeader.style.borderRight = vertBorderValue;
                 categoryHeader.style.backgroundColor = headerBgColor;
                 categoryHeader.style.overflow = "hidden";
                 categoryHeader.style.textOverflow = "ellipsis";
@@ -446,7 +466,7 @@ export class Visual implements IVisual {
                 header.style.maxWidth = `${columnWidth}px`;
                 applyRowSquash(header, headerRowHeight, headerFontSize, headerWordWrap);
                 header.style.fontWeight = headerBold ? "bold" : "normal";
-                header.style.borderRight = `1px solid ${gridBorderColor}`;
+                header.style.borderRight = vertBorderValue;
                 header.style.backgroundColor = headerBgColor;
                 header.style.overflow = "hidden";
                 header.style.textOverflow = "ellipsis";
@@ -460,7 +480,7 @@ export class Visual implements IVisual {
             for (let i = 0; i < rowCount; i++) {
                 let row = this.table.insertRow();
                 row.className = 'table-data-row';
-                row.style.borderBottom = `1px solid ${gridBorderColor}`;
+                row.style.borderBottom = horizBorderValue;
                 // Apply alternating background colors with support for conditional formatting
                 const isEvenRow = i % 2 === 0;
                 const rowHeight = isEvenRow ? valueRowHeight : alternateValueRowHeight;
@@ -478,7 +498,7 @@ export class Visual implements IVisual {
                     categoryCell.style.maxWidth = `${categoryColumnWidth}px`;
                     applyRowSquash(categoryCell, rowHeight, cellFontSize, categoryWordWrap);
                     categoryCell.style.fontWeight = valueBold ? "bold" : "normal";
-                    categoryCell.style.borderRight = `1px solid ${gridBorderColor}`;
+                    categoryCell.style.borderRight = vertBorderValue;
                     categoryCell.style.backgroundColor = rowBgColor;
                     categoryCell.style.color = getCategoryTextColor(i, dataView);
                     categoryCell.style.overflow = "hidden";
@@ -524,27 +544,7 @@ export class Visual implements IVisual {
                         
                         if (showDataBars) {
                             let cellPositiveColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "positiveColor" }, "#31b6fd");
-                            if (valueColumn.objects && valueColumn.objects[i]) {
-                                const cfPosColor = dataViewObjects.getFillColor(
-                                    valueColumn.objects[i],
-                                    { objectName: "dataBarsFormatting", propertyName: "positiveColor" }
-                                );
-                                if (cfPosColor) {
-                                    cellPositiveColor = cfPosColor;
-                                }
-                            }
-
                             let cellNegativeColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "negativeColor" }, "#d96570");
-                            if (valueColumn.objects && valueColumn.objects[i]) {
-                                const cfNegColor = dataViewObjects.getFillColor(
-                                    valueColumn.objects[i],
-                                    { objectName: "dataBarsFormatting", propertyName: "negativeColor" }
-                                );
-                                if (cfNegColor) {
-                                    cellNegativeColor = cfNegColor;
-                                }
-                            }
-
                             const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
 
                             const min = measureMins[measureIndex];
@@ -599,7 +599,6 @@ export class Visual implements IVisual {
                                 marker.style.position = "absolute";
                                 marker.style.zIndex = "3";
                                 
-                                // Calculate marker left position (end of the bar)
                                 let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
                                 marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
                                 marker.style.top = `calc(50% - ${markerSize / 2}px)`;
@@ -656,8 +655,7 @@ export class Visual implements IVisual {
 
                                 cell.appendChild(marker);
                             }
-                            
-                            // Create text div
+
                             let textDiv = document.createElement("div");
                             textDiv.style.position = "relative";
                             textDiv.style.zIndex = "2";
@@ -676,10 +674,9 @@ export class Visual implements IVisual {
                     cell.style.maxWidth = `${columnWidth}px`;
                     applyRowSquash(cell, rowHeight, cellFontSize, valueWordWrap);
                     cell.style.fontWeight = valueBold ? "bold" : "normal";
-                      cell.style.fontFamily = cellFontFamily;
                       cell.style.fontStyle = cellItalic ? "italic" : "normal";
                       cell.style.textDecoration = cellUnderline ? "underline" : "none";
-                    cell.style.borderRight = `1px solid ${gridBorderColor}`;
+                    cell.style.borderRight = vertBorderValue;
                     cell.style.backgroundColor = rowBgColor;
                     cell.style.color = cellTextColor;
                     cell.style.overflow = "hidden";
@@ -695,10 +692,10 @@ export class Visual implements IVisual {
             if (showTotalRow) {
                 let totalRow = this.table.insertRow();
                 totalRow.className = 'table-total-row';
-            totalRow.style.borderTop = `2px solid ${gridBorderColor}`;
-            totalRow.style.borderBottom = `2px solid ${gridBorderColor}`;
+            totalRow.style.borderTop = horizBorder2xValue;
+            totalRow.style.borderBottom = horizBorder2xValue;
             totalRow.style.height = `${totalRowHeight}px`;
-            const totalBgColor = getTotalRowColor(dataView);
+            const totalBgColor = totalRowBackgroundColor;
 
             if (hasCategories) {
                 let totalLabelCell = totalRow.insertCell();
@@ -707,15 +704,17 @@ export class Visual implements IVisual {
                 totalLabelCell.style.width = `${categoryColumnWidth}px`;
                 totalLabelCell.style.minWidth = `${categoryColumnWidth}px`;
                 totalLabelCell.style.maxWidth = `${categoryColumnWidth}px`;
-                applyRowSquash(totalLabelCell, totalRowHeight, cellFontSize, categoryWordWrap);
+                applyRowSquash(totalLabelCell, totalRowHeight, totalRowFontSize, totalRowWordWrap);
                 totalLabelCell.style.fontWeight = totalRowBold ? "bold" : "normal";
                 totalLabelCell.style.textDecoration = totalRowUnderline ? "underline" : "none";
-                totalLabelCell.style.borderRight = `1px solid ${gridBorderColor}`;
-                totalLabelCell.style.backgroundColor = totalBgColor; totalLabelCell.style.color = textColor;
+                totalLabelCell.style.fontFamily = totalRowFontFamily;
+                totalLabelCell.style.fontStyle = totalRowItalic ? "italic" : "normal";
+                totalLabelCell.style.borderRight = vertBorderValue;
+                totalLabelCell.style.backgroundColor = totalBgColor; totalLabelCell.style.color = totalRowTextColor;
                 totalLabelCell.style.overflow = "hidden";
                 totalLabelCell.style.textOverflow = "ellipsis";
-                totalLabelCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
-                if (categoryWordWrap) {
+                totalLabelCell.style.whiteSpace = totalRowWordWrap ? "normal" : "nowrap";
+                if (totalRowWordWrap) {
                     totalLabelCell.style.wordBreak = "break-word";
                 }
             } else {
@@ -734,15 +733,17 @@ export class Visual implements IVisual {
                 cell.style.width = `${columnWidth}px`;
                 cell.style.minWidth = `${columnWidth}px`;
                 cell.style.maxWidth = `${columnWidth}px`;
-                applyRowSquash(cell, totalRowHeight, cellFontSize, valueWordWrap);
+                applyRowSquash(cell, totalRowHeight, totalRowFontSize, totalRowWordWrap);
                 cell.style.fontWeight = totalRowBold ? "bold" : "normal";
                 cell.style.textDecoration = totalRowUnderline ? "underline" : "none";
-                cell.style.borderRight = `1px solid ${gridBorderColor}`;
-                cell.style.backgroundColor = totalBgColor; cell.style.color = textColor;
+                cell.style.fontFamily = totalRowFontFamily;
+                cell.style.fontStyle = totalRowItalic ? "italic" : "normal";
+                cell.style.borderRight = vertBorderValue;
+                cell.style.backgroundColor = totalBgColor; cell.style.color = totalRowTextColor;
                 cell.style.overflow = "hidden";
                 cell.style.textOverflow = "ellipsis";
-                cell.style.whiteSpace = valueWordWrap ? "normal" : "nowrap";
-                if (valueWordWrap) {
+                cell.style.whiteSpace = totalRowWordWrap ? "normal" : "nowrap";
+                if (totalRowWordWrap) {
                     cell.style.wordBreak = "break-word";
                 }
             });
@@ -753,9 +754,9 @@ export class Visual implements IVisual {
             // Create Header Row
             let headerRow = this.table.insertRow();
             headerRow.className = 'table-header-row';
-            headerRow.style.borderBottom = `2px solid ${gridBorderColor}`;
+            headerRow.style.borderBottom = horizBorder2xValue;
             headerRow.style.height = `${headerRowHeight}px`;
-            const headerBgColor = getHeaderColor(dataView);
+            const headerBgColor = headerBackgroundColor;
 
             // First header is "Measure"
             let measureHeader = headerRow.insertCell();
@@ -766,7 +767,7 @@ export class Visual implements IVisual {
             measureHeader.style.maxWidth = `${categoryColumnWidth}px`;
             applyRowSquash(measureHeader, headerRowHeight, headerFontSize, headerWordWrap);
             measureHeader.style.fontWeight = headerBold ? "bold" : "normal";
-            measureHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+            measureHeader.style.borderRight = vertBorderValue;
             measureHeader.style.backgroundColor = headerBgColor;
             measureHeader.style.overflow = "hidden";
             measureHeader.style.textOverflow = "ellipsis";
@@ -786,7 +787,7 @@ export class Visual implements IVisual {
                     catHeader.style.maxWidth = `${columnWidth}px`;
                     applyRowSquash(catHeader, headerRowHeight, headerFontSize, headerWordWrap);
                     catHeader.style.fontWeight = headerBold ? "bold" : "normal";
-                    catHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+                    catHeader.style.borderRight = vertBorderValue;
                     catHeader.style.backgroundColor = headerBgColor;
                     catHeader.style.overflow = "hidden";
                     catHeader.style.textOverflow = "ellipsis";
@@ -804,7 +805,7 @@ export class Visual implements IVisual {
                 catHeader.style.maxWidth = `${columnWidth}px`;
                 applyRowSquash(catHeader, headerRowHeight, headerFontSize, headerWordWrap);
                 catHeader.style.fontWeight = headerBold ? "bold" : "normal";
-                catHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+                catHeader.style.borderRight = vertBorderValue;
                 catHeader.style.backgroundColor = headerBgColor;
                 catHeader.style.overflow = "hidden";
                 catHeader.style.textOverflow = "ellipsis";
@@ -823,7 +824,7 @@ export class Visual implements IVisual {
                 totalHeader.style.maxWidth = `${columnWidth}px`;
                 applyRowSquash(totalHeader, headerRowHeight, headerFontSize, headerWordWrap);
                 totalHeader.style.fontWeight = headerBold ? "bold" : "normal";
-                totalHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+                totalHeader.style.borderRight = vertBorderValue;
                 totalHeader.style.backgroundColor = headerBgColor;
                 totalHeader.style.overflow = "hidden";
                 totalHeader.style.textOverflow = "ellipsis";
@@ -842,7 +843,7 @@ export class Visual implements IVisual {
                 totalHeader.style.maxWidth = `${columnWidth}px`;
                 applyRowSquash(totalHeader, headerRowHeight, headerFontSize, headerWordWrap);
                 totalHeader.style.fontWeight = headerBold ? "bold" : "normal";
-                totalHeader.style.borderRight = `1px solid ${gridBorderColor}`;
+                totalHeader.style.borderRight = vertBorderValue;
                 totalHeader.style.backgroundColor = headerBgColor;
                 totalHeader.style.overflow = "hidden";
                 totalHeader.style.textOverflow = "ellipsis";
@@ -856,7 +857,7 @@ export class Visual implements IVisual {
             values.forEach((valueColumn, measureIndex) => {
                 let row = this.table.insertRow();
                 row.className = 'table-data-row';
-                row.style.borderBottom = `1px solid ${gridBorderColor}`;
+                row.style.borderBottom = horizBorderValue;
                 
                 const isEvenRow = measureIndex % 2 === 0;
                 const rowHeight = isEvenRow ? valueRowHeight : alternateValueRowHeight;
@@ -873,10 +874,9 @@ export class Visual implements IVisual {
                 measureNameCell.style.maxWidth = `${categoryColumnWidth}px`;
                 applyRowSquash(measureNameCell, rowHeight, cellFontSize, categoryWordWrap);
                 measureNameCell.style.fontWeight = valueBold ? "bold" : "normal";
-                      measureNameCell.style.fontFamily = cellFontFamily;
                       measureNameCell.style.fontStyle = cellItalic ? "italic" : "normal";
                       measureNameCell.style.textDecoration = cellUnderline ? "underline" : "none";
-                measureNameCell.style.borderRight = `1px solid ${gridBorderColor}`;
+                measureNameCell.style.borderRight = vertBorderValue;
                 measureNameCell.style.backgroundColor = rowBgColor;
                 measureNameCell.style.color = defaultCategoryTextColor; // or some specific color
                 measureNameCell.style.overflow = "hidden";
@@ -908,7 +908,7 @@ export class Visual implements IVisual {
                 const min = measureMins[measureIndex];
                 const max = measureMaxs[measureIndex];
                 const range = max - min;
-
+                
                 // Data Cells: Values for each category (or the 1 value if no categories)
                 for (let i = 0; i < rowCount; i++) {
                     let cell = row.insertCell();
@@ -926,19 +926,9 @@ export class Visual implements IVisual {
                             valueColumn.objects[i],
                             { objectName: "dataBarsFormatting", propertyName: "positiveColor" }
                         );
-                        if (cfPosColor) cellPositiveColor = cfPosColor;
-
-                        const cfNegColor = dataViewObjects.getFillColor(
-                            valueColumn.objects[i],
-                            { objectName: "dataBarsFormatting", propertyName: "negativeColor" }
-                        );
-                        if (cfNegColor) cellNegativeColor = cfNegColor;
-
-                        const cfMarkerColor = dataViewObjects.getFillColor(
-                            valueColumn.objects[i],
-                            { objectName: "dataBarMarkers", propertyName: "markerColor" }
-                        );
-                        if (cfMarkerColor) cellMarkerColor = cfMarkerColor;
+                        if (cfPosColor) {
+                            cellPositiveColor = cfPosColor;
+                        }
                     }
 
                     let value = valueColumn.values[i];
@@ -949,7 +939,19 @@ export class Visual implements IVisual {
                             minimumFractionDigits: 0
                         });
 
+                        const objects = valueColumn.source.objects || {};
+                        const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+                        
                         if (showDataBars) {
+                            let cellPositiveColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "positiveColor" }, "#31b6fd");
+                            let cellNegativeColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "negativeColor" }, "#d96570");
+                            const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+
+                            const min = measureMins[measureIndex];
+                            const max = measureMaxs[measureIndex];
+                            const range = max - min;
+                            
+                            // Calculate width percentage
                             let widthPct = 0;
                             let leftPct = 0;
 
@@ -972,11 +974,27 @@ export class Visual implements IVisual {
                             dataBar.style.left = `${leftPct}%`;
                             dataBar.style.width = `${widthPct}%`;
                             dataBar.style.backgroundColor = numValue >= 0 ? cellPositiveColor : cellNegativeColor;
-                            dataBar.style.opacity = "0.6";
+                            dataBar.style.opacity = "0.6"; // semi-transparent so text is readable
                             dataBar.style.zIndex = "1";
                             cell.appendChild(dataBar);
 
+                            const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
                             if (showMarker) {
+                                let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
+                                const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
+                                const markerSize = dataViewObjects.getValue<number>(objects, { objectName: "dataBarMarkers", propertyName: "markerSize" }, 10);
+                                
+                                let cellMarkerColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarMarkers", propertyName: "markerColor" }, "#000000");
+                                if (valueColumn.objects && valueColumn.objects[i]) {
+                                    const cfMarkerColor = dataViewObjects.getFillColor(
+                                        valueColumn.objects[i],
+                                        { objectName: "dataBarMarkers", propertyName: "markerColor" }
+                                    );
+                                    if (cfMarkerColor) {
+                                        cellMarkerColor = cfMarkerColor;
+                                    }
+                                }
+
                                 let marker = document.createElement("div");
                                 marker.style.position = "absolute";
                                 marker.style.zIndex = "3";
@@ -1021,6 +1039,7 @@ export class Visual implements IVisual {
                                     marker.style.left = `calc(${markerLeftPct}% - 1px)`;
                                 } else if (markerShape === "semiCircle") {
                                     marker.style.backgroundColor = cellMarkerColor;
+                                    // Draw semi circle pointing outwards
                                     if (numValue >= 0) {
                                         marker.style.borderTopRightRadius = `${markerSize}px`;
                                         marker.style.borderBottomRightRadius = `${markerSize}px`;
@@ -1055,10 +1074,9 @@ export class Visual implements IVisual {
                     cell.style.maxWidth = `${columnWidth}px`;
                     applyRowSquash(cell, rowHeight, cellFontSize, valueWordWrap);
                     cell.style.fontWeight = valueBold ? "bold" : "normal";
-                      cell.style.fontFamily = cellFontFamily;
                       cell.style.fontStyle = cellItalic ? "italic" : "normal";
                       cell.style.textDecoration = cellUnderline ? "underline" : "none";
-                    cell.style.borderRight = `1px solid ${gridBorderColor}`;
+                    cell.style.borderRight = vertBorderValue;
                     cell.style.backgroundColor = rowBgColor;
                     cell.style.color = cellTextColor;
                     cell.style.overflow = "hidden";
@@ -1081,20 +1099,21 @@ export class Visual implements IVisual {
                     totalCell.style.width = `${columnWidth}px`;
                     totalCell.style.minWidth = `${columnWidth}px`;
                     totalCell.style.maxWidth = `${columnWidth}px`;
-                    applyRowSquash(totalCell, rowHeight, cellFontSize, valueWordWrap);
+                    applyRowSquash(totalCell, rowHeight, totalRowFontSize, totalRowWordWrap);
                     totalCell.style.fontWeight = totalRowBold ? "bold" : "normal";
-                      totalCell.style.fontFamily = cellFontFamily;
-                      totalCell.style.fontStyle = cellItalic ? "italic" : "normal";
+                      totalCell.style.fontFamily = totalRowFontFamily;
+                      totalCell.style.fontStyle = totalRowItalic ? "italic" : "normal";
                       // Note: totalRowUnderline is defined in table settings, so we append to it or replace.
-                      // Let's keep totalRowUnderline overriding or adding to it. 
+                      // Let's keep totalRowUnderline overriding or adding to it.
                       // In original it just set underline or none, let's keep original totalRowUnderline.
                     totalCell.style.textDecoration = totalRowUnderline ? "underline" : "none";
                     totalCell.style.borderRight = `1px solid ${gridBorderColor}`;
-                    totalCell.style.backgroundColor = getTotalRowColor(dataView);
+                    totalCell.style.backgroundColor = totalRowBackgroundColor;
+                    totalCell.style.color = totalRowTextColor;
                     totalCell.style.overflow = "hidden";
                     totalCell.style.textOverflow = "ellipsis";
-                    totalCell.style.whiteSpace = valueWordWrap ? "normal" : "nowrap";
-                    if (valueWordWrap) {
+                    totalCell.style.whiteSpace = totalRowWordWrap ? "normal" : "nowrap";
+                    if (totalRowWordWrap) {
                         totalCell.style.wordBreak = "break-word";
                     }
                 }

@@ -87,6 +87,9 @@ export class ValuesSettings extends FormattingSettingsCard {
 }
 
 export class TableSettings extends FormattingSettingsCard{
+    name: string = "table";
+    displayName: string = "Table";
+    visible: boolean = true;
     public headerFontSize = new formattingSettings.NumUpDown({
         name: "headerFontSize",
         displayName: "Header Font Size",
@@ -100,32 +103,6 @@ export class TableSettings extends FormattingSettingsCard{
         value: true,
         visible: true
     });
-
-    
-
-    
-
-    public totalRowBold = new formattingSettings.ToggleSwitch({
-        name: "totalRowBold",
-        displayName: "Total Row Bold",
-        value: true,
-        visible: true
-    });
-
-    public totalRowUnderline = new formattingSettings.ToggleSwitch({
-        name: "totalRowUnderline",
-        displayName: "Total Row Underline",
-        value: false,
-        visible: true
-    });
-
-    public borderColor = new formattingSettings.ColorPicker({
-        name: "borderColor",
-        displayName: "Border Color",
-        value: { value: "#d0d0d0" },
-        visible: true
-    });
-
     public switchValuesToRows = new formattingSettings.ToggleSwitch({
         name: "switchValuesToRows",
         displayName: "Switch values to rows",
@@ -199,41 +176,22 @@ export class TableSettings extends FormattingSettingsCard{
         name: "headerBackgroundColor",
         displayName: "Header Background Color",
         value: { value: "#e8e8e8" },
-        visible: true,
-        selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
-        instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
-    });
-
-    public totalRowBackgroundColor = new formattingSettings.ColorPicker({
-        name: "totalRowBackgroundColor",
-        displayName: "Total Row Background Color",
-        value: { value: "#d0d0d0" },
-        visible: true,
-        selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
-        instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
-    });
-
-    public gridTransparency = new formattingSettings.NumUpDown({
-        name: "gridTransparency",
-        displayName: "Grid Transparency (%)",
-        value: 0,
         visible: true
     });
-
-    public name: string = "table";
-    public displayName: string = "Table";
-    public visible: boolean = true;
-    public slices: FormattingSettingsSlice[] = [this.switchValuesToRows, this.headerFontSize, this.headerBold,  this.totalRowBold, this.totalRowUnderline, this.borderColor, this.categoryWordWrap, this.categoryColumnWidth,  this.headerWordWrap, this.columnWidth, this.headerRowHeight, this.valueRowHeight, this.alternateValueRowHeight, this.totalRowHeight,  this.headerBackgroundColor, this.totalRowBackgroundColor, this.gridTransparency]
+    public slices: FormattingSettingsSlice[] = [this.switchValuesToRows, this.headerFontSize, this.headerBold,  this.categoryWordWrap, this.categoryColumnWidth,  this.headerWordWrap, this.columnWidth, this.headerRowHeight, this.valueRowHeight, this.alternateValueRowHeight, this.totalRowHeight,  this.headerBackgroundColor]
 }
 
 export class ValueConditionalFormattingSettings extends FormattingSettingsCard {
-    public name: string = "valueConditionalFormatting";
-    public displayName: string = "Value conditional formatting";
-    public visible: boolean = true;
+    name: string = "valueConditionalFormatting";
+    displayName: string = "Value conditional formatting";
+    visible: boolean = true;
     public slices: FormattingSettingsSlice[] = [];
 }
 
 export class CategoryConditionalFormattingSettings extends FormattingSettingsCard {
+    name: string = "categoryConditionalFormatting";
+    displayName: string = "Category conditional formatting";
+    visible: boolean = true;
     public textColor = new formattingSettings.ColorPicker({
         name: "textColor",
         displayName: "Text Color",
@@ -243,31 +201,28 @@ export class CategoryConditionalFormattingSettings extends FormattingSettingsCar
         instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
     });
 
-    public name: string = "categoryConditionalFormatting";
-    public displayName: string = "Category conditional formatting";
-    public visible: boolean = true;
     public slices: FormattingSettingsSlice[] = [this.textColor];
 }
 
 export class DataBarsFormattingSettings extends FormattingSettingsCard {
-    public name: string = "dataBarsFormatting";
-    public displayName: string = "Data Bars";
-    public visible: boolean = true;
+    name: string = "dataBarsFormatting";
+    displayName:string = "Data Bars";
+    visible: boolean = true;
     public slices: FormattingSettingsSlice[] = [];
 }
 
 export class DataBarMarkersSettings extends FormattingSettingsCard {
-    public name: string = "dataBarMarkers";
-    public displayName: string = "Data Bar Markers";
-    public visible: boolean = true;
+    name: string = "dataBarMarkers";
+    displayName: string = "Data Bar Markers";
+    visible: boolean = true;
     public slices: FormattingSettingsSlice[] = [];
 }
 
 
 export class TotalsSettings extends FormattingSettingsCard {
-    public name: string = "totals";
-    public displayName: string = "Totals";
-    public visible: boolean = true;
+    name: string = "totals";
+    displayName: string = "Totals";
+    visible: boolean = true;
     
     public showTotalRow = new formattingSettings.ToggleSwitch({
         name: "showTotalRow",
@@ -292,7 +247,131 @@ export class TotalsSettings extends FormattingSettingsCard {
         visible: true
     });
 
-    public slices: FormattingSettingsSlice[] = [this.showTotalRow, this.totalBehavior];
+    public font = new formattingSettings.FontControl({
+        name: "font",
+        displayName: "Font",
+        fontFamily: new formattingSettings.FontPicker({
+            name: "fontFamily",
+            displayName: "Font Family",
+            value: "Arial, sans-serif"
+        }),
+        fontSize: new formattingSettings.NumUpDown({
+            name: "fontSize",
+            displayName: "Font Size",
+            value: 12
+        }),
+        bold: new formattingSettings.ToggleSwitch({
+            name: "bold",
+            displayName: "Bold",
+            value: true
+        }),
+        italic: new formattingSettings.ToggleSwitch({
+            name: "italic",
+            displayName: "Italic",
+            value: false
+        }),
+        underline: new formattingSettings.ToggleSwitch({
+            name: "underline",
+            displayName: "Underline",
+            value: false
+        })
+    });
+
+    public textColor = new formattingSettings.ColorPicker({
+        name: "textColor",
+        displayName: "Text color",
+        value: { value: "#333333" },
+        visible: true
+    });
+
+    public backgroundColor = new formattingSettings.ColorPicker({
+        name: "backgroundColor",
+        displayName: "Background color",
+        value: { value: "#d0d0d0" },
+        visible: true
+    });
+
+    public textWrap = new formattingSettings.ToggleSwitch({
+        name: "textWrap",
+        displayName: "Text wrap",
+        value: false,
+        visible: true
+    });
+
+    public slices: FormattingSettingsSlice[] = [this.showTotalRow, this.totalBehavior, this.font, this.textColor, this.backgroundColor, this.textWrap];
+}
+
+
+export class GridSettings extends FormattingSettingsCard {
+    public horizontalGridlines = new formattingSettings.ToggleSwitch({
+        name: "horizontalGridlines",
+        displayName: "Horizontal gridlines",
+        value: true,
+        visible: true
+    });
+
+    public horizontalGridColor = new formattingSettings.ColorPicker({
+        name: "horizontalGridColor",
+        displayName: "Color",
+        value: { value: "#d0d0d0" },
+        visible: true
+    });
+
+    public horizontalGridWidth = new formattingSettings.NumUpDown({
+        name: "horizontalGridWidth",
+        displayName: "Width",
+        value: 1,
+        visible: true
+    });
+
+    public horizontalGridTransparency = new formattingSettings.NumUpDown({
+        name: "horizontalGridTransparency",
+        displayName: "Horizontal grid transparency (%)",
+        value: 0,
+        visible: true
+    });
+
+    public verticalGridlines = new formattingSettings.ToggleSwitch({
+        name: "verticalGridlines",
+        displayName: "Vertical gridlines",
+        value: true,
+        visible: true
+    });
+
+    public verticalGridColor = new formattingSettings.ColorPicker({
+        name: "verticalGridColor",
+        displayName: "Color",
+        value: { value: "#d0d0d0" },
+        visible: true
+    });
+
+    public verticalGridWidth = new formattingSettings.NumUpDown({
+        name: "verticalGridWidth",
+        displayName: "Width",
+        value: 1,
+        visible: true
+    });
+
+    public verticalGridTransparency = new formattingSettings.NumUpDown({
+        name: "verticalGridTransparency",
+        displayName: "Vertical grid transparency (%)",
+        value: 0,
+        visible: true
+    });
+
+    public name: string = "grid";
+    public displayName: string = "Grid";
+    public visible: boolean = true;
+    public slices: FormattingSettingsSlice[] = [
+        this.horizontalGridlines,
+        this.horizontalGridColor,
+        this.horizontalGridWidth,
+        this.horizontalGridTransparency,
+        this.verticalGridlines,
+        this.verticalGridColor,
+        this.verticalGridWidth,
+        this.verticalGridTransparency
+    ];
 }
 
 export class VisualSettings extends FormattingSettingsModel {
@@ -303,6 +382,7 @@ export class VisualSettings extends FormattingSettingsModel {
     public dataBarsFormatting: DataBarsFormattingSettings = new DataBarsFormattingSettings();
     public dataBarMarkers: DataBarMarkersSettings = new DataBarMarkersSettings();
     public totals: TotalsSettings = new TotalsSettings();
+    public gridMenu: GridSettings = new GridSettings();
     
-    public cards: FormattingSettingsCard[] = [this.valuesMenu, this.table, this.totals, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
+    public cards: FormattingSettingsCard[] = [this.valuesMenu, this.table, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
 }

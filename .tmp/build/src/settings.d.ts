@@ -15,11 +15,11 @@ export declare class ValuesSettings extends FormattingSettingsCard {
     slices: FormattingSettingsSlice[];
 }
 export declare class TableSettings extends FormattingSettingsCard {
+    name: string;
+    displayName: string;
+    visible: boolean;
     headerFontSize: formattingSettings.NumUpDown;
     headerBold: formattingSettings.ToggleSwitch;
-    totalRowBold: formattingSettings.ToggleSwitch;
-    totalRowUnderline: formattingSettings.ToggleSwitch;
-    borderColor: formattingSettings.ColorPicker;
     switchValuesToRows: formattingSettings.ToggleSwitch;
     categoryWordWrap: formattingSettings.ToggleSwitch;
     categoryColumnWidth: formattingSettings.NumUpDown;
@@ -30,11 +30,6 @@ export declare class TableSettings extends FormattingSettingsCard {
     alternateValueRowHeight: formattingSettings.NumUpDown;
     totalRowHeight: formattingSettings.NumUpDown;
     headerBackgroundColor: formattingSettings.ColorPicker;
-    totalRowBackgroundColor: formattingSettings.ColorPicker;
-    gridTransparency: formattingSettings.NumUpDown;
-    name: string;
-    displayName: string;
-    visible: boolean;
     slices: FormattingSettingsSlice[];
 }
 export declare class ValueConditionalFormattingSettings extends FormattingSettingsCard {
@@ -44,10 +39,10 @@ export declare class ValueConditionalFormattingSettings extends FormattingSettin
     slices: FormattingSettingsSlice[];
 }
 export declare class CategoryConditionalFormattingSettings extends FormattingSettingsCard {
-    textColor: formattingSettings.ColorPicker;
     name: string;
     displayName: string;
     visible: boolean;
+    textColor: formattingSettings.ColorPicker;
     slices: FormattingSettingsSlice[];
 }
 export declare class DataBarsFormattingSettings extends FormattingSettingsCard {
@@ -68,6 +63,24 @@ export declare class TotalsSettings extends FormattingSettingsCard {
     visible: boolean;
     showTotalRow: formattingSettings.ToggleSwitch;
     totalBehavior: formattingSettings.ItemDropdown;
+    font: formattingSettings.FontControl;
+    textColor: formattingSettings.ColorPicker;
+    backgroundColor: formattingSettings.ColorPicker;
+    textWrap: formattingSettings.ToggleSwitch;
+    slices: FormattingSettingsSlice[];
+}
+export declare class GridSettings extends FormattingSettingsCard {
+    horizontalGridlines: formattingSettings.ToggleSwitch;
+    horizontalGridColor: formattingSettings.ColorPicker;
+    horizontalGridWidth: formattingSettings.NumUpDown;
+    horizontalGridTransparency: formattingSettings.NumUpDown;
+    verticalGridlines: formattingSettings.ToggleSwitch;
+    verticalGridColor: formattingSettings.ColorPicker;
+    verticalGridWidth: formattingSettings.NumUpDown;
+    verticalGridTransparency: formattingSettings.NumUpDown;
+    name: string;
+    displayName: string;
+    visible: boolean;
     slices: FormattingSettingsSlice[];
 }
 export declare class VisualSettings extends FormattingSettingsModel {
@@ -78,5 +91,6 @@ export declare class VisualSettings extends FormattingSettingsModel {
     dataBarsFormatting: DataBarsFormattingSettings;
     dataBarMarkers: DataBarMarkersSettings;
     totals: TotalsSettings;
+    gridMenu: GridSettings;
     cards: FormattingSettingsCard[];
 }

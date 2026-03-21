@@ -24,25 +24,6 @@
                         "bool": true
                     }
                 },
-                "totalRowBold": {
-                    "type": {
-                        "bool": true
-                    }
-                },
-                "totalRowUnderline": {
-                    "type": {
-                        "bool": true
-                    }
-                },
-                "borderColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
                 "categoryWordWrap": {
                     "type": {
                         "bool": true
@@ -92,23 +73,9 @@
                         }
                     }
                 },
-                "totalRowBackgroundColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
                 "switchValuesToRows": {
                     "type": {
                         "bool": true
-                    }
-                },
-                "gridTransparency": {
-                    "type": {
-                        "numeric": true
                     }
                 }
             }
@@ -260,6 +227,56 @@
                             }
                         ]
                     }
+                },
+                "fontFamily": {
+                    "type": {
+                        "formatting": {
+                            "fontFamily": true
+                        }
+                    }
+                },
+                "fontSize": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "bold": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "italic": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "underline": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "textColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "backgroundColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "textWrap": {
+                    "type": {
+                        "bool": true
+                    }
                 }
             }
         },
@@ -331,6 +348,58 @@
                 "textWrap": {
                     "type": {
                         "bool": true
+                    }
+                }
+            }
+        },
+        "grid": {
+            "properties": {
+                "horizontalGridlines": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "horizontalGridColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "horizontalGridWidth": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "horizontalGridTransparency": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "verticalGridlines": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "verticalGridColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "verticalGridWidth": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "verticalGridTransparency": {
+                    "type": {
+                        "numeric": true
                     }
                 }
             }
