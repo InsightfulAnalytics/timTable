@@ -39,6 +39,7 @@ export class Visual implements IVisual {
     private table: HTMLTableElement;
     private formattingSettingsService: FormattingSettingsService;
     private visualSettings: VisualSettings;
+    private dataView: DataView;
 
     constructor(options: VisualConstructorOptions) {
         const tableContainer = document.createElement("div");
@@ -150,6 +151,30 @@ export class Visual implements IVisual {
         const vertBorderValue = vertLines ? `${vertWidth}px solid ${vertColor}` : 'none';
 
         // Helper function to get text color for a category row, supporting conditional formatting
+
+        const formatNumber = (num: number, units: number, decimals: number): string => {
+            let divisor = 1;
+            let suffix = "";
+            if (units === 0) { // Auto
+                let absNum = Math.abs(num);
+                if (absNum >= 1000000000000) { divisor = 1000000000000; suffix = "T"; }
+                else if (absNum >= 1000000000) { divisor = 1000000000; suffix = "bn"; }
+                else if (absNum >= 1000000) { divisor = 1000000; suffix = "M"; }
+                else if (absNum >= 1000) { divisor = 1000; suffix = "K"; }
+            } else if (units > 1) {
+                divisor = units;
+                if (units === 1000) suffix = "K";
+                else if (units === 1000000) suffix = "M";
+                else if (units === 1000000000) suffix = "bn";
+                else if (units === 1000000000000) suffix = "T";
+            }
+            
+            return (num / divisor).toLocaleString(undefined, {
+                maximumFractionDigits: decimals,
+                minimumFractionDigits: decimals
+            }) + suffix;
+        };
+
         const getCategoryTextColor = (rowIndex: number, dataView: DataView): string => {
             if (dataView.categorical && dataView.categorical.categories && dataView.categorical.categories.length > 0) {
                 const category = dataView.categorical.categories[0];
@@ -237,6 +262,8 @@ export class Visual implements IVisual {
             this.table.removeChild(this.table.firstChild);
         }
 
+        this.dataView = options.dataViews[0];
+
         if (!options.dataViews || options.dataViews.length === 0) {
             let row = this.table.insertRow();
             let cell = row.insertCell();
@@ -262,7 +289,49 @@ export class Visual implements IVisual {
 
         // Pre-process measure settings to populate formatting model properly
         let measureHeaders: string[] = [];
-        values.forEach((valueColumn) => {
+        
+interface MeasureSpecificSettings {
+    textColor: string | undefined;
+    backgroundColor: string | undefined;
+    alternateTextColor: string | undefined;
+    alternateBackgroundColor: string | undefined;
+    alignment: string | undefined;
+    applyToHeader: boolean;
+    applyToValues: boolean;
+    applyToTotal: boolean;
+    displayUnits: number;
+    decimalPlaces: number;
+    fontFamily: string | undefined;
+    fontSize: number | undefined;
+    bold: boolean | undefined;
+    italic: boolean | undefined;
+    underline: boolean | undefined;
+    textWrap: boolean | undefined;
+}
+
+          let measureSettingsList: MeasureSpecificSettings[] = [];
+          values.forEach((valueColumn) => {
+              let specObj = valueColumn.source.objects?.specificColumn;
+              let settings: MeasureSpecificSettings = {
+                  textColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "textColor" }, undefined),
+                  backgroundColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "backgroundColor" }, undefined),
+                  alternateTextColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "alternateTextColor" }, undefined),
+                  alternateBackgroundColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "alternateBackgroundColor" }, undefined),
+                  alignment: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "alignment" }, undefined) as string | undefined,
+                  applyToHeader: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "applyToHeader" }, true),
+                  applyToValues: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "applyToValues" }, true),
+                  applyToTotal: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "applyToTotal" }, true),
+                  displayUnits: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "displayUnits" }, 0),
+                  decimalPlaces: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "decimalPlaces" }, 1),
+                  fontFamily: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "fontFamily" }, undefined) as string | undefined,
+                  fontSize: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "fontSize" }, undefined) as number | undefined,
+                  bold: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "bold" }, undefined) as boolean | undefined,
+                  italic: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "italic" }, undefined) as boolean | undefined,
+                  underline: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "underline" }, undefined) as boolean | undefined,
+                  textWrap: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "textWrap" }, undefined) as boolean | undefined
+              };
+              measureSettingsList.push(settings);
+
             let displayName = valueColumn.source.displayName || `Measure ${measureHeaders.length + 1}`;
             measureHeaders.push(displayName);
             
@@ -468,26 +537,36 @@ export class Visual implements IVisual {
             }
 
             // Add measure column headers
-            measureHeaders.forEach((displayName) => {
+            measureHeaders.forEach((displayName, idx) => {
+                let specSettings = measureSettingsList[idx];
+                let effectiveBg = specSettings.applyToHeader && specSettings.backgroundColor ? specSettings.backgroundColor : headerBgColor;
+                let efBold = specSettings.applyToHeader && specSettings.bold !== undefined ? specSettings.bold : headerBold;
+                let efItalic = specSettings.applyToHeader && specSettings.italic !== undefined ? specSettings.italic : headerItalic;
+                let efUnderline = specSettings.applyToHeader && specSettings.underline !== undefined ? specSettings.underline : headerUnderline;
+                let efFontFamily = specSettings.applyToHeader && specSettings.fontFamily !== undefined ? specSettings.fontFamily : headerFontFamily;
+                let efFontSize = specSettings.applyToHeader && specSettings.fontSize !== undefined ? specSettings.fontSize : headerFontSize;
+                let efWordWrap = specSettings.applyToHeader && specSettings.textWrap !== undefined ? specSettings.textWrap : headerWordWrap;
+                let effectiveColor = specSettings.applyToHeader && specSettings.textColor ? specSettings.textColor : headerTextColor;
+                let effectiveAlign = specSettings.applyToHeader && specSettings.alignment ? specSettings.alignment : headerAlignment;
                 let header = headerRow.insertCell();
                 header.textContent = displayName;
                 header.className = 'table-header-cell';
                 header.style.width = `${columnWidth}px`;
                 header.style.minWidth = `${columnWidth}px`;
                 header.style.maxWidth = `${columnWidth}px`;
-                applyRowSquash(header, headerRowHeight, headerFontSize, headerWordWrap);
-                header.style.fontWeight = headerBold ? "bold" : "normal";
-                header.style.fontStyle = headerItalic ? "italic" : "normal";
-                header.style.textDecoration = headerUnderline ? "underline" : "none";
-                header.style.fontFamily = headerFontFamily;
-                header.style.color = headerTextColor;
-                header.style.textAlign = headerAlignment;
+                applyRowSquash(header, headerRowHeight, efFontSize, efWordWrap);
+                header.style.fontWeight = efBold ? "bold" : "normal";
+                header.style.fontStyle = efItalic ? "italic" : "normal";
+                header.style.textDecoration = efUnderline ? "underline" : "none";
+                header.style.fontFamily = efFontFamily;
+                header.style.color = effectiveColor;
+                header.style.textAlign = effectiveAlign;
                 header.style.borderRight = vertBorderValue;
-                header.style.backgroundColor = headerBgColor;
+                header.style.backgroundColor = effectiveBg;
                 header.style.overflow = "hidden";
                 header.style.textOverflow = "ellipsis";
-                header.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
-                if (headerWordWrap) {
+                header.style.whiteSpace = efWordWrap ? "normal" : "nowrap";
+                if (efWordWrap) {
                     header.style.wordBreak = "break-word";
                 }
             });
@@ -697,8 +776,36 @@ export class Visual implements IVisual {
                     cell.style.color = cellTextColor;
                     cell.style.overflow = "hidden";
                     cell.style.textOverflow = "ellipsis";
-                    cell.style.whiteSpace = valueWordWrap ? "normal" : "nowrap";
-                    if (valueWordWrap) {
+
+                    let specSettings = measureSettingsList[measureIndex];
+                    let specRowBgColor = isEvenRow ? 
+                        (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : rowBgColor) : 
+                        (specSettings.alternateBackgroundColor !== undefined ? specSettings.alternateBackgroundColor : rowBgColor);
+                    let specCellTextColor = isEvenRow ? 
+                        (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) : 
+                        (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor);
+
+                    let effectiveBg = specSettings.applyToValues ? specRowBgColor : rowBgColor;
+                    let effectiveColor = specSettings.applyToValues ? specCellTextColor : cellTextColor;
+
+                    let efBold = specSettings.applyToValues && specSettings.bold !== undefined ? specSettings.bold : valueBold;
+                    let efItalic = specSettings.applyToValues && specSettings.italic !== undefined ? specSettings.italic : cellItalic;
+                    let efUnderline = specSettings.applyToValues && specSettings.underline !== undefined ? specSettings.underline : cellUnderline;
+                    let efFontFamily = specSettings.applyToValues && specSettings.fontFamily !== undefined ? specSettings.fontFamily : cellFontFamily;
+                    let efFontSize = specSettings.applyToValues && specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
+                    let efWordWrap = specSettings.applyToValues && specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
+                    let effectiveAlign = specSettings.applyToValues && specSettings.alignment ? specSettings.alignment : "right";
+                    cell.style.backgroundColor = effectiveBg;
+                    cell.style.color = effectiveColor;
+                    cell.style.fontWeight = efBold ? "bold" : "normal";
+                    cell.style.fontStyle = efItalic ? "italic" : "normal";
+                    cell.style.textDecoration = efUnderline ? "underline" : "none";
+                    cell.style.fontFamily = efFontFamily;
+                    cell.style.fontSize = `${efFontSize}px`;
+                    cell.style.whiteSpace = efWordWrap ? "normal" : "nowrap";
+
+                    cell.style.textAlign = effectiveAlign;
+                    if (efWordWrap) { // and here
                         cell.style.wordBreak = "break-word";
                     }
                 });
@@ -739,7 +846,19 @@ export class Visual implements IVisual {
                 totalLabelCell.style.display = "none";
             }
 
-            totals.forEach((total) => {
+            totals.forEach((total, i) => {
+                let specSettings = measureSettingsList[i];
+                let effectiveBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : totalRowBackgroundColor;
+                let effectiveColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : totalRowTextColor;
+                
+                let efBold = specSettings.applyToTotal && specSettings.bold !== undefined ? specSettings.bold : totalRowBold;
+                let efItalic = specSettings.applyToTotal && specSettings.italic !== undefined ? specSettings.italic : totalRowItalic;
+                let efUnderline = specSettings.applyToTotal && specSettings.underline !== undefined ? specSettings.underline : totalRowUnderline;
+                let efFontFamily = specSettings.applyToTotal && specSettings.fontFamily !== undefined ? specSettings.fontFamily : totalRowFontFamily;
+                let efFontSize = specSettings.applyToTotal && specSettings.fontSize !== undefined ? specSettings.fontSize : totalRowFontSize;
+                let efWordWrap = specSettings.applyToTotal && specSettings.textWrap !== undefined ? specSettings.textWrap : totalRowWordWrap;
+                let effectiveAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
+                
                 let cell = totalRow.insertCell();
                 cell.textContent = total.toLocaleString(undefined, {
                     maximumFractionDigits: 2,
@@ -749,17 +868,19 @@ export class Visual implements IVisual {
                 cell.style.width = `${columnWidth}px`;
                 cell.style.minWidth = `${columnWidth}px`;
                 cell.style.maxWidth = `${columnWidth}px`;
-                applyRowSquash(cell, totalRowHeight, totalRowFontSize, totalRowWordWrap);
-                cell.style.fontWeight = totalRowBold ? "bold" : "normal";
-                cell.style.textDecoration = totalRowUnderline ? "underline" : "none";
-                cell.style.fontFamily = totalRowFontFamily;
-                cell.style.fontStyle = totalRowItalic ? "italic" : "normal";
+                applyRowSquash(cell, totalRowHeight, efFontSize, efWordWrap);
+                cell.style.fontWeight = efBold ? "bold" : "normal";
+                cell.style.textDecoration = efUnderline ? "underline" : "none";
+                cell.style.fontFamily = efFontFamily;
+                cell.style.fontStyle = efItalic ? "italic" : "normal";
                 cell.style.borderRight = vertBorderValue;
-                cell.style.backgroundColor = totalBgColor; cell.style.color = totalRowTextColor;
+                cell.style.backgroundColor = effectiveBg;
+                cell.style.color = effectiveColor;
                 cell.style.overflow = "hidden";
                 cell.style.textOverflow = "ellipsis";
-                cell.style.whiteSpace = totalRowWordWrap ? "normal" : "nowrap";
-                if (totalRowWordWrap) {
+                cell.style.whiteSpace = efWordWrap ? "normal" : "nowrap";
+                cell.style.textAlign = effectiveAlign;
+                if (efWordWrap) {
                     cell.style.wordBreak = "break-word";
                 }
             });
@@ -1122,8 +1243,36 @@ export class Visual implements IVisual {
                     cell.style.color = cellTextColor;
                     cell.style.overflow = "hidden";
                     cell.style.textOverflow = "ellipsis";
-                    cell.style.whiteSpace = valueWordWrap ? "normal" : "nowrap";
-                    if (valueWordWrap) {
+
+                    let specSettings = measureSettingsList[measureIndex];
+                    let specRowBgColor = isEvenRow ? 
+                        (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : rowBgColor) : 
+                        (specSettings.alternateBackgroundColor !== undefined ? specSettings.alternateBackgroundColor : rowBgColor);
+                    let specCellTextColor = isEvenRow ? 
+                        (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) : 
+                        (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor);
+
+                    let effectiveBg = specSettings.applyToValues ? specRowBgColor : rowBgColor;
+                    let effectiveColor = specSettings.applyToValues ? specCellTextColor : cellTextColor;
+
+                    let efBold = specSettings.applyToValues && specSettings.bold !== undefined ? specSettings.bold : valueBold;
+                    let efItalic = specSettings.applyToValues && specSettings.italic !== undefined ? specSettings.italic : cellItalic;
+                    let efUnderline = specSettings.applyToValues && specSettings.underline !== undefined ? specSettings.underline : cellUnderline;
+                    let efFontFamily = specSettings.applyToValues && specSettings.fontFamily !== undefined ? specSettings.fontFamily : cellFontFamily;
+                    let efFontSize = specSettings.applyToValues && specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
+                    let efWordWrap = specSettings.applyToValues && specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
+                    let effectiveAlign = specSettings.applyToValues && specSettings.alignment ? specSettings.alignment : "right";
+                    cell.style.backgroundColor = effectiveBg;
+                    cell.style.color = effectiveColor;
+                    cell.style.fontWeight = efBold ? "bold" : "normal";
+                    cell.style.fontStyle = efItalic ? "italic" : "normal";
+                    cell.style.textDecoration = efUnderline ? "underline" : "none";
+                    cell.style.fontFamily = efFontFamily;
+                    cell.style.fontSize = `${efFontSize}px`;
+                    cell.style.whiteSpace = efWordWrap ? "normal" : "nowrap";
+
+                    cell.style.textAlign = effectiveAlign;
+                    if (efWordWrap) { // and here
                         cell.style.wordBreak = "break-word";
                     }
                 }
@@ -1163,6 +1312,89 @@ export class Visual implements IVisual {
     }
 
     public getFormattingModel(): powerbi.visuals.FormattingModel {
+        const specificCol = this.visualSettings.specificColumn;
+        if (this.dataView && this.dataView.categorical && this.dataView.categorical.values) {
+            const values = this.dataView.categorical.values;
+            const items = values.map(v => {
+                return {
+                    value: v.source.queryName,
+                    displayName: v.source.displayName || v.source.queryName
+                };
+            });
+            if (items.length > 0) {
+                specificCol.series.items = items;
+                
+                let savedSeries: string | undefined = undefined;
+                const globalObjs = this.dataView.metadata.objects;
+                if (globalObjs && globalObjs["specificColumn"]) {
+                    savedSeries = dataViewObjects.getValue(globalObjs, { objectName: "specificColumn", propertyName: "series" }, undefined) as string | undefined;
+                }
+
+                if (savedSeries && items.find(i => String(i.value) === savedSeries)) {
+                    specificCol.series.value = items.find(i => String(i.value) === savedSeries);
+                } else if (!specificCol.series.value || !items.find(i => String(i.value) === String(specificCol.series.value.value))) {
+                    specificCol.series.value = items[0];
+                }
+                
+                const selectedQueryName = String(specificCol.series.value.value);
+                const selectedValueColumn = values.find(v => v.source.queryName === selectedQueryName);
+                
+                if (selectedValueColumn) {
+                    const objs = selectedValueColumn.source.objects || {};
+                    
+                    specificCol.applyToHeader.selector = { metadata: selectedQueryName };
+                    specificCol.applyToTotal.selector = { metadata: selectedQueryName };
+                    specificCol.applyToValues.selector = { metadata: selectedQueryName };
+                    specificCol.textColor.selector = { metadata: selectedQueryName };
+                    specificCol.backgroundColor.selector = { metadata: selectedQueryName };
+                    specificCol.alternateTextColor.selector = { metadata: selectedQueryName };
+                    specificCol.alternateBackgroundColor.selector = { metadata: selectedQueryName };
+                    specificCol.alignment.selector = { metadata: selectedQueryName };
+                    specificCol.displayUnits.selector = { metadata: selectedQueryName };
+                    specificCol.decimalPlaces.selector = { metadata: selectedQueryName };
+                    specificCol.textWrap.selector = { metadata: selectedQueryName };
+                    specificCol.font.fontFamily.selector = { metadata: selectedQueryName };
+                    specificCol.font.fontSize.selector = { metadata: selectedQueryName };
+                    specificCol.font.bold.selector = { metadata: selectedQueryName };
+                    specificCol.font.italic.selector = { metadata: selectedQueryName };
+                    specificCol.font.underline.selector = { metadata: selectedQueryName };
+                    
+                    specificCol.applyToHeader.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "applyToHeader" }, true);
+                    specificCol.applyToTotal.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "applyToTotal" }, true);
+                    specificCol.applyToValues.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "applyToValues" }, true);
+                    
+                    let tc = dataViewObjects.getFillColor(objs, { objectName: "specificColumn", propertyName: "textColor" }, undefined);
+                    if (tc) specificCol.textColor.value = { value: tc };
+                    
+                    let bc = dataViewObjects.getFillColor(objs, { objectName: "specificColumn", propertyName: "backgroundColor" }, undefined);
+                    if (bc) specificCol.backgroundColor.value = { value: bc };
+
+                    let atc = dataViewObjects.getFillColor(objs, { objectName: "specificColumn", propertyName: "alternateTextColor" }, undefined);
+                    if (atc) specificCol.alternateTextColor.value = { value: atc };
+
+                    let abc = dataViewObjects.getFillColor(objs, { objectName: "specificColumn", propertyName: "alternateBackgroundColor" }, undefined);
+                    if (abc) specificCol.alternateBackgroundColor.value = { value: abc };
+                    
+                    specificCol.alignment.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "alignment" }, "left") as string;
+                    specificCol.displayUnits.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "displayUnits" }, 0) as number;
+                    specificCol.decimalPlaces.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "decimalPlaces" }, 1) as number;
+                    specificCol.textWrap.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "textWrap" }, false) as boolean;
+                    
+                    specificCol.font.fontFamily.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "fontFamily" }, "Arial, sans-serif") as string;
+                    specificCol.font.fontSize.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "fontSize" }, 12) as number;
+                    specificCol.font.bold.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "bold" }, false) as boolean;
+                    specificCol.font.italic.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "italic" }, false) as boolean;
+                    specificCol.font.underline.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "underline" }, false) as boolean;
+                }
+                
+            } else {
+                specificCol.series.items = [{ value: "None", displayName: "None" }];
+                specificCol.series.value = { value: "None", displayName: "None" };
+            }
+        } else {
+            specificCol.series.items = [{ value: "None", displayName: "None" }];
+            specificCol.series.value = { value: "None", displayName: "None" };
+        }
         return this.formattingSettingsService.buildFormattingModel(this.visualSettings);
     }
 }

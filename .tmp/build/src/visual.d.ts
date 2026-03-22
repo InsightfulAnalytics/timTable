@@ -7,6 +7,7 @@ export declare class Visual implements IVisual {
     private table;
     private formattingSettingsService;
     private visualSettings;
+    private dataView;
     constructor(options: VisualConstructorOptions);
     update(options: VisualUpdateOptions): void;
     getFormattingModel(): powerbi.visuals.FormattingModel;

@@ -93,8 +93,30 @@ export declare class ColumnHeadersSettings extends formattingSettings.CompositeC
     visible: boolean;
     groups: formattingSettings.Group[];
 }
+export declare class SpecificColumnSettings extends formattingSettings.CompositeCard {
+    series: formattingSettings.ItemDropdown;
+    applyToHeader: formattingSettings.ToggleSwitch;
+    applyToTotal: formattingSettings.ToggleSwitch;
+    applyToValues: formattingSettings.ToggleSwitch;
+    applySettingsGroup: formattingSettings.Group;
+    font: formattingSettings.FontControl;
+    textColor: formattingSettings.ColorPicker;
+    backgroundColor: formattingSettings.ColorPicker;
+    alternateTextColor: formattingSettings.ColorPicker;
+    alternateBackgroundColor: formattingSettings.ColorPicker;
+    textWrap: formattingSettings.ToggleSwitch;
+    alignment: formattingSettings.AlignmentGroup;
+    displayUnits: formattingSettings.AutoDropdown;
+    decimalPlaces: formattingSettings.NumUpDown;
+    valuesGroup: formattingSettings.Group;
+    name: string;
+    displayName: string;
+    visible: boolean;
+    groups: formattingSettings.Group[];
+}
 export declare class VisualSettings extends FormattingSettingsModel {
     valuesMenu: ValuesSettings;
+    specificColumn: SpecificColumnSettings;
     columnHeaders: ColumnHeadersSettings;
     table: TableSettings;
     categoryConditionalFormatting: CategoryConditionalFormattingSettings;
