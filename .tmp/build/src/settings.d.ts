@@ -21,8 +21,6 @@ export declare class TableSettings extends FormattingSettingsCard {
     headerBold: formattingSettings.ToggleSwitch;
     switchValuesToRows: formattingSettings.ToggleSwitch;
     categoryWordWrap: formattingSettings.ToggleSwitch;
-    categoryColumnWidth: formattingSettings.NumUpDown;
-    columnWidth: formattingSettings.NumUpDown;
     valueRowHeight: formattingSettings.NumUpDown;
     alternateValueRowHeight: formattingSettings.NumUpDown;
     totalRowHeight: formattingSettings.NumUpDown;
@@ -114,6 +112,15 @@ export declare class SpecificColumnSettings extends formattingSettings.Composite
     visible: boolean;
     groups: formattingSettings.Group[];
 }
+export declare class ColumnWidthSettings extends FormattingSettingsCard {
+    name: string;
+    displayName: string;
+    visible: boolean;
+    categoryColumnWidth: formattingSettings.NumUpDown;
+    alignedColumns: formattingSettings.ToggleSwitch;
+    valueColumnWidth: formattingSettings.NumUpDown;
+    slices: FormattingSettingsSlice[];
+}
 export declare class VisualSettings extends FormattingSettingsModel {
     valuesMenu: ValuesSettings;
     specificColumn: SpecificColumnSettings;
@@ -125,5 +132,6 @@ export declare class VisualSettings extends FormattingSettingsModel {
     dataBarMarkers: DataBarMarkersSettings;
     totals: TotalsSettings;
     gridMenu: GridSettings;
+    columnWidth: ColumnWidthSettings;
     cards: FormattingSettingsCard[];
 }

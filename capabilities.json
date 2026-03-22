@@ -14,29 +14,19 @@
     "objects": {
         "table": {
             "properties": {
+                "alternateValueRowHeight": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
                 "categoryWordWrap": {
                     "type": {
                         "bool": true
                     }
                 },
-                "categoryColumnWidth": {
+                "switchValuesToRows": {
                     "type": {
-                        "numeric": true
-                    }
-                },
-                "columnWidth": {
-                    "type": {
-                        "numeric": true
-                    }
-                },
-                "valueRowHeight": {
-                    "type": {
-                        "numeric": true
-                    }
-                },
-                "alternateValueRowHeight": {
-                    "type": {
-                        "numeric": true
+                        "bool": true
                     }
                 },
                 "totalRowHeight": {
@@ -44,9 +34,9 @@
                         "numeric": true
                     }
                 },
-                "switchValuesToRows": {
+                "valueRowHeight": {
                     "type": {
-                        "bool": true
+                        "numeric": true
                     }
                 }
             }
@@ -103,6 +93,25 @@
                     }
                 },
                 "dataBarHeight": {
+                    "type": {
+                        "numeric": true
+                    }
+                }
+            }
+        },
+        "columnWidth": {
+            "properties": {
+                "categoryColumnWidth": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "alignedColumns": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "valueColumnWidth": {
                     "type": {
                         "numeric": true
                     }

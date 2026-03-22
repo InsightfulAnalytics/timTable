@@ -54,11 +54,17 @@ export class Visual implements IVisual {
         this.visualSettings = new VisualSettings();
     }
 
+    public getFormattingModel(): any {
+        return this.formattingSettingsService.buildFormattingModel(this.visualSettings);
+    }
+
     public update(options: VisualUpdateOptions) {
         if (options.dataViews && options.dataViews[0]) {
             this.visualSettings = this.formattingSettingsService.populateFormattingSettingsModel(VisualSettings, options.dataViews[0]);
+            this.dataView = options.dataViews[0]; // Update dataView here
         }
         
+        const columnWidthSettings = this.visualSettings.columnWidth;
         const tableSettings = this.visualSettings.table;
         const valuesSettings = this.visualSettings.valuesMenu;
         const cellItalic = valuesSettings.font.italic?.value || false;
@@ -73,12 +79,12 @@ export class Visual implements IVisual {
         const totalRowFontSize = totalsSettings.font.fontSize.value;
         const totalRowFontFamily = totalsSettings.font.fontFamily.value;
         const totalRowTextColor = totalsSettings.textColor.value.value;
-        const categoryColumnWidth = tableSettings.categoryColumnWidth.value;
+        const categoryColumnWidth = columnWidthSettings.categoryColumnWidth.value;
         const categoryWordWrap = tableSettings.categoryWordWrap.value;
         const valueWordWrap = valuesSettings.textWrap.value;
         const columnHeadersSettings = this.visualSettings.columnHeaders;
         const headerWordWrap = columnHeadersSettings.textWrap?.value || false;
-        const columnWidth = tableSettings.columnWidth.value;
+        const columnWidth = columnWidthSettings.valueColumnWidth.value;
         const headerRowHeight = columnHeadersSettings.headerRowHeight.value;
         const valueRowHeight = tableSettings.valueRowHeight.value;
         const alternateValueRowHeight = tableSettings.alternateValueRowHeight.value;
@@ -118,6 +124,14 @@ export class Visual implements IVisual {
 
         const dataBarMarkersSettings = this.visualSettings.dataBarMarkers;
         dataBarMarkersSettings.slices = []; // Will be populated dynamically per-measure
+
+        // Reset columnWidth slices: base slices always shown, per-measure slices added dynamically when not aligned
+        if (columnWidthSettings.alignedColumns.value) {
+            columnWidthSettings.slices = [columnWidthSettings.categoryColumnWidth, columnWidthSettings.alignedColumns, columnWidthSettings.valueColumnWidth];
+        } else {
+            columnWidthSettings.slices = [columnWidthSettings.categoryColumnWidth, columnWidthSettings.alignedColumns];
+            // Per-measure width slices will be added in the values.forEach loop below
+        }
 
         // Helper function to convert hex to rgba
         const applyTransparency = (hex: string, transparencyPct: number): string => {
@@ -310,6 +324,8 @@ interface MeasureSpecificSettings {
 }
 
           let measureSettingsList: MeasureSpecificSettings[] = [];
+          let valueColumnWidths: number[] = [];
+
           values.forEach((valueColumn) => {
               let specObj = valueColumn.source.objects?.specificColumn;
               let settings: MeasureSpecificSettings = {
@@ -334,9 +350,28 @@ interface MeasureSpecificSettings {
 
             let displayName = valueColumn.source.displayName || `Measure ${measureHeaders.length + 1}`;
             measureHeaders.push(displayName);
-            
-            // Build dynamic settings slice for this measure
             const queryName = valueColumn.source.queryName;
+
+              if (columnWidthSettings.alignedColumns.value) {
+                valueColumnWidths.push(columnWidthSettings.valueColumnWidth.value);
+              } else {
+                const specificWidth = dataViewObjects.getValue<number>(
+                    valueColumn.source.objects || {}, 
+                    { objectName: "columnWidth", propertyName: "valueColumnWidth" },
+                    columnWidthSettings.valueColumnWidth.value
+                );
+                valueColumnWidths.push(specificWidth);
+
+                // Add per-measure width slice with selector so Power BI persists it per-measure
+                columnWidthSettings.slices.push(new formattingSettings.NumUpDown({
+                    name: "valueColumnWidth",
+                    displayName: displayName + " Width",
+                    value: specificWidth,
+                    selector: { metadata: queryName }
+                }));
+              }
+
+            // Build dynamic settings slice for this measure
             const defaultMeasureTextColor = dataViewObjects.getFillColor(
                         valueColumn.source.objects || {},
                         { objectName: "valueConditionalFormatting", propertyName: "textColor" },
@@ -551,9 +586,9 @@ interface MeasureSpecificSettings {
                 let header = headerRow.insertCell();
                 header.textContent = displayName;
                 header.className = 'table-header-cell';
-                header.style.width = `${columnWidth}px`;
-                header.style.minWidth = `${columnWidth}px`;
-                header.style.maxWidth = `${columnWidth}px`;
+                header.style.width = `${valueColumnWidths[idx]}px`;
+                header.style.minWidth = `${valueColumnWidths[idx]}px`;
+                header.style.maxWidth = `${valueColumnWidths[idx]}px`;
                 applyRowSquash(header, headerRowHeight, efFontSize, efWordWrap);
                 header.style.fontWeight = efBold ? "bold" : "normal";
                 header.style.fontStyle = efItalic ? "italic" : "normal";
@@ -764,9 +799,9 @@ interface MeasureSpecificSettings {
                     }
 
                     cell.className = 'table-data-cell';
-                    cell.style.width = `${columnWidth}px`;
-                    cell.style.minWidth = `${columnWidth}px`;
-                    cell.style.maxWidth = `${columnWidth}px`;
+                    cell.style.width = `${valueColumnWidths[measureIndex]}px`;
+                    cell.style.minWidth = `${valueColumnWidths[measureIndex]}px`;
+                    cell.style.maxWidth = `${valueColumnWidths[measureIndex]}px`;
                     applyRowSquash(cell, rowHeight, cellFontSize, valueWordWrap);
                     cell.style.fontWeight = valueBold ? "bold" : "normal";
                       cell.style.fontStyle = cellItalic ? "italic" : "normal";
@@ -865,9 +900,9 @@ interface MeasureSpecificSettings {
                     minimumFractionDigits: 0
                 });
                 cell.className = 'table-total-cell';
-                cell.style.width = `${columnWidth}px`;
-                cell.style.minWidth = `${columnWidth}px`;
-                cell.style.maxWidth = `${columnWidth}px`;
+                cell.style.width = `${valueColumnWidths[i]}px`;
+                cell.style.minWidth = `${valueColumnWidths[i]}px`;
+                cell.style.maxWidth = `${valueColumnWidths[i]}px`;
                 applyRowSquash(cell, totalRowHeight, efFontSize, efWordWrap);
                 cell.style.fontWeight = efBold ? "bold" : "normal";
                 cell.style.textDecoration = efUnderline ? "underline" : "none";
@@ -924,9 +959,9 @@ interface MeasureSpecificSettings {
                     let catHeader = headerRow.insertCell();
                     catHeader.textContent = String(categories.values[i]);
                     catHeader.className = 'table-header-cell';
-                    catHeader.style.width = `${columnWidth}px`;
-                    catHeader.style.minWidth = `${columnWidth}px`;
-                    catHeader.style.maxWidth = `${columnWidth}px`;
+                    catHeader.style.width = `${valueColumnWidths[i]}px`;
+                    catHeader.style.minWidth = `${valueColumnWidths[i]}px`;
+                    catHeader.style.maxWidth = `${valueColumnWidths[i]}px`;
                     applyRowSquash(catHeader, headerRowHeight, headerFontSize, headerWordWrap);
                     catHeader.style.fontWeight = headerBold ? "bold" : "normal";
                     catHeader.style.fontStyle = headerItalic ? "italic" : "normal";
@@ -1231,9 +1266,9 @@ interface MeasureSpecificSettings {
                     }
 
                     cell.className = 'table-data-cell';
-                    cell.style.width = `${columnWidth}px`;
-                    cell.style.minWidth = `${columnWidth}px`;
-                    cell.style.maxWidth = `${columnWidth}px`;
+                    cell.style.width = `${valueColumnWidths[measureIndex]}px`;
+                    cell.style.minWidth = `${valueColumnWidths[measureIndex]}px`;
+                    cell.style.maxWidth = `${valueColumnWidths[measureIndex]}px`;
                     applyRowSquash(cell, rowHeight, cellFontSize, valueWordWrap);
                     cell.style.fontWeight = valueBold ? "bold" : "normal";
                       cell.style.fontStyle = cellItalic ? "italic" : "normal";
@@ -1286,9 +1321,9 @@ interface MeasureSpecificSettings {
                         minimumFractionDigits: 0
                     });
                     totalCell.className = 'table-data-cell';
-                    totalCell.style.width = `${columnWidth}px`;
-                    totalCell.style.minWidth = `${columnWidth}px`;
-                    totalCell.style.maxWidth = `${columnWidth}px`;
+                    totalCell.style.width = `${valueColumnWidths[measureIndex]}px`;
+                    totalCell.style.minWidth = `${valueColumnWidths[measureIndex]}px`;
+                    totalCell.style.maxWidth = `${valueColumnWidths[measureIndex]}px`;
                     applyRowSquash(totalCell, rowHeight, totalRowFontSize, totalRowWordWrap);
                     totalCell.style.fontWeight = totalRowBold ? "bold" : "normal";
                       totalCell.style.fontFamily = totalRowFontFamily;
@@ -1309,92 +1344,5 @@ interface MeasureSpecificSettings {
                 }
             });
         }
-    }
-
-    public getFormattingModel(): powerbi.visuals.FormattingModel {
-        const specificCol = this.visualSettings.specificColumn;
-        if (this.dataView && this.dataView.categorical && this.dataView.categorical.values) {
-            const values = this.dataView.categorical.values;
-            const items = values.map(v => {
-                return {
-                    value: v.source.queryName,
-                    displayName: v.source.displayName || v.source.queryName
-                };
-            });
-            if (items.length > 0) {
-                specificCol.series.items = items;
-                
-                let savedSeries: string | undefined = undefined;
-                const globalObjs = this.dataView.metadata.objects;
-                if (globalObjs && globalObjs["specificColumn"]) {
-                    savedSeries = dataViewObjects.getValue(globalObjs, { objectName: "specificColumn", propertyName: "series" }, undefined) as string | undefined;
-                }
-
-                if (savedSeries && items.find(i => String(i.value) === savedSeries)) {
-                    specificCol.series.value = items.find(i => String(i.value) === savedSeries);
-                } else if (!specificCol.series.value || !items.find(i => String(i.value) === String(specificCol.series.value.value))) {
-                    specificCol.series.value = items[0];
-                }
-                
-                const selectedQueryName = String(specificCol.series.value.value);
-                const selectedValueColumn = values.find(v => v.source.queryName === selectedQueryName);
-                
-                if (selectedValueColumn) {
-                    const objs = selectedValueColumn.source.objects || {};
-                    
-                    specificCol.applyToHeader.selector = { metadata: selectedQueryName };
-                    specificCol.applyToTotal.selector = { metadata: selectedQueryName };
-                    specificCol.applyToValues.selector = { metadata: selectedQueryName };
-                    specificCol.textColor.selector = { metadata: selectedQueryName };
-                    specificCol.backgroundColor.selector = { metadata: selectedQueryName };
-                    specificCol.alternateTextColor.selector = { metadata: selectedQueryName };
-                    specificCol.alternateBackgroundColor.selector = { metadata: selectedQueryName };
-                    specificCol.alignment.selector = { metadata: selectedQueryName };
-                    specificCol.displayUnits.selector = { metadata: selectedQueryName };
-                    specificCol.decimalPlaces.selector = { metadata: selectedQueryName };
-                    specificCol.textWrap.selector = { metadata: selectedQueryName };
-                    specificCol.font.fontFamily.selector = { metadata: selectedQueryName };
-                    specificCol.font.fontSize.selector = { metadata: selectedQueryName };
-                    specificCol.font.bold.selector = { metadata: selectedQueryName };
-                    specificCol.font.italic.selector = { metadata: selectedQueryName };
-                    specificCol.font.underline.selector = { metadata: selectedQueryName };
-                    
-                    specificCol.applyToHeader.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "applyToHeader" }, true);
-                    specificCol.applyToTotal.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "applyToTotal" }, true);
-                    specificCol.applyToValues.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "applyToValues" }, true);
-                    
-                    let tc = dataViewObjects.getFillColor(objs, { objectName: "specificColumn", propertyName: "textColor" }, undefined);
-                    if (tc) specificCol.textColor.value = { value: tc };
-                    
-                    let bc = dataViewObjects.getFillColor(objs, { objectName: "specificColumn", propertyName: "backgroundColor" }, undefined);
-                    if (bc) specificCol.backgroundColor.value = { value: bc };
-
-                    let atc = dataViewObjects.getFillColor(objs, { objectName: "specificColumn", propertyName: "alternateTextColor" }, undefined);
-                    if (atc) specificCol.alternateTextColor.value = { value: atc };
-
-                    let abc = dataViewObjects.getFillColor(objs, { objectName: "specificColumn", propertyName: "alternateBackgroundColor" }, undefined);
-                    if (abc) specificCol.alternateBackgroundColor.value = { value: abc };
-                    
-                    specificCol.alignment.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "alignment" }, "left") as string;
-                    specificCol.displayUnits.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "displayUnits" }, 0) as number;
-                    specificCol.decimalPlaces.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "decimalPlaces" }, 1) as number;
-                    specificCol.textWrap.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "textWrap" }, false) as boolean;
-                    
-                    specificCol.font.fontFamily.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "fontFamily" }, "Arial, sans-serif") as string;
-                    specificCol.font.fontSize.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "fontSize" }, 12) as number;
-                    specificCol.font.bold.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "bold" }, false) as boolean;
-                    specificCol.font.italic.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "italic" }, false) as boolean;
-                    specificCol.font.underline.value = dataViewObjects.getValue(objs, { objectName: "specificColumn", propertyName: "underline" }, false) as boolean;
-                }
-                
-            } else {
-                specificCol.series.items = [{ value: "None", displayName: "None" }];
-                specificCol.series.value = { value: "None", displayName: "None" };
-            }
-        } else {
-            specificCol.series.items = [{ value: "None", displayName: "None" }];
-            specificCol.series.value = { value: "None", displayName: "None" };
-        }
-        return this.formattingSettingsService.buildFormattingModel(this.visualSettings);
     }
 }

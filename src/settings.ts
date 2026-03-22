@@ -110,23 +110,7 @@ public headerBold = new formattingSettings.ToggleSwitch({
         visible: true
     });
 
-    public categoryColumnWidth = new formattingSettings.NumUpDown({
-        name: "categoryColumnWidth",
-        displayName: "Category Column Width",
-        value: 150,
-        visible: true
-    });
-
-    
-
-public columnWidth = new formattingSettings.NumUpDown({
-        name: "columnWidth",
-        displayName: "Value Column Width",
-        value: 100,
-        visible: true
-    });
-
-public valueRowHeight = new formattingSettings.NumUpDown({
+    public valueRowHeight = new formattingSettings.NumUpDown({
         name: "valueRowHeight",
         displayName: "Value Row Height",
         value: 30,
@@ -147,11 +131,7 @@ public valueRowHeight = new formattingSettings.NumUpDown({
         visible: true
     });
 
-    
-
-    
-
-public slices: FormattingSettingsSlice[] = [this.switchValuesToRows, this.categoryWordWrap, this.categoryColumnWidth, this.columnWidth, this.valueRowHeight, this.alternateValueRowHeight, this.totalRowHeight]
+    public slices: FormattingSettingsSlice[] = [this.switchValuesToRows, this.categoryWordWrap, this.valueRowHeight, this.alternateValueRowHeight, this.totalRowHeight]
 }
 
 export class ValueConditionalFormattingSettings extends FormattingSettingsCard {
@@ -559,6 +539,32 @@ export class SpecificColumnSettings extends formattingSettings.CompositeCard {
     public groups: formattingSettings.Group[] = [this.applySettingsGroup, this.valuesGroup];
 }
 
+export class ColumnWidthSettings extends FormattingSettingsCard {
+    name: string = "columnWidth";
+    displayName: string = "Column Width";
+    visible: boolean = true;
+
+    public categoryColumnWidth = new formattingSettings.NumUpDown({
+        name: "categoryColumnWidth",
+        displayName: "Category Column Width",
+        value: 150
+    });
+
+    public alignedColumns = new formattingSettings.ToggleSwitch({
+        name: "alignedColumns",
+        displayName: "Aligned columns",
+        value: true
+    });
+
+    public valueColumnWidth = new formattingSettings.NumUpDown({
+        name: "valueColumnWidth",
+        displayName: "Value Column Width",
+        value: 100
+    });
+
+    public slices: FormattingSettingsSlice[] = [this.categoryColumnWidth, this.alignedColumns, this.valueColumnWidth];
+}
+
 export class VisualSettings extends FormattingSettingsModel {
     public valuesMenu: ValuesSettings = new ValuesSettings();
     public specificColumn: SpecificColumnSettings = new SpecificColumnSettings();
@@ -570,6 +576,7 @@ export class VisualSettings extends FormattingSettingsModel {
     public dataBarMarkers: DataBarMarkersSettings = new DataBarMarkersSettings();
     public totals: TotalsSettings = new TotalsSettings();
     public gridMenu: GridSettings = new GridSettings();
+    public columnWidth: ColumnWidthSettings = new ColumnWidthSettings();
     
-    public cards: FormattingSettingsCard[] = [this.specificColumn, this.columnHeaders, this.valuesMenu, this.table, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
+    public cards: FormattingSettingsCard[] = [this.specificColumn, this.columnHeaders, this.valuesMenu, this.table, this.columnWidth, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
 }
