@@ -505,6 +505,20 @@ interface MeasureSpecificSettings {
               }));
           });
 
+          // Populate specificColumn series dropdown with all measure columns
+          const specificColumnSettings = this.visualSettings.specificColumn;
+          specificColumnSettings.series.items = measureHeaders.map(name => ({ value: name, displayName: name }));
+          // Read persisted series value from dataView metadata objects
+          const persistedSeries = dataViewObjects.getValue<string>(
+              this.dataView.metadata.objects || {},
+              { objectName: "specificColumn", propertyName: "series" },
+              undefined
+          );
+          const matchedItem = persistedSeries
+              ? specificColumnSettings.series.items.find(i => i.value === persistedSeries)
+              : null;
+          specificColumnSettings.series.value = matchedItem || specificColumnSettings.series.items[0] || { value: "", displayName: "" };
+
           // Compute min and max values for data bars AND Calculate totals based on selection
           let measureMins: number[] = new Array(values.length).fill(0);
           let measureMaxs: number[] = new Array(values.length).fill(0);

@@ -418,8 +418,8 @@ export class SpecificColumnSettings extends formattingSettings.CompositeCard {
     public series = new formattingSettings.ItemDropdown({
         name: "series",
         displayName: "Series",
-        value: { value: "Revenue Total", displayName: "Revenue Total" },
-        items: [{ value: "Revenue Total", displayName: "Revenue Total" }],
+        value: { value: "", displayName: "" },
+        items: [],
         visible: true
     });
     public applyToHeader = new formattingSettings.ToggleSwitch({
