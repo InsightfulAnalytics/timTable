@@ -505,7 +505,7 @@ interface MeasureSpecificSettings {
               }));
           });
 
-          // Populate specificColumn series dropdown with all measure columns
+          // Populate specificColumn series dropdown and rebuild value slices with per-measure selector
           const specificColumnSettings = this.visualSettings.specificColumn;
           specificColumnSettings.series.items = measureHeaders.map(name => ({ value: name, displayName: name }));
           // Read persisted series value from dataView metadata objects
@@ -518,6 +518,61 @@ interface MeasureSpecificSettings {
               ? specificColumnSettings.series.items.find(i => i.value === persistedSeries)
               : null;
           specificColumnSettings.series.value = matchedItem || specificColumnSettings.series.items[0] || { value: "", displayName: "" };
+
+          // Find the queryName for the selected measure so slices persist to the correct per-measure objects
+          const selectedSeriesName = specificColumnSettings.series.value?.value as string;
+          const selectedMeasureIdx = measureHeaders.indexOf(selectedSeriesName);
+          const selectedValueColumn = selectedMeasureIdx >= 0 ? values[selectedMeasureIdx] : null;
+          const selectedQueryName = selectedValueColumn?.source?.queryName;
+          const selectedObjects = selectedValueColumn?.source?.objects || {};
+          const selector = selectedQueryName ? { metadata: selectedQueryName } : undefined;
+
+          // Read current per-measure values for the selected column
+          const scTextColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "textColor" }, undefined);
+          const scBgColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "backgroundColor" }, undefined);
+          const scAltTextColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "alternateTextColor" }, undefined);
+          const scAltBgColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "alternateBackgroundColor" }, undefined);
+          const scApplyToHeader = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "applyToHeader" }, true);
+          const scApplyToValues = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "applyToValues" }, true);
+          const scApplyToTotal = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "applyToTotal" }, true);
+          const scFontFamily = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "fontFamily" }, undefined);
+          const scFontSize = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "fontSize" }, undefined);
+          const scBold = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "bold" }, undefined);
+          const scItalic = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "italic" }, undefined);
+          const scUnderline = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "underline" }, undefined);
+          const scAlignment = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "alignment" }, undefined);
+          const scDisplayUnits = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "displayUnits" }, 0);
+          const scDecimalPlaces = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "decimalPlaces" }, 1);
+          const scTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "textWrap" }, undefined);
+
+          // Rebuild the applySettingsGroup slices with selectors
+          specificColumnSettings.applySettingsGroup.slices = [
+              specificColumnSettings.series,
+              new formattingSettings.ToggleSwitch({ name: "applyToHeader", displayName: "Apply to header", value: scApplyToHeader, visible: true, selector }),
+              new formattingSettings.ToggleSwitch({ name: "applyToTotal", displayName: "Apply to total", value: scApplyToTotal, visible: true, selector }),
+              new formattingSettings.ToggleSwitch({ name: "applyToValues", displayName: "Apply to values", value: scApplyToValues, visible: true, selector })
+          ];
+
+          // Rebuild the valuesGroup slices with per-measure selectors
+          specificColumnSettings.valuesGroup.slices = [
+              new formattingSettings.FontControl({
+                  name: "font",
+                  displayName: "Font",
+                  fontFamily: new formattingSettings.FontPicker({ name: "fontFamily", displayName: "Font Family", value: scFontFamily || "Arial, sans-serif", selector }),
+                  fontSize: new formattingSettings.NumUpDown({ name: "fontSize", displayName: "Font Size", value: scFontSize ?? 12, selector }),
+                  bold: new formattingSettings.ToggleSwitch({ name: "bold", displayName: "Bold", value: scBold ?? false, selector }),
+                  italic: new formattingSettings.ToggleSwitch({ name: "italic", displayName: "Italic", value: scItalic ?? false, selector }),
+                  underline: new formattingSettings.ToggleSwitch({ name: "underline", displayName: "Underline", value: scUnderline ?? false, selector })
+              }),
+              new formattingSettings.ColorPicker({ name: "textColor", displayName: "Text color", value: { value: scTextColor || "#00b8d4" }, visible: true, selector }),
+              new formattingSettings.ColorPicker({ name: "backgroundColor", displayName: "Background color", value: { value: scBgColor || "#ffffff" }, visible: true, selector }),
+              new formattingSettings.ColorPicker({ name: "alternateTextColor", displayName: "Alternate text color", value: { value: scAltTextColor || "#333333" }, visible: true, selector }),
+              new formattingSettings.ColorPicker({ name: "alternateBackgroundColor", displayName: "Alternate background color", value: { value: scAltBgColor || "#f5f5f5" }, visible: true, selector }),
+              new formattingSettings.AlignmentGroup({ name: "alignment", displayName: "Alignment", value: scAlignment || "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true, selector }),
+              new formattingSettings.AutoDropdown({ name: "displayUnits", displayName: "Display units", value: scDisplayUnits, visible: true, selector }),
+              new formattingSettings.NumUpDown({ name: "decimalPlaces", displayName: "Value decimal places", value: scDecimalPlaces, visible: true, selector }),
+              new formattingSettings.ToggleSwitch({ name: "textWrap", displayName: "Text wrap", value: scTextWrap ?? false, visible: true, selector })
+          ];
 
           // Compute min and max values for data bars AND Calculate totals based on selection
           let measureMins: number[] = new Array(values.length).fill(0);
@@ -1338,21 +1393,29 @@ interface MeasureSpecificSettings {
                     totalCell.style.width = `${valueColumnWidths[measureIndex]}px`;
                     totalCell.style.minWidth = `${valueColumnWidths[measureIndex]}px`;
                     totalCell.style.maxWidth = `${valueColumnWidths[measureIndex]}px`;
-                    applyRowSquash(totalCell, rowHeight, totalRowFontSize, totalRowWordWrap);
-                    totalCell.style.fontWeight = totalRowBold ? "bold" : "normal";
-                      totalCell.style.fontFamily = totalRowFontFamily;
-                      totalCell.style.fontStyle = totalRowItalic ? "italic" : "normal";
-                      // Note: totalRowUnderline is defined in table settings, so we append to it or replace.
-                      // Let's keep totalRowUnderline overriding or adding to it.
-                      // In original it just set underline or none, let's keep original totalRowUnderline.
-                    totalCell.style.textDecoration = totalRowUnderline ? "underline" : "none";
+                    let specSettings = measureSettingsList[measureIndex];
+                    let efTotalBold = specSettings.applyToTotal && specSettings.bold !== undefined ? specSettings.bold : totalRowBold;
+                    let efTotalItalic = specSettings.applyToTotal && specSettings.italic !== undefined ? specSettings.italic : totalRowItalic;
+                    let efTotalUnderline = specSettings.applyToTotal && specSettings.underline !== undefined ? specSettings.underline : totalRowUnderline;
+                    let efTotalFontFamily = specSettings.applyToTotal && specSettings.fontFamily !== undefined ? specSettings.fontFamily : totalRowFontFamily;
+                    let efTotalFontSize = specSettings.applyToTotal && specSettings.fontSize !== undefined ? specSettings.fontSize : totalRowFontSize;
+                    let efTotalWordWrap = specSettings.applyToTotal && specSettings.textWrap !== undefined ? specSettings.textWrap : totalRowWordWrap;
+                    let efTotalBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : totalRowBackgroundColor;
+                    let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : totalRowTextColor;
+                    let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
+                    applyRowSquash(totalCell, rowHeight, efTotalFontSize, efTotalWordWrap);
+                    totalCell.style.fontWeight = efTotalBold ? "bold" : "normal";
+                    totalCell.style.fontFamily = efTotalFontFamily;
+                    totalCell.style.fontStyle = efTotalItalic ? "italic" : "normal";
+                    totalCell.style.textDecoration = efTotalUnderline ? "underline" : "none";
                     totalCell.style.borderRight = `1px solid ${gridBorderColor}`;
-                    totalCell.style.backgroundColor = totalRowBackgroundColor;
-                    totalCell.style.color = totalRowTextColor;
+                    totalCell.style.backgroundColor = efTotalBg;
+                    totalCell.style.color = efTotalColor;
+                    totalCell.style.textAlign = efTotalAlign;
                     totalCell.style.overflow = "hidden";
                     totalCell.style.textOverflow = "ellipsis";
-                    totalCell.style.whiteSpace = totalRowWordWrap ? "normal" : "nowrap";
-                    if (totalRowWordWrap) {
+                    totalCell.style.whiteSpace = efTotalWordWrap ? "normal" : "nowrap";
+                    if (efTotalWordWrap) {
                         totalCell.style.wordBreak = "break-word";
                     }
                 }
