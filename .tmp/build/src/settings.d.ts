@@ -86,6 +86,9 @@ export declare class ColumnHeadersSettings extends formattingSettings.CompositeC
     textGroup: formattingSettings.Group;
     headerRowHeight: formattingSettings.NumUpDown;
     optionsGroup: formattingSettings.Group;
+    nameSeries: formattingSettings.ItemDropdown;
+    nameOverride: formattingSettings.TextInput;
+    namesGroup: formattingSettings.Group;
     name: string;
     displayName: string;
     visible: boolean;

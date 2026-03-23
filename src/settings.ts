@@ -407,10 +407,33 @@ export class ColumnHeadersSettings extends formattingSettings.CompositeCard {
         slices: [this.headerRowHeight]
     });
 
+    public nameSeries = new formattingSettings.ItemDropdown({
+        name: "nameSeries",
+        displayName: "Series",
+        value: { value: "", displayName: "" },
+        items: [],
+        visible: true
+    });
+
+    public nameOverride = new formattingSettings.TextInput({
+        name: "nameOverride",
+        displayName: "Header Name",
+        placeholder: "Enter custom header name",
+        value: "",
+        visible: true,
+        instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
+    });
+
+    public namesGroup = new formattingSettings.Group({
+        displayName: "Names",
+        name: "names",
+        slices: [this.nameSeries, this.nameOverride]
+    });
+
     public name: string = "columnHeaders";
     public displayName: string = "Column headers";
     public visible: boolean = true;
-    public groups: formattingSettings.Group[] = [this.textGroup, this.optionsGroup];
+    public groups: formattingSettings.Group[] = [this.textGroup, this.optionsGroup, this.namesGroup];
 }
 
 

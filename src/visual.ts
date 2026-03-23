@@ -303,6 +303,7 @@ export class Visual implements IVisual {
 
         // Pre-process measure settings to populate formatting model properly
         let measureHeaders: string[] = [];
+        let measureHeaderOverrides: string[] = [];
         
 interface MeasureSpecificSettings {
     textColor: string | undefined;
@@ -350,6 +351,14 @@ interface MeasureSpecificSettings {
 
             let displayName = valueColumn.source.displayName || `Measure ${measureHeaders.length + 1}`;
             measureHeaders.push(displayName);
+            
+            let nameOverride = dataViewObjects.getValue<string>(
+                valueColumn.source.objects || {},
+                { objectName: "columnHeaders", propertyName: "nameOverride" },
+                ""
+            );
+            measureHeaderOverrides.push(nameOverride !== "" ? nameOverride : displayName);
+
             const queryName = valueColumn.source.queryName;
 
               if (columnWidthSettings.alignedColumns.value) {
@@ -545,6 +554,42 @@ interface MeasureSpecificSettings {
           const scDecimalPlaces = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "decimalPlaces" }, 1);
           const scTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "textWrap" }, undefined);
 
+          // Populate columnHeaders nameSeries dropdown and rebuild names group with per-measure selector
+          columnHeadersSettings.nameSeries.items = measureHeaders.map(name => ({ value: name, displayName: name }));
+          
+          const persistedNameSeries = dataViewObjects.getValue<string>(
+              this.dataView.metadata.objects || {},
+              { objectName: "columnHeaders", propertyName: "nameSeries" },
+              undefined
+          );
+          const matchedNameItem = persistedNameSeries
+              ? columnHeadersSettings.nameSeries.items.find(i => i.value === persistedNameSeries)
+              : null;
+          columnHeadersSettings.nameSeries.value = matchedNameItem || columnHeadersSettings.nameSeries.items[0] || { value: "", displayName: "" };
+
+          const selectedNameSeriesName = columnHeadersSettings.nameSeries.value?.value as string;
+          const selectedNameMeasureIdx = measureHeaders.indexOf(selectedNameSeriesName);
+          const selectedNameValueColumn = selectedNameMeasureIdx >= 0 ? values[selectedNameMeasureIdx] : null;
+          const selectedNameQueryName = selectedNameValueColumn?.source?.queryName;
+          const selectedNameObjects = selectedNameValueColumn?.source?.objects || {};
+          const nameSelector = selectedNameQueryName ? { metadata: selectedNameQueryName } : undefined;
+
+          const chNameOverride = dataViewObjects.getValue<string>(selectedNameObjects, { objectName: "columnHeaders", propertyName: "nameOverride" }, "");
+
+          // Rebuild the namesGroup slices
+          columnHeadersSettings.namesGroup.slices = [
+              columnHeadersSettings.nameSeries,
+              new formattingSettings.TextInput({
+                  name: "nameOverride",
+                  displayName: "Header Name",
+                  placeholder: "Enter custom header name",
+                  value: chNameOverride,
+                  visible: true,
+                  selector: nameSelector,
+                  instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
+              })
+          ];
+
           // Rebuild the applySettingsGroup slices with selectors
           specificColumnSettings.applySettingsGroup.slices = [
               specificColumnSettings.series,
@@ -642,6 +687,7 @@ interface MeasureSpecificSettings {
 
             // Add measure column headers
             measureHeaders.forEach((displayName, idx) => {
+                const effectiveDisplayName = measureHeaderOverrides[idx];
                 let specSettings = measureSettingsList[idx];
                 let effectiveBg = specSettings.applyToHeader && specSettings.backgroundColor ? specSettings.backgroundColor : headerBgColor;
                 let efBold = specSettings.applyToHeader && specSettings.bold !== undefined ? specSettings.bold : headerBold;
@@ -653,7 +699,7 @@ interface MeasureSpecificSettings {
                 let effectiveColor = specSettings.applyToHeader && specSettings.textColor ? specSettings.textColor : headerTextColor;
                 let effectiveAlign = specSettings.applyToHeader && specSettings.alignment ? specSettings.alignment : headerAlignment;
                 let header = headerRow.insertCell();
-                header.textContent = displayName;
+                header.textContent = effectiveDisplayName;
                 header.className = 'table-header-cell';
                 header.style.width = `${valueColumnWidths[idx]}px`;
                 header.style.minWidth = `${valueColumnWidths[idx]}px`;
@@ -1133,7 +1179,7 @@ interface MeasureSpecificSettings {
 
                 // Cell 1: Measure Name
                 let measureNameCell = row.insertCell();
-                measureNameCell.textContent = measureHeaders[measureIndex];
+                measureNameCell.textContent = measureHeaderOverrides[measureIndex];
                 measureNameCell.className = 'table-category-cell';
                 measureNameCell.style.width = `${categoryColumnWidth}px`;
                 measureNameCell.style.minWidth = `${categoryColumnWidth}px`;
