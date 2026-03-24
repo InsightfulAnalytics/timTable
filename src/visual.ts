@@ -33,7 +33,7 @@ import IVisual = powerbi.extensibility.visual.IVisual;
 import DataView = powerbi.DataView;
 import { VisualSettings } from "./settings";
 import { FormattingSettingsService, formattingSettings } from "powerbi-visuals-utils-formattingmodel";
-import { dataViewObjects } from "powerbi-visuals-utils-dataviewutils";
+import { dataViewObjects, dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
 
 export class Visual implements IVisual {
     private table: HTMLTableElement;
@@ -386,18 +386,28 @@ interface MeasureSpecificSettings {
                 }));
               }
 
-            // Build dynamic settings slice for this measure
-            const defaultMeasureTextColor = dataViewObjects.getFillColor(
-                        valueColumn.source.objects || {},
-                        { objectName: "valueConditionalFormatting", propertyName: "textColor" },
-                        textColor
-                    );
+// Create the composite selector for per-row rule evaluation
+              const wildcardSelector = dataViewWildcard.createDataViewWildcardSelector(
+                  dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals
+              );
+              const compositeSelector = {
+                  metadata: queryName,
+                  data: wildcardSelector.data
+              };
+
+              // Build dynamic settings slice for this measure
+              const defaultMeasureTextColor = dataViewObjects.getFillColor(
+                          valueColumn.source.objects || {},
+                          { objectName: "valueConditionalFormatting", propertyName: "textColor" },
+                          textColor
+                      );
             valueCFSettings.slices.push(new formattingSettings.ColorPicker({
                 name: "textColor",
                 displayName: displayName + " Text Color",
                 value: { value: defaultMeasureTextColor },
                 visible: true,
-                selector: { metadata: queryName },
+                selector: compositeSelector,
+                altConstantSelector: { metadata: queryName },
                 instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
             }));
 
@@ -412,7 +422,8 @@ interface MeasureSpecificSettings {
                 displayName: displayName + " Data Bar Color",
                 value: { value: defaultDataBarColor },
                 visible: true,
-                selector: { metadata: queryName },
+                selector: compositeSelector,
+                altConstantSelector: { metadata: queryName },
                 instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
             }));
 
@@ -1664,6 +1675,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         }
     }
 }
+
+
 
 
 
