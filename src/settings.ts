@@ -141,6 +141,13 @@ export class ValueConditionalFormattingSettings extends FormattingSettingsCard {
     public slices: FormattingSettingsSlice[] = [];
 }
 
+export class DataBarsConditionalFormattingSettings extends FormattingSettingsCard {
+    name: string = "dataBarsConditionalFormatting";
+    displayName: string = "Data bar conditional formatting";
+    visible: boolean = true;
+    public slices: FormattingSettingsSlice[] = [];
+}
+
 export class CategoryConditionalFormattingSettings extends FormattingSettingsCard {
     name: string = "categoryConditionalFormatting";
     displayName: string = "Category conditional formatting";
@@ -175,14 +182,6 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
         displayName: "Show Data Bars",
         value: false,
         visible: true
-    });
-
-    public dataBarColor = new formattingSettings.ColorPicker({
-        name: "dataBarColor",
-        displayName: "Data Bar Color",
-        value: { value: "#31b6fd" },
-        visible: true,
-        instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
     });
 
     public dataBarHeight = new formattingSettings.NumUpDown({
@@ -279,7 +278,7 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
     public dataBarsGroup = new formattingSettings.Group({
         displayName: "Data Bars Settings",
         name: "dataBarsGroup",
-        slices: [this.showDataBars, this.dataBarColor, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.minValue, this.maxValue, this.labelsOutside, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
+        slices: [this.showDataBars, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.minValue, this.maxValue, this.labelsOutside, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
     });
 
     public groups: formattingSettings.Group[] = [this.selectSeriesGroup, this.dataBarsGroup];
@@ -716,11 +715,12 @@ export class VisualSettings extends FormattingSettingsModel {
     public table: TableSettings = new TableSettings();
     public categoryConditionalFormatting: CategoryConditionalFormattingSettings = new CategoryConditionalFormattingSettings();
     public valueConditionalFormatting: ValueConditionalFormattingSettings = new ValueConditionalFormattingSettings();
+    public dataBarsConditionalFormatting: DataBarsConditionalFormattingSettings = new DataBarsConditionalFormattingSettings();
     public dataBarsFormatting: DataBarsFormattingSettings = new DataBarsFormattingSettings();
     public dataBarMarkers: DataBarMarkersSettings = new DataBarMarkersSettings();
     public totals: TotalsSettings = new TotalsSettings();
     public gridMenu: GridSettings = new GridSettings();
     public columnWidth: ColumnWidthSettings = new ColumnWidthSettings();
-    
-    public cards: FormattingSettingsCard[] = [this.specificColumn, this.columnHeaders, this.valuesMenu, this.table, this.columnWidth, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
+
+    public cards: FormattingSettingsCard[] = [this.specificColumn, this.columnHeaders, this.valuesMenu, this.table, this.columnWidth, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
 }

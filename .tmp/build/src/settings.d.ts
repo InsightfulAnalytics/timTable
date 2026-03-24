@@ -32,6 +32,12 @@ export declare class ValueConditionalFormattingSettings extends FormattingSettin
     visible: boolean;
     slices: FormattingSettingsSlice[];
 }
+export declare class DataBarsConditionalFormattingSettings extends FormattingSettingsCard {
+    name: string;
+    displayName: string;
+    visible: boolean;
+    slices: FormattingSettingsSlice[];
+}
 export declare class CategoryConditionalFormattingSettings extends FormattingSettingsCard {
     name: string;
     displayName: string;
@@ -45,7 +51,6 @@ export declare class DataBarsFormattingSettings extends formattingSettings.Compo
     visible: boolean;
     series: formattingSettings.ItemDropdown;
     showDataBars: formattingSettings.ToggleSwitch;
-    dataBarColor: formattingSettings.ColorPicker;
     dataBarHeight: formattingSettings.NumUpDown;
     transparency: formattingSettings.NumUpDown;
     borderOn: formattingSettings.ToggleSwitch;
@@ -148,6 +153,7 @@ export declare class VisualSettings extends FormattingSettingsModel {
     table: TableSettings;
     categoryConditionalFormatting: CategoryConditionalFormattingSettings;
     valueConditionalFormatting: ValueConditionalFormattingSettings;
+    dataBarsConditionalFormatting: DataBarsConditionalFormattingSettings;
     dataBarsFormatting: DataBarsFormattingSettings;
     dataBarMarkers: DataBarMarkersSettings;
     totals: TotalsSettings;

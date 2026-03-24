@@ -120,7 +120,9 @@ export class Visual implements IVisual {
         ];
 
         const dataBarsSettings = this.visualSettings.dataBarsFormatting;
-        
+
+        const dataBarsCFSettings = this.visualSettings.dataBarsConditionalFormatting;
+        dataBarsCFSettings.slices = []; // Will be populated dynamically per-measure
 
         const dataBarMarkersSettings = this.visualSettings.dataBarMarkers;
         dataBarMarkersSettings.slices = []; // Will be populated dynamically per-measure
@@ -136,17 +138,21 @@ export class Visual implements IVisual {
         // Helper function to convert hex to rgba
         const applyTransparency = (hex: string, transparencyPct: number): string => {
             if (!hex) return hex;
+            // Clean up CF hex values: strip leading minus, ensure # prefix, take first 7 chars
+            let cleaned = hex.replace(/^-/, '');
+            if (!cleaned.startsWith("#")) cleaned = "#" + cleaned;
+            if (cleaned.length === 9) cleaned = cleaned.substring(0, 7); // #RRGGBBAA -> #RRGGBB
             let alpha = Math.max(0, Math.min(1, 1 - (transparencyPct / 100)));
-            if (hex.startsWith("#")) {
+            if (cleaned.startsWith("#")) {
                 let r = 0, g = 0, b = 0;
-                if (hex.length === 4) {
-                    r = parseInt(hex[1] + hex[1], 16);
-                    g = parseInt(hex[2] + hex[2], 16);
-                    b = parseInt(hex[3] + hex[3], 16);
-                } else if (hex.length === 7) {
-                    r = parseInt(hex[1] + hex[2], 16);
-                    g = parseInt(hex[3] + hex[4], 16);
-                    b = parseInt(hex[5] + hex[6], 16);
+                if (cleaned.length === 4) {
+                    r = parseInt(cleaned[1] + cleaned[1], 16);
+                    g = parseInt(cleaned[2] + cleaned[2], 16);
+                    b = parseInt(cleaned[3] + cleaned[3], 16);
+                } else if (cleaned.length === 7) {
+                    r = parseInt(cleaned[1] + cleaned[2], 16);
+                    g = parseInt(cleaned[3] + cleaned[4], 16);
+                    b = parseInt(cleaned[5] + cleaned[6], 16);
                 }
                 return `rgba(${r}, ${g}, ${b}, ${alpha})`;
             }
@@ -395,6 +401,21 @@ interface MeasureSpecificSettings {
                 instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
             }));
 
+            // Data bar color CF: register per-measure slice on the simple card
+            const defaultDataBarColor = dataViewObjects.getFillColor(
+                valueColumn.source.objects || {},
+                { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" },
+                "#31b6fd"
+            );
+            dataBarsCFSettings.slices.push(new formattingSettings.ColorPicker({
+                name: "dataBarColor",
+                displayName: displayName + " Data Bar Color",
+                value: { value: defaultDataBarColor },
+                visible: true,
+                selector: { metadata: queryName },
+                instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
+            }));
+
             // Data bars settings
             const objects = valueColumn.source.objects || {};
 
@@ -599,8 +620,7 @@ interface MeasureSpecificSettings {
           const dataBarsSelector = selectedDataBarsQueryName ? { metadata: selectedDataBarsQueryName } : undefined;
 
           const dbShowDataBars = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
-          const dbDataBarColor = dataViewObjects.getFillColor(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "dataBarColor" }, "#31b6fd");
-          const dbMatchDataBarColor = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
+                    const dbMatchDataBarColor = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
           const dbShowZeroLine = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
           const dbZeroLineColor = dataViewObjects.getFillColor(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
           const dbZeroLineTransparency = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
@@ -619,8 +639,7 @@ interface MeasureSpecificSettings {
 
 let dataBarsSlices: formattingSettings.Slice[] = [
                 new formattingSettings.ToggleSwitch({ name: "showDataBars", displayName: "Show Data Bars", value: dbShowDataBars, visible: true, selector: dataBarsSelector }),
-                new formattingSettings.ColorPicker({ name: "dataBarColor", displayName: "Data Bar Color", value: { value: dbDataBarColor }, visible: true, selector: dataBarsSelector, instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule }),
-                new formattingSettings.NumUpDown({ name: "dataBarHeight", displayName: "Data Bar Height (%)", value: dbDataBarHeight, visible: true, selector: dataBarsSelector }),
+                                new formattingSettings.NumUpDown({ name: "dataBarHeight", displayName: "Data Bar Height (%)", value: dbDataBarHeight, visible: true, selector: dataBarsSelector }),
                 new formattingSettings.NumUpDown({ name: "transparency", displayName: "Transparency (%)", value: dbTransparency, visible: true, selector: dataBarsSelector }),
                 new formattingSettings.ToggleSwitch({ name: "borderOn", displayName: "Border On", value: dbBorderOn, visible: true, selector: dataBarsSelector }),
                 new formattingSettings.ToggleSwitch({ name: "matchDataBarColor", displayName: "Match Data Bar Color", value: dbMatchDataBarColor, visible: true, selector: dataBarsSelector }),
@@ -744,6 +763,21 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 }
             });
 
+            // One-time debug dump of valueColumn objects status
+            if (values.length > 0) {
+                const vc0 = values[0];
+                console.log(`[DB CF INIT] measure0 name=${vc0.source.displayName} queryName=${vc0.source.queryName}`);
+                console.log(`[DB CF INIT] measure0 .objects exists=${!!vc0.objects}, .objects type=${typeof vc0.objects}`);
+                if (vc0.objects) {
+                    console.log(`[DB CF INIT] measure0 .objects is array=${Array.isArray(vc0.objects)}, length=${(vc0.objects as any).length}`);
+                    // Show first 3 entries
+                    for (let z = 0; z < Math.min(3, rowCount); z++) {
+                        console.log(`[DB CF INIT] measure0 .objects[${z}]=${JSON.stringify(vc0.objects[z])}`);
+                    }
+                }
+                console.log(`[DB CF INIT] measure0 .source.objects=${JSON.stringify(vc0.source.objects)}`);
+            }
+
             // Create data rows
             for (let i = 0; i < rowCount; i++) {
                 let row = this.table.insertRow();
@@ -780,9 +814,27 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 // Add measure values
                 values.forEach((valueColumn, measureIndex) => {
                     if (i < 2 && measureIndex === 0) {
-                        console.log(`[CF DEBUG] row=${i} measure=${measureIndex} hasObjects:`, !!valueColumn.objects, 
-                            `objLength:`, valueColumn.objects?.length,
-                            `obj[i]:`, valueColumn.objects?.[i] ? JSON.stringify(valueColumn.objects[i]) : 'undefined');
+                        const obj = valueColumn.objects?.[i];
+                        const hasObjs = !!valueColumn.objects;
+                        const objKeys = obj ? Object.keys(obj).join(',') : 'none';
+                        console.log(`[DB CF DEBUG] row=${i} measure=${measureIndex} hasObjects=${hasObjs} obj[i]keys=${objKeys}`);
+                        if (hasObjs && valueColumn.objects[i]) {
+                            console.log(`[DB CF DEBUG]   obj[${i}] full:`, JSON.stringify(valueColumn.objects[i]));
+                        }
+                        // Also check if valueConditionalFormatting objects exist (this card is known to work)
+                        if (hasObjs) {
+                            console.log(`[DB CF DEBUG]   objects array length-ish: objects is array=${Array.isArray(valueColumn.objects)}, typeof=${typeof valueColumn.objects}`);
+                            // Check first few entries
+                            for (let z = 0; z < Math.min(3, (valueColumn.objects as any).length || 3); z++) {
+                                if (valueColumn.objects[z]) {
+                                    console.log(`[DB CF DEBUG]   objects[${z}] keys: ${Object.keys(valueColumn.objects[z]).join(',')}`);
+                                }
+                            }
+                        }
+                        // Check source.objects for the measure-level defaults
+                        if (valueColumn.source?.objects) {
+                            console.log(`[DB CF DEBUG]   source.objects keys: ${Object.keys(valueColumn.source.objects).join(',')}`);
+                        }
                     }
                     const defaultMeasureTextColor = dataViewObjects.getFillColor(
                         valueColumn.source.objects || {},
@@ -816,7 +868,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
                         
                         if (showDataBars) {
-                            let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                            let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
                             const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
                             const showZeroLine = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
                             const zeroLineColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
@@ -830,16 +882,12 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const maxValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
                             const labelsOutside = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                             
-                            // Check for conditional formatting on data bar color
+                            // Check for conditional formatting on data bar color (using simple card objectName)
                             if (valueColumn.objects && valueColumn.objects[i]) {
-                                const cfRaw = dataViewObjects.getCommonValue(
+                                const cfDataBarColor = dataViewObjects.getFillColor(
                                     valueColumn.objects[i],
-                                    { objectName: "dataBarsFormatting", propertyName: "dataBarColor" },
-                                    undefined
+                                    { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }
                                 );
-                                const cfDataBarColor = typeof cfRaw === "object" && cfRaw?.solid?.color
-                                    ? cfRaw.solid.color
-                                    : typeof cfRaw === "string" ? cfRaw : undefined;
                                 if (cfDataBarColor) {
                                     cellDataBarColor = cfDataBarColor;
                                 }
@@ -1299,7 +1347,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
                 const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
                 
-                let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
                             const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
                             const showZeroLine = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
                             const zeroLineColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
@@ -1343,7 +1391,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
                         
                         if (showDataBars) {
-                            let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                            let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
                             const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
                             const showZeroLine = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
                             const zeroLineColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
@@ -1357,16 +1405,12 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const maxValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
                             const labelsOutside = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                             
-                            // Check for conditional formatting on data bar color
+                            // Check for conditional formatting on data bar color (using simple card objectName)
                             if (valueColumn.objects && valueColumn.objects[i]) {
-                                const cfRaw = dataViewObjects.getCommonValue(
+                                const cfDataBarColor = dataViewObjects.getFillColor(
                                     valueColumn.objects[i],
-                                    { objectName: "dataBarsFormatting", propertyName: "dataBarColor" },
-                                    undefined
+                                    { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }
                                 );
-                                const cfDataBarColor = typeof cfRaw === "object" && cfRaw?.solid?.color
-                                    ? cfRaw.solid.color
-                                    : typeof cfRaw === "string" ? cfRaw : undefined;
                                 if (cfDataBarColor) {
                                     cellDataBarColor = cfDataBarColor;
                                 }
@@ -1620,3 +1664,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         }
     }
 }
+
+
+
+
+
+
+
