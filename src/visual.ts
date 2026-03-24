@@ -120,7 +120,7 @@ export class Visual implements IVisual {
         ];
 
         const dataBarsSettings = this.visualSettings.dataBarsFormatting;
-        dataBarsSettings.slices = []; // Will be populated dynamically per-measure
+        
 
         const dataBarMarkersSettings = this.visualSettings.dataBarMarkers;
         dataBarMarkersSettings.slices = []; // Will be populated dynamically per-measure
@@ -397,46 +397,6 @@ interface MeasureSpecificSettings {
 
             // Data bars settings
             const objects = valueColumn.source.objects || {};
-            const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
-            const positiveColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "positiveColor" }, "#31b6fd");
-            const negativeColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "negativeColor" }, "#d96570");
-
-            dataBarsSettings.slices.push(new formattingSettings.ToggleSwitch({
-                name: "showDataBars",
-                displayName: displayName + " Show Data Bars",
-                value: showDataBars,
-                visible: true,
-                selector: { metadata: queryName }
-            }));
-            
-            if (showDataBars) {
-                dataBarsSettings.slices.push(new formattingSettings.ColorPicker({
-                    name: "positiveColor",
-                    displayName: displayName + " Positive Color",
-                    value: { value: positiveColor },
-                    visible: true,
-                    selector: { metadata: queryName },
-                    instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
-                }));
-
-                dataBarsSettings.slices.push(new formattingSettings.ColorPicker({
-                    name: "negativeColor",
-                    displayName: displayName + " Negative Color",
-                    value: { value: negativeColor },
-                    visible: true,
-                    selector: { metadata: queryName },
-                    instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
-                }));
-                
-                const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
-                dataBarsSettings.slices.push(new formattingSettings.NumUpDown({
-                    name: "dataBarHeight",
-                    displayName: displayName + " Data Bar Height (%)",
-                    value: dataBarHeight,
-                    visible: true,
-                    selector: { metadata: queryName }
-                }));
-            }
 
             // Data bar markers settings
             const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
@@ -619,6 +579,69 @@ interface MeasureSpecificSettings {
               new formattingSettings.ToggleSwitch({ name: "textWrap", displayName: "Text wrap", value: scTextWrap ?? false, visible: true, selector })
           ];
 
+          // Populate dataBarsSettings series dropdown and rebuild value slices with per-measure selector
+          dataBarsSettings.series.items = measureHeaders.map(name => ({ value: name, displayName: name }));
+          const persistedDataBarsSeries = dataViewObjects.getValue<string>(
+              this.dataView.metadata.objects || {},
+              { objectName: "dataBarsFormatting", propertyName: "series" },
+              undefined
+          );
+          const matchedDataBarsItem = persistedDataBarsSeries
+              ? dataBarsSettings.series.items.find(i => i.value === persistedDataBarsSeries)
+              : null;
+          dataBarsSettings.series.value = matchedDataBarsItem || dataBarsSettings.series.items[0] || { value: "", displayName: "" };
+
+          const selectedDataBarsSeriesName = dataBarsSettings.series.value?.value as string;
+          const selectedDataBarsMeasureIdx = measureHeaders.indexOf(selectedDataBarsSeriesName);
+          const selectedDataBarsValueColumn = selectedDataBarsMeasureIdx >= 0 ? values[selectedDataBarsMeasureIdx] : null;
+          const selectedDataBarsQueryName = selectedDataBarsValueColumn?.source?.queryName;
+          const selectedDataBarsObjects = selectedDataBarsValueColumn?.source?.objects || {};
+          const dataBarsSelector = selectedDataBarsQueryName ? { metadata: selectedDataBarsQueryName } : undefined;
+
+          const dbShowDataBars = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+          const dbDataBarColor = dataViewObjects.getFillColor(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+          const dbMatchDataBarColor = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
+          const dbShowZeroLine = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
+          const dbZeroLineColor = dataViewObjects.getFillColor(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
+          const dbZeroLineTransparency = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
+          const dbDataBarHeight = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+          const dbTransparency = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "transparency" }, 20);
+          const dbBorderOn = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "borderOn" }, true);
+          const dbBorderThickness = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "borderThickness" }, 1);
+          const dbBorderColor = dataViewObjects.getFillColor(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "borderColor" }, "#000000");
+          const dbMinValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, 0);
+          const dbMaxValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, 0);
+          const dbLabelsOutside = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+
+          dataBarsSettings.selectSeriesGroup.slices = [
+              dataBarsSettings.series
+          ];
+
+let dataBarsSlices: formattingSettings.Slice[] = [
+                new formattingSettings.ToggleSwitch({ name: "showDataBars", displayName: "Show Data Bars", value: dbShowDataBars, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.ColorPicker({ name: "dataBarColor", displayName: "Data Bar Color", value: { value: dbDataBarColor }, visible: true, selector: dataBarsSelector, instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule }),
+                new formattingSettings.NumUpDown({ name: "dataBarHeight", displayName: "Data Bar Height (%)", value: dbDataBarHeight, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.NumUpDown({ name: "transparency", displayName: "Transparency (%)", value: dbTransparency, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.ToggleSwitch({ name: "borderOn", displayName: "Border On", value: dbBorderOn, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.ToggleSwitch({ name: "matchDataBarColor", displayName: "Match Data Bar Color", value: dbMatchDataBarColor, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.NumUpDown({ name: "borderThickness", displayName: "Border Thickness", value: dbBorderThickness, visible: true, selector: dataBarsSelector })
+            ];
+
+            if (!dbMatchDataBarColor) {
+                dataBarsSlices.push(new formattingSettings.ColorPicker({ name: "borderColor", displayName: "Border Color", value: { value: dbBorderColor }, visible: true, selector: dataBarsSelector, instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule }));
+            }
+
+            dataBarsSlices.push(
+                new formattingSettings.NumUpDown({ name: "minValue", displayName: "Minimum Value", value: dbMinValue, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.NumUpDown({ name: "maxValue", displayName: "Maximum Value", value: dbMaxValue, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.ToggleSwitch({ name: "labelsOutside", displayName: "Labels Outside", value: dbLabelsOutside, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.ToggleSwitch({ name: "showZeroLine", displayName: "Show Zero Line", value: dbShowZeroLine, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.ColorPicker({ name: "zeroLineColor", displayName: "Zero Line Color", value: { value: dbZeroLineColor }, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.NumUpDown({ name: "zeroLineTransparency", displayName: "Zero Line Transparency (%)", value: dbZeroLineTransparency, visible: true, selector: dataBarsSelector })
+            );
+
+            dataBarsSettings.dataBarsGroup.slices = dataBarsSlices;
+
           // Compute min and max values for data bars AND Calculate totals based on selection
           let measureMins: number[] = new Array(values.length).fill(0);
           let measureMaxs: number[] = new Array(values.length).fill(0);
@@ -756,6 +779,11 @@ interface MeasureSpecificSettings {
 
                 // Add measure values
                 values.forEach((valueColumn, measureIndex) => {
+                    if (i < 2 && measureIndex === 0) {
+                        console.log(`[CF DEBUG] row=${i} measure=${measureIndex} hasObjects:`, !!valueColumn.objects, 
+                            `objLength:`, valueColumn.objects?.length,
+                            `obj[i]:`, valueColumn.objects?.[i] ? JSON.stringify(valueColumn.objects[i]) : 'undefined');
+                    }
                     const defaultMeasureTextColor = dataViewObjects.getFillColor(
                         valueColumn.source.objects || {},
                         { objectName: "valueConditionalFormatting", propertyName: "textColor" },
@@ -788,26 +816,55 @@ interface MeasureSpecificSettings {
                         const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
                         
                         if (showDataBars) {
-                            let cellPositiveColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "positiveColor" }, "#31b6fd");
-                            let cellNegativeColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "negativeColor" }, "#d96570");
+                            let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                            const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
+                            const showZeroLine = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
+                            const zeroLineColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
+                            const zeroLineTransparency = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
                             const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
-
-                            const min = measureMins[measureIndex];
-                            const max = measureMaxs[measureIndex];
-                            const range = max - min;
+                            const transparency = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "transparency" }, 20);
+                            const borderOn = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "borderOn" }, true);
+                            const borderThickness = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "borderThickness" }, 1);
+                            const borderColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "borderColor" }, "#000000");
+                            const minValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
+                            const maxValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                            const labelsOutside = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                             
+                            // Check for conditional formatting on data bar color
+                            if (valueColumn.objects && valueColumn.objects[i]) {
+                                const cfRaw = dataViewObjects.getCommonValue(
+                                    valueColumn.objects[i],
+                                    { objectName: "dataBarsFormatting", propertyName: "dataBarColor" },
+                                    undefined
+                                );
+                                const cfDataBarColor = typeof cfRaw === "object" && cfRaw?.solid?.color
+                                    ? cfRaw.solid.color
+                                    : typeof cfRaw === "string" ? cfRaw : undefined;
+                                if (cfDataBarColor) {
+                                    cellDataBarColor = cfDataBarColor;
+                                }
+                            }
+
+                            const min = minValueObj !== null && minValueObj !== undefined ? minValueObj : measureMins[measureIndex];
+                            const max = maxValueObj !== null && maxValueObj !== undefined ? maxValueObj : measureMaxs[measureIndex];
+                            let range = max - min;
+                            if (range <= 0) range = 1;
+
                             // Calculate width percentage
                             let widthPct = 0;
                             let leftPct = 0;
 
-                            if (range > 0) {
-                                if (numValue >= 0) {
-                                    widthPct = (numValue / range) * 100;
-                                    leftPct = ((0 - min) / range) * 100;
-                                } else {
-                                    widthPct = (Math.abs(numValue) / range) * 100;
-                                    leftPct = ((numValue - min) / range) * 100;
-                                }
+                            let clampedValue = Math.max(min, Math.min(max, numValue));
+                            let zeroPoint = Math.max(min, Math.min(max, 0));
+
+                            let scale = labelsOutside ? 0.75 : 1;
+
+                            if (clampedValue >= zeroPoint) {
+                                widthPct = ((clampedValue - zeroPoint) / range) * 100 * scale;
+                                leftPct = ((zeroPoint - min) / range) * 100 * scale;
+                            } else {
+                                widthPct = ((zeroPoint - clampedValue) / range) * 100 * scale;
+                                leftPct = ((clampedValue - min) / range) * 100 * scale;
                             }
 
                             // Create data bar div
@@ -818,18 +875,39 @@ interface MeasureSpecificSettings {
                             dataBar.style.height = `${dataBarHeight}%`;
                             dataBar.style.left = `${leftPct}%`;
                             dataBar.style.width = `${widthPct}%`;
-                            dataBar.style.backgroundColor = numValue >= 0 ? cellPositiveColor : cellNegativeColor;
-                            dataBar.style.opacity = "0.6"; // semi-transparent so text is readable
+                            dataBar.style.backgroundColor = applyTransparency(cellDataBarColor, transparency);
+
                             dataBar.style.zIndex = "1";
+
+                            if (borderOn) {
+                                let finalBorderColor = matchDataBarColor ? cellDataBarColor : borderColor;
+                                dataBar.style.border = `${borderThickness}px solid ${finalBorderColor}`;
+                                dataBar.style.boxSizing = "border-box";
+                            }
+
                             cell.appendChild(dataBar);
 
+                            if (showZeroLine) {
+                                let zeroLine = document.createElement("div");
+                                zeroLine.style.position = "absolute";
+                                zeroLine.style.top = "0";
+                                zeroLine.style.bottom = "0";
+                                zeroLine.style.width = "2px";
+                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scale;
+                                zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                zeroLine.style.backgroundColor = applyTransparency(zeroLineColor, zeroLineTransparency);
+                                zeroLine.style.zIndex = "1"; 
+                                cell.appendChild(zeroLine);
+                            }
+
+                            // Data bar markers settings
                             const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
                             if (showMarker) {
                                 let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
                                 const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
                                 const markerSize = dataViewObjects.getValue<number>(objects, { objectName: "dataBarMarkers", propertyName: "markerSize" }, 10);
-                                
                                 let cellMarkerColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarMarkers", propertyName: "markerColor" }, "#000000");
+                                
                                 if (valueColumn.objects && valueColumn.objects[i]) {
                                     const cfMarkerColor = dataViewObjects.getFillColor(
                                         valueColumn.objects[i],
@@ -843,7 +921,7 @@ interface MeasureSpecificSettings {
                                 let marker = document.createElement("div");
                                 marker.style.position = "absolute";
                                 marker.style.zIndex = "3";
-                                
+
                                 let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
                                 marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
                                 marker.style.top = `calc(50% - ${markerSize / 2}px)`;
@@ -862,7 +940,7 @@ interface MeasureSpecificSettings {
                                     line1.style.height = "2px";
                                     line1.style.top = "calc(50% - 1px)";
                                     line1.style.transform = "rotate(45deg)";
-                                    
+
                                     let line2 = document.createElement("div");
                                     line2.style.position = "absolute";
                                     line2.style.backgroundColor = cellMarkerColor;
@@ -870,7 +948,7 @@ interface MeasureSpecificSettings {
                                     line2.style.height = "2px";
                                     line2.style.top = "calc(50% - 1px)";
                                     line2.style.transform = "rotate(-45deg)";
-                                    
+
                                     marker.appendChild(line1);
                                     marker.appendChild(line2);
                                 } else if (markerShape === "horizontalLine") {
@@ -902,9 +980,22 @@ interface MeasureSpecificSettings {
                             }
 
                             let textDiv = document.createElement("div");
-                            textDiv.style.position = "relative";
                             textDiv.style.zIndex = "2";
                             textDiv.textContent = formattedValue;
+                            
+                            if (labelsOutside) {
+                                textDiv.style.position = "absolute";
+                                textDiv.style.top = "50%";
+                                textDiv.style.transform = "translateY(-50%)";
+                                textDiv.style.whiteSpace = "nowrap";
+                                if (numValue >= 0) {
+                                    textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                } else {
+                                    textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                }
+                            } else {
+                                textDiv.style.position = "relative";
+                            }
                             cell.appendChild(textDiv);
                         } else {
                             cell.textContent = formattedValue;
@@ -1208,9 +1299,12 @@ interface MeasureSpecificSettings {
                 const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
                 const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
                 
-                let cellPositiveColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "positiveColor" }, "#31b6fd");
-                let cellNegativeColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "negativeColor" }, "#d96570");
-                const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+                let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                            const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
+                            const showZeroLine = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
+                            const zeroLineColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
+                            const zeroLineTransparency = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
+                            const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
                 
                 let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
                 const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
@@ -1234,13 +1328,7 @@ interface MeasureSpecificSettings {
                         );
                         if (cfColor) cellTextColor = cfColor;
                         
-                        const cfPosColor = dataViewObjects.getFillColor(
-                            valueColumn.objects[i],
-                            { objectName: "dataBarsFormatting", propertyName: "positiveColor" }
-                        );
-                        if (cfPosColor) {
-                            cellPositiveColor = cfPosColor;
-                        }
+                        
                     }
 
                     let value = valueColumn.values[i];
@@ -1255,26 +1343,55 @@ interface MeasureSpecificSettings {
                         const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
                         
                         if (showDataBars) {
-                            let cellPositiveColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "positiveColor" }, "#31b6fd");
-                            let cellNegativeColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "negativeColor" }, "#d96570");
+                            let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                            const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
+                            const showZeroLine = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
+                            const zeroLineColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
+                            const zeroLineTransparency = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
                             const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
-
-                            const min = measureMins[measureIndex];
-                            const max = measureMaxs[measureIndex];
-                            const range = max - min;
+                            const transparency = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "transparency" }, 20);
+                            const borderOn = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "borderOn" }, true);
+                            const borderThickness = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "borderThickness" }, 1);
+                            const borderColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "borderColor" }, "#000000");
+                            const minValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
+                            const maxValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                            const labelsOutside = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                             
+                            // Check for conditional formatting on data bar color
+                            if (valueColumn.objects && valueColumn.objects[i]) {
+                                const cfRaw = dataViewObjects.getCommonValue(
+                                    valueColumn.objects[i],
+                                    { objectName: "dataBarsFormatting", propertyName: "dataBarColor" },
+                                    undefined
+                                );
+                                const cfDataBarColor = typeof cfRaw === "object" && cfRaw?.solid?.color
+                                    ? cfRaw.solid.color
+                                    : typeof cfRaw === "string" ? cfRaw : undefined;
+                                if (cfDataBarColor) {
+                                    cellDataBarColor = cfDataBarColor;
+                                }
+                            }
+
+                            const min = minValueObj !== null && minValueObj !== undefined ? minValueObj : measureMins[measureIndex];
+                            const max = maxValueObj !== null && maxValueObj !== undefined ? maxValueObj : measureMaxs[measureIndex];
+                            let range = max - min;
+                            if (range <= 0) range = 1;
+
                             // Calculate width percentage
                             let widthPct = 0;
                             let leftPct = 0;
 
-                            if (range > 0) {
-                                if (numValue >= 0) {
-                                    widthPct = (numValue / range) * 100;
-                                    leftPct = ((0 - min) / range) * 100;
-                                } else {
-                                    widthPct = (Math.abs(numValue) / range) * 100;
-                                    leftPct = ((numValue - min) / range) * 100;
-                                }
+                            let clampedValue = Math.max(min, Math.min(max, numValue));
+                            let zeroPoint = Math.max(min, Math.min(max, 0));
+
+                            let scale = labelsOutside ? 0.75 : 1;
+
+                            if (clampedValue >= zeroPoint) {
+                                widthPct = ((clampedValue - zeroPoint) / range) * 100 * scale;
+                                leftPct = ((zeroPoint - min) / range) * 100 * scale;
+                            } else {
+                                widthPct = ((zeroPoint - clampedValue) / range) * 100 * scale;
+                                leftPct = ((clampedValue - min) / range) * 100 * scale;
                             }
 
                             // Create data bar div
@@ -1285,18 +1402,39 @@ interface MeasureSpecificSettings {
                             dataBar.style.height = `${dataBarHeight}%`;
                             dataBar.style.left = `${leftPct}%`;
                             dataBar.style.width = `${widthPct}%`;
-                            dataBar.style.backgroundColor = numValue >= 0 ? cellPositiveColor : cellNegativeColor;
-                            dataBar.style.opacity = "0.6"; // semi-transparent so text is readable
+                            dataBar.style.backgroundColor = applyTransparency(cellDataBarColor, transparency);
+
                             dataBar.style.zIndex = "1";
+
+                            if (borderOn) {
+                                let finalBorderColor = matchDataBarColor ? cellDataBarColor : borderColor;
+                                dataBar.style.border = `${borderThickness}px solid ${finalBorderColor}`;
+                                dataBar.style.boxSizing = "border-box";
+                            }
+
                             cell.appendChild(dataBar);
 
+                            if (showZeroLine) {
+                                let zeroLine = document.createElement("div");
+                                zeroLine.style.position = "absolute";
+                                zeroLine.style.top = "0";
+                                zeroLine.style.bottom = "0";
+                                zeroLine.style.width = "2px";
+                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scale;
+                                zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                zeroLine.style.backgroundColor = applyTransparency(zeroLineColor, zeroLineTransparency);
+                                zeroLine.style.zIndex = "1"; 
+                                cell.appendChild(zeroLine);
+                            }
+
+                            // Data bar markers settings
                             const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
                             if (showMarker) {
                                 let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
                                 const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
                                 const markerSize = dataViewObjects.getValue<number>(objects, { objectName: "dataBarMarkers", propertyName: "markerSize" }, 10);
-                                
                                 let cellMarkerColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarMarkers", propertyName: "markerColor" }, "#000000");
+                                
                                 if (valueColumn.objects && valueColumn.objects[i]) {
                                     const cfMarkerColor = dataViewObjects.getFillColor(
                                         valueColumn.objects[i],
@@ -1310,7 +1448,7 @@ interface MeasureSpecificSettings {
                                 let marker = document.createElement("div");
                                 marker.style.position = "absolute";
                                 marker.style.zIndex = "3";
-                                
+
                                 let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
                                 marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
                                 marker.style.top = `calc(50% - ${markerSize / 2}px)`;
@@ -1329,7 +1467,7 @@ interface MeasureSpecificSettings {
                                     line1.style.height = "2px";
                                     line1.style.top = "calc(50% - 1px)";
                                     line1.style.transform = "rotate(45deg)";
-                                    
+
                                     let line2 = document.createElement("div");
                                     line2.style.position = "absolute";
                                     line2.style.backgroundColor = cellMarkerColor;
@@ -1337,7 +1475,7 @@ interface MeasureSpecificSettings {
                                     line2.style.height = "2px";
                                     line2.style.top = "calc(50% - 1px)";
                                     line2.style.transform = "rotate(-45deg)";
-                                    
+
                                     marker.appendChild(line1);
                                     marker.appendChild(line2);
                                 } else if (markerShape === "horizontalLine") {
@@ -1369,9 +1507,22 @@ interface MeasureSpecificSettings {
                             }
 
                             let textDiv = document.createElement("div");
-                            textDiv.style.position = "relative";
                             textDiv.style.zIndex = "2";
                             textDiv.textContent = formattedValue;
+                            
+                            if (labelsOutside) {
+                                textDiv.style.position = "absolute";
+                                textDiv.style.top = "50%";
+                                textDiv.style.transform = "translateY(-50%)";
+                                textDiv.style.whiteSpace = "nowrap";
+                                if (numValue >= 0) {
+                                    textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                } else {
+                                    textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                }
+                            } else {
+                                textDiv.style.position = "relative";
+                            }
                             cell.appendChild(textDiv);
                         } else {
                             cell.textContent = formattedValue;

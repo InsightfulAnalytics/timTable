@@ -74,25 +74,84 @@
                         "bool": true
                     }
                 },
-                "positiveColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
-                "negativeColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
                 "dataBarHeight": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "series": {
+                    "type": {
+                        "text": true
+                    }
+                },
+                "transparency": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "borderOn": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "borderThickness": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "borderColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "minValue": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "maxValue": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "labelsOutside": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "dataBarColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "matchDataBarColor": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "showZeroLine": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "zeroLineColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "zeroLineTransparency": {
                     "type": {
                         "numeric": true
                     }

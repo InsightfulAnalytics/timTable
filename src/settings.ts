@@ -157,11 +157,132 @@ export class CategoryConditionalFormattingSettings extends FormattingSettingsCar
     public slices: FormattingSettingsSlice[] = [this.textColor];
 }
 
-export class DataBarsFormattingSettings extends FormattingSettingsCard {
-    name: string = "dataBarsFormatting";
-    displayName:string = "Data Bars";
-    visible: boolean = true;
-    public slices: FormattingSettingsSlice[] = [];
+export class DataBarsFormattingSettings extends formattingSettings.CompositeCard {
+    public name: string = "dataBarsFormatting";
+    public displayName: string = "Data Bars";
+    public visible: boolean = true;
+
+    public series = new formattingSettings.ItemDropdown({
+        name: "series",
+        displayName: "Series",
+        value: { value: "", displayName: "" },
+        items: [],
+        visible: true
+    });
+
+    public showDataBars = new formattingSettings.ToggleSwitch({
+        name: "showDataBars",
+        displayName: "Show Data Bars",
+        value: false,
+        visible: true
+    });
+
+    public dataBarColor = new formattingSettings.ColorPicker({
+        name: "dataBarColor",
+        displayName: "Data Bar Color",
+        value: { value: "#31b6fd" },
+        visible: true,
+        instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
+    });
+
+    public dataBarHeight = new formattingSettings.NumUpDown({
+        name: "dataBarHeight",
+        displayName: "Data Bar Height (%)",
+        value: 80,
+        visible: true
+    });
+
+    public transparency = new formattingSettings.NumUpDown({
+        name: "transparency",
+        displayName: "Transparency (%)",
+        value: 20,
+        visible: true
+    });
+
+    public borderOn = new formattingSettings.ToggleSwitch({
+        name: "borderOn",
+        displayName: "Border On",
+        value: true,
+        visible: true
+    });
+
+    public matchDataBarColor = new formattingSettings.ToggleSwitch({
+        name: "matchDataBarColor",
+        displayName: "Match Data Bar Color",
+        value: true,
+        visible: true
+    });
+
+    public borderThickness = new formattingSettings.NumUpDown({
+        name: "borderThickness",
+        displayName: "Border Thickness",
+        value: 1,
+        visible: true
+    });
+
+    public borderColor = new formattingSettings.ColorPicker({
+        name: "borderColor",
+        displayName: "Border Color",
+        value: { value: "#000000" },
+        visible: true,
+        instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
+    });
+
+    public minValue = new formattingSettings.NumUpDown({
+        name: "minValue",
+        displayName: "Minimum Value",
+        value: null,
+        visible: true
+    });
+
+    public maxValue = new formattingSettings.NumUpDown({
+        name: "maxValue",
+        displayName: "Maximum Value",
+        value: null,
+        visible: true
+    });
+
+    public labelsOutside = new formattingSettings.ToggleSwitch({
+        name: "labelsOutside",
+        displayName: "Labels Outside",
+        value: false,
+        visible: true
+    });
+
+    public showZeroLine = new formattingSettings.ToggleSwitch({
+        name: "showZeroLine",
+        displayName: "Show Zero Line",
+        value: false,
+        visible: true
+    });
+
+    public zeroLineColor = new formattingSettings.ColorPicker({
+        name: "zeroLineColor",
+        displayName: "Zero Line Color",
+        value: { value: "#000000" },
+        visible: true
+    });
+
+    public zeroLineTransparency = new formattingSettings.NumUpDown({
+        name: "zeroLineTransparency",
+        displayName: "Zero Line Transparency (%)",
+        value: 0,
+        visible: true
+    });
+
+    public selectSeriesGroup = new formattingSettings.Group({
+        displayName: "Select Series",
+        name: "selectSeriesGroup",
+        slices: [this.series]
+    });
+
+    public dataBarsGroup = new formattingSettings.Group({
+        displayName: "Data Bars Settings",
+        name: "dataBarsGroup",
+        slices: [this.showDataBars, this.dataBarColor, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.minValue, this.maxValue, this.labelsOutside, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
+    });
+
+    public groups: formattingSettings.Group[] = [this.selectSeriesGroup, this.dataBarsGroup];
 }
 
 export class DataBarMarkersSettings extends FormattingSettingsCard {

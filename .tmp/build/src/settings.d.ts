@@ -39,11 +39,28 @@ export declare class CategoryConditionalFormattingSettings extends FormattingSet
     textColor: formattingSettings.ColorPicker;
     slices: FormattingSettingsSlice[];
 }
-export declare class DataBarsFormattingSettings extends FormattingSettingsCard {
+export declare class DataBarsFormattingSettings extends formattingSettings.CompositeCard {
     name: string;
     displayName: string;
     visible: boolean;
-    slices: FormattingSettingsSlice[];
+    series: formattingSettings.ItemDropdown;
+    showDataBars: formattingSettings.ToggleSwitch;
+    dataBarColor: formattingSettings.ColorPicker;
+    dataBarHeight: formattingSettings.NumUpDown;
+    transparency: formattingSettings.NumUpDown;
+    borderOn: formattingSettings.ToggleSwitch;
+    matchDataBarColor: formattingSettings.ToggleSwitch;
+    borderThickness: formattingSettings.NumUpDown;
+    borderColor: formattingSettings.ColorPicker;
+    minValue: formattingSettings.NumUpDown;
+    maxValue: formattingSettings.NumUpDown;
+    labelsOutside: formattingSettings.ToggleSwitch;
+    showZeroLine: formattingSettings.ToggleSwitch;
+    zeroLineColor: formattingSettings.ColorPicker;
+    zeroLineTransparency: formattingSettings.NumUpDown;
+    selectSeriesGroup: formattingSettings.Group;
+    dataBarsGroup: formattingSettings.Group;
+    groups: formattingSettings.Group[];
 }
 export declare class DataBarMarkersSettings extends FormattingSettingsCard {
     name: string;
