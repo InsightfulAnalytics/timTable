@@ -1,1 +1,0 @@
-const fs = require('fs'); let f = fs.readFileSync('B:/VS Code Files/Visuals/timTable/src/visual.ts', 'utf8'); f = f.replace(/\\\\r\\\\n/g, '\r\n'); f = f.replace(/\\\\n/g, '\n'); f = f.replace(/\\\\x22/g, '\x22'); fs.writeFileSync('B:/VS Code Files/Visuals/timTable/src/visual.ts', f); console.log('Fixed literals');
