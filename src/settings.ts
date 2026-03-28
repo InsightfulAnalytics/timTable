@@ -73,6 +73,13 @@ export class ValuesSettings extends FormattingSettingsCard {
         visible: true
     });
 
+    public switchValuesToRows = new formattingSettings.ToggleSwitch({
+        name: "switchValuesToRows",
+        displayName: "Switch values to rows",
+        value: false,
+        visible: true
+    });
+
     public name: string = "values";
     public displayName: string = "Values";
     public visible: boolean = true;
@@ -86,9 +93,9 @@ export class ValuesSettings extends FormattingSettingsCard {
     ];
 }
 
-export class TableSettings extends FormattingSettingsCard{
-    name: string = "table";
-    displayName: string = "Table";
+export class RowHeightSettings extends FormattingSettingsCard{
+    name: string = "rowHeight";
+    displayName: string = "Row height";
     visible: boolean = true;
 public headerBold = new formattingSettings.ToggleSwitch({
         name: "headerBold",
@@ -96,19 +103,7 @@ public headerBold = new formattingSettings.ToggleSwitch({
         value: true,
         visible: true
     });
-    public switchValuesToRows = new formattingSettings.ToggleSwitch({
-        name: "switchValuesToRows",
-        displayName: "Switch values to rows",
-        value: false,
-        visible: true
-    });
 
-    public categoryWordWrap = new formattingSettings.ToggleSwitch({
-        name: "categoryWordWrap",
-        displayName: "Category Word Wrap",
-        value: false,
-        visible: true
-    });
 
     public valueRowHeight = new formattingSettings.NumUpDown({
         name: "valueRowHeight",
@@ -131,7 +126,7 @@ public headerBold = new formattingSettings.ToggleSwitch({
         visible: true
     });
 
-    public slices: FormattingSettingsSlice[] = [this.switchValuesToRows, this.categoryWordWrap, this.valueRowHeight, this.alternateValueRowHeight, this.totalRowHeight]
+    public slices: FormattingSettingsSlice[] = [this.valueRowHeight, this.alternateValueRowHeight, this.totalRowHeight]
 }
 
 export class ValueConditionalFormattingSettings extends FormattingSettingsCard {
@@ -374,6 +369,13 @@ export class TotalsSettings extends FormattingSettingsCard {
     public textWrap = new formattingSettings.ToggleSwitch({
         name: "textWrap",
         displayName: "Text wrap",
+        value: false,
+        visible: true
+    });
+
+    public switchValuesToRows = new formattingSettings.ToggleSwitch({
+        name: "switchValuesToRows",
+        displayName: "Switch values to rows",
         value: false,
         visible: true
     });
@@ -657,6 +659,13 @@ export class SpecificColumnSettings extends formattingSettings.CompositeCard {
         value: false,
         visible: true
     });
+
+    public switchValuesToRows = new formattingSettings.ToggleSwitch({
+        name: "switchValuesToRows",
+        displayName: "Switch values to rows",
+        value: false,
+        visible: true
+    });
     public alignment = new formattingSettings.AlignmentGroup({
         name: "alignment",
         displayName: "Alignment",
@@ -712,14 +721,21 @@ export class ColumnWidthSettings extends FormattingSettingsCard {
         value: 100
     });
 
-    public slices: FormattingSettingsSlice[] = [this.categoryColumnWidth, this.alignedColumns, this.valueColumnWidth];
+    public categoryWordWrap = new formattingSettings.ToggleSwitch({
+        name: "categoryWordWrap",
+        displayName: "Category Word Wrap",
+        value: false,
+        visible: true
+    });
+
+    public slices: FormattingSettingsSlice[] = [this.categoryColumnWidth, this.alignedColumns, this.valueColumnWidth, this.categoryWordWrap];
 }
 
 export class VisualSettings extends FormattingSettingsModel {
     public valuesMenu: ValuesSettings = new ValuesSettings();
     public specificColumn: SpecificColumnSettings = new SpecificColumnSettings();
     public columnHeaders: ColumnHeadersSettings = new ColumnHeadersSettings();
-    public table: TableSettings = new TableSettings();
+    public rowHeight: RowHeightSettings = new RowHeightSettings();
     public categoryConditionalFormatting: CategoryConditionalFormattingSettings = new CategoryConditionalFormattingSettings();
     public valueConditionalFormatting: ValueConditionalFormattingSettings = new ValueConditionalFormattingSettings();
     public valueBackgroundConditionalFormatting: ValueBackgroundConditionalFormattingSettings = new ValueBackgroundConditionalFormattingSettings();
@@ -730,5 +746,5 @@ export class VisualSettings extends FormattingSettingsModel {
     public gridMenu: GridSettings = new GridSettings();
     public columnWidth: ColumnWidthSettings = new ColumnWidthSettings();
 
-    public cards: FormattingSettingsCard[] = [this.specificColumn, this.columnHeaders, this.valuesMenu, this.table, this.columnWidth, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.valueBackgroundConditionalFormatting, this.dataBarsConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
+    public cards: FormattingSettingsCard[] = [this.specificColumn, this.columnHeaders, this.valuesMenu, this.rowHeight, this.columnWidth, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.valueBackgroundConditionalFormatting, this.dataBarsConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
 }

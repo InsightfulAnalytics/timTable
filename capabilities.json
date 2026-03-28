@@ -12,7 +12,7 @@
         }
     ],
     "objects": {
-        "table": {
+        "rowHeight": {
             "properties": {
                 "alternateValueRowHeight": {
                     "type": {
@@ -142,6 +142,11 @@
         },
         "columnWidth": {
             "properties": {
+                "categoryWordWrap": {
+                    "type": {
+                        "bool": true
+                    }
+                },
                 "categoryColumnWidth": {
                     "type": {
                         "numeric": true
@@ -303,6 +308,11 @@
         },
         "values": {
             "properties": {
+                "switchValuesToRows": {
+                    "type": {
+                        "bool": true
+                    }
+                },
                 "fontFamily": {
                     "type": {
                         "formatting": {

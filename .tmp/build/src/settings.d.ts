@@ -9,18 +9,17 @@ export declare class ValuesSettings extends FormattingSettingsCard {
     alternateTextColor: formattingSettings.ColorPicker;
     alternateBackgroundColor: formattingSettings.ColorPicker;
     textWrap: formattingSettings.ToggleSwitch;
+    switchValuesToRows: formattingSettings.ToggleSwitch;
     name: string;
     displayName: string;
     visible: boolean;
     slices: FormattingSettingsSlice[];
 }
-export declare class TableSettings extends FormattingSettingsCard {
+export declare class RowHeightSettings extends FormattingSettingsCard {
     name: string;
     displayName: string;
     visible: boolean;
     headerBold: formattingSettings.ToggleSwitch;
-    switchValuesToRows: formattingSettings.ToggleSwitch;
-    categoryWordWrap: formattingSettings.ToggleSwitch;
     valueRowHeight: formattingSettings.NumUpDown;
     alternateValueRowHeight: formattingSettings.NumUpDown;
     totalRowHeight: formattingSettings.NumUpDown;
@@ -89,6 +88,7 @@ export declare class TotalsSettings extends FormattingSettingsCard {
     textColor: formattingSettings.ColorPicker;
     backgroundColor: formattingSettings.ColorPicker;
     textWrap: formattingSettings.ToggleSwitch;
+    switchValuesToRows: formattingSettings.ToggleSwitch;
     slices: FormattingSettingsSlice[];
 }
 export declare class GridSettings extends FormattingSettingsCard {
@@ -134,6 +134,7 @@ export declare class SpecificColumnSettings extends formattingSettings.Composite
     alternateTextColor: formattingSettings.ColorPicker;
     alternateBackgroundColor: formattingSettings.ColorPicker;
     textWrap: formattingSettings.ToggleSwitch;
+    switchValuesToRows: formattingSettings.ToggleSwitch;
     alignment: formattingSettings.AlignmentGroup;
     displayUnits: formattingSettings.AutoDropdown;
     decimalPlaces: formattingSettings.NumUpDown;
@@ -150,13 +151,14 @@ export declare class ColumnWidthSettings extends FormattingSettingsCard {
     categoryColumnWidth: formattingSettings.NumUpDown;
     alignedColumns: formattingSettings.ToggleSwitch;
     valueColumnWidth: formattingSettings.NumUpDown;
+    categoryWordWrap: formattingSettings.ToggleSwitch;
     slices: FormattingSettingsSlice[];
 }
 export declare class VisualSettings extends FormattingSettingsModel {
     valuesMenu: ValuesSettings;
     specificColumn: SpecificColumnSettings;
     columnHeaders: ColumnHeadersSettings;
-    table: TableSettings;
+    rowHeight: RowHeightSettings;
     categoryConditionalFormatting: CategoryConditionalFormattingSettings;
     valueConditionalFormatting: ValueConditionalFormattingSettings;
     valueBackgroundConditionalFormatting: ValueBackgroundConditionalFormattingSettings;

@@ -65,7 +65,7 @@ export class Visual implements IVisual {
         }
         
         const columnWidthSettings = this.visualSettings.columnWidth;
-        const tableSettings = this.visualSettings.table;
+        const rowHeightSettings = this.visualSettings.rowHeight;
         const valuesSettings = this.visualSettings.valuesMenu;
         const cellItalic = valuesSettings.font.italic?.value || false;
         const cellUnderline = valuesSettings.font.underline?.value || false;
@@ -80,15 +80,15 @@ export class Visual implements IVisual {
         const totalRowFontFamily = totalsSettings.font.fontFamily.value;
         const totalRowTextColor = totalsSettings.textColor.value.value;
         const categoryColumnWidth = columnWidthSettings.categoryColumnWidth.value;
-        const categoryWordWrap = tableSettings.categoryWordWrap.value;
+        const categoryWordWrap = columnWidthSettings.categoryWordWrap.value;
         const valueWordWrap = valuesSettings.textWrap.value;
         const columnHeadersSettings = this.visualSettings.columnHeaders;
         const headerWordWrap = columnHeadersSettings.textWrap?.value || false;
         const columnWidth = columnWidthSettings.valueColumnWidth.value;
         const headerRowHeight = columnHeadersSettings.headerRowHeight.value;
-        const valueRowHeight = tableSettings.valueRowHeight.value;
-        const alternateValueRowHeight = tableSettings.alternateValueRowHeight.value;
-        const totalRowHeight = tableSettings.totalRowHeight.value;
+        const valueRowHeight = rowHeightSettings.valueRowHeight.value;
+        const alternateValueRowHeight = rowHeightSettings.alternateValueRowHeight.value;
+        const totalRowHeight = rowHeightSettings.totalRowHeight.value;
         const headerFontSize = columnHeadersSettings.font.fontSize.value;
         const headerBold = columnHeadersSettings.font.bold.value;
         const headerItalic = columnHeadersSettings.font.italic.value;
@@ -306,7 +306,7 @@ export class Visual implements IVisual {
             return;
         }
 
-        const switchValuesToRows = tableSettings.switchValuesToRows?.value || false;
+        const switchValuesToRows = valuesSettings.switchValuesToRows?.value || false;
         let rowCount = hasCategories && categories.values ? categories.values.length : (values[0].values ? values[0].values.length : 1);
 
         // Pre-process measure settings to populate formatting model properly
