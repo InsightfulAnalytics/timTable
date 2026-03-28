@@ -509,7 +509,8 @@ interface MeasureSpecificSettings {
                   { value: "Count", displayName: "Count" },
                   { value: "Count Distinct", displayName: "Count Distinct" },
                   { value: "Max", displayName: "Max" },
-                  { value: "Min", displayName: "Min" }
+                  { value: "Min", displayName: "Min" },
+                  { value: "None", displayName: "None" }
               ];
               const currentBehaviorItem = totalBehaviorItems.find(x => x.value === totalBehaviorVal) || totalBehaviorItems[1];
 
@@ -657,8 +658,12 @@ interface MeasureSpecificSettings {
           const dbBorderOn = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "borderOn" }, true);
           const dbBorderThickness = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "borderThickness" }, 1);
           const dbBorderColor = dataViewObjects.getFillColor(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "borderColor" }, "#000000");
-          const dbMinValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, 0);
-          const dbMaxValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, 0);
+          const dbMinValueTypeObj = dataViewObjects.getValue<powerbi.EnumMemberValue>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "minValueType" }, "Amount");
+          const dbMinValueType = typeof dbMinValueTypeObj === "string" ? { value: dbMinValueTypeObj, displayName: dbMinValueTypeObj } : dbMinValueTypeObj as unknown as powerbi.IEnumMember;
+          const dbMinValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
+          const dbMaxValueTypeObj = dataViewObjects.getValue<powerbi.EnumMemberValue>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "maxValueType" }, "Amount");
+          const dbMaxValueType = typeof dbMaxValueTypeObj === "string" ? { value: dbMaxValueTypeObj, displayName: dbMaxValueTypeObj } : dbMaxValueTypeObj as unknown as powerbi.IEnumMember;
+          const dbMaxValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
           const dbLabelsOutside = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
 
           dataBarsSettings.selectSeriesGroup.slices = [
@@ -675,12 +680,34 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             ];
 
             if (!dbMatchDataBarColor) {
-                dataBarsSlices.push(new formattingSettings.ColorPicker({ name: "borderColor", displayName: "Border Color", value: { value: dbBorderColor }, visible: true, selector: dataBarsSelector, instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule }));
+                dataBarsSlices.push(new formattingSettings.ColorPicker({ name: "borderColor", displayName: "Border Color", value: { value: dbBorderColor }, visible: true, selector: dataBarsSelector }));
             }
 
             dataBarsSlices.push(
-                new formattingSettings.NumUpDown({ name: "minValue", displayName: "Minimum Value", value: dbMinValue, visible: true, selector: dataBarsSelector }),
-                new formattingSettings.NumUpDown({ name: "maxValue", displayName: "Maximum Value", value: dbMaxValue, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.ItemDropdown({
+                    name: "minValueType",
+                    displayName: "Minimum Type",
+                    value: dbMinValueType,
+                    items: [
+                        { value: "Amount", displayName: "Amount" },
+                        { value: "Percentage", displayName: "By percentage" }
+                    ],
+                    visible: true,
+                    selector: dataBarsSelector
+                }),
+                new formattingSettings.NumUpDown({ name: "minValue", displayName: "Minimum Value", value: dbMinValue, visible: true, selector: dataBarsSelector, options: { placeholderText: "Auto" } as any }),
+                new formattingSettings.ItemDropdown({
+                    name: "maxValueType",
+                    displayName: "Maximum Type",
+                    value: dbMaxValueType,
+                    items: [
+                        { value: "Amount", displayName: "Amount" },
+                        { value: "Percentage", displayName: "By percentage" }
+                    ],
+                    visible: true,
+                    selector: dataBarsSelector
+                }),
+                new formattingSettings.NumUpDown({ name: "maxValue", displayName: "Maximum Value", value: dbMaxValue, visible: true, selector: dataBarsSelector, options: { placeholderText: "Auto" } as any }),
                 new formattingSettings.ToggleSwitch({ name: "labelsOutside", displayName: "Labels Outside", value: dbLabelsOutside, visible: true, selector: dataBarsSelector }),
                 new formattingSettings.ToggleSwitch({ name: "showZeroLine", displayName: "Show Zero Line", value: dbShowZeroLine, visible: true, selector: dataBarsSelector }),
                 new formattingSettings.ColorPicker({ name: "zeroLineColor", displayName: "Zero Line Color", value: { value: dbZeroLineColor }, visible: true, selector: dataBarsSelector }),
@@ -705,7 +732,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Sum");
             const totalBehavior = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Sum");
 
-            if (numValues.length > 0) {
+            if (totalBehavior === "None") {
+                totals[measureIndex] = null;
+            } else if (numValues.length > 0) {
                 if (totalBehavior === "Sum" || totalBehavior === "Measure") {
                     totals[measureIndex] = numValues.reduce((a, b) => a + b, 0);
                 } else if (totalBehavior === "Average") {
@@ -950,15 +979,17 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let clampedValue = Math.max(min, Math.min(max, numValue));
                             let zeroPoint = Math.max(min, Math.min(max, 0));
 
-                            let scale = labelsOutside ? 0.75 : 1;
+                            let leftMarginPct = (labelsOutside && min < 0) ? 25 : 0;
+                              let rightMarginPct = (labelsOutside && max > 0) ? 25 : 0;
+                              let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
 
-                            if (clampedValue >= zeroPoint) {
-                                widthPct = ((clampedValue - zeroPoint) / range) * 100 * scale;
-                                leftPct = ((zeroPoint - min) / range) * 100 * scale;
-                            } else {
-                                widthPct = ((zeroPoint - clampedValue) / range) * 100 * scale;
-                                leftPct = ((clampedValue - min) / range) * 100 * scale;
-                            }
+                              if (clampedValue >= zeroPoint) {
+                                  widthPct = ((clampedValue - zeroPoint) / range) * 100 * scaleMultiplier;
+                                  leftPct = leftMarginPct + ((zeroPoint - min) / range) * 100 * scaleMultiplier;
+                              } else {
+                                  widthPct = ((zeroPoint - clampedValue) / range) * 100 * scaleMultiplier;
+                                  leftPct = leftMarginPct + ((clampedValue - min) / range) * 100 * scaleMultiplier;
+                              }
 
                             // Create data bar div
                             let dataBar = document.createElement("div");
@@ -986,7 +1017,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 zeroLine.style.top = "0";
                                 zeroLine.style.bottom = "0";
                                 zeroLine.style.width = "2px";
-                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scale;
+                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
                                 zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
                                 zeroLine.style.backgroundColor = applyTransparency(zeroLineColor, zeroLineTransparency);
                                 zeroLine.style.zIndex = "1"; 
@@ -1194,10 +1225,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 let effectiveAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
                 
                 let cell = totalRow.insertCell();
-                cell.textContent = total.toLocaleString(undefined, {
-                    maximumFractionDigits: 2,
-                    minimumFractionDigits: 0
-                });
+                if (total === null || total === undefined) {
+                    cell.textContent = "";
+                } else {
+                    cell.textContent = total.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                        minimumFractionDigits: 0
+                    });
+                }
                 cell.className = 'table-total-cell';
                 cell.style.width = `${valueColumnWidths[i]}px`;
                 cell.style.minWidth = `${valueColumnWidths[i]}px`;
@@ -1488,15 +1523,17 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let clampedValue = Math.max(min, Math.min(max, numValue));
                             let zeroPoint = Math.max(min, Math.min(max, 0));
 
-                            let scale = labelsOutside ? 0.75 : 1;
+                            let leftMarginPct = (labelsOutside && min < 0) ? 25 : 0;
+                              let rightMarginPct = (labelsOutside && max > 0) ? 25 : 0;
+                              let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
 
-                            if (clampedValue >= zeroPoint) {
-                                widthPct = ((clampedValue - zeroPoint) / range) * 100 * scale;
-                                leftPct = ((zeroPoint - min) / range) * 100 * scale;
-                            } else {
-                                widthPct = ((zeroPoint - clampedValue) / range) * 100 * scale;
-                                leftPct = ((clampedValue - min) / range) * 100 * scale;
-                            }
+                              if (clampedValue >= zeroPoint) {
+                                  widthPct = ((clampedValue - zeroPoint) / range) * 100 * scaleMultiplier;
+                                  leftPct = leftMarginPct + ((zeroPoint - min) / range) * 100 * scaleMultiplier;
+                              } else {
+                                  widthPct = ((zeroPoint - clampedValue) / range) * 100 * scaleMultiplier;
+                                  leftPct = leftMarginPct + ((clampedValue - min) / range) * 100 * scaleMultiplier;
+                              }
 
                             // Create data bar div
                             let dataBar = document.createElement("div");
@@ -1524,7 +1561,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 zeroLine.style.top = "0";
                                 zeroLine.style.bottom = "0";
                                 zeroLine.style.width = "2px";
-                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scale;
+                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
                                 zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
                                 zeroLine.style.backgroundColor = applyTransparency(zeroLineColor, zeroLineTransparency);
                                 zeroLine.style.zIndex = "1"; 
@@ -1686,10 +1723,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 if (showTotalRow) {
                     let totalCell = row.insertCell();
                     let totalVal = totals[measureIndex];
-                    totalCell.textContent = totalVal.toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                        minimumFractionDigits: 0
-                    });
+                    if (totalVal === null || totalVal === undefined) {
+                        totalCell.textContent = "";
+                    } else {
+                        totalCell.textContent = totalVal.toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                            minimumFractionDigits: 0
+                        });
+                    }
                     totalCell.className = 'table-data-cell';
                     totalCell.style.width = `${valueColumnWidths[measureIndex]}px`;
                     totalCell.style.minWidth = `${valueColumnWidths[measureIndex]}px`;

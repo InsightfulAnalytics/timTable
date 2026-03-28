@@ -229,10 +229,36 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
         instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
     });
 
+    public minValueType = new formattingSettings.ItemDropdown({
+        name: "minValueType",
+        displayName: "Minimum Type",
+        value: { value: "Amount", displayName: "Amount" },
+        items: [
+            { value: "Amount", displayName: "Amount" },
+            { value: "Percentage", displayName: "By percentage" }
+        ],
+        visible: true
+    });
+
     public minValue = new formattingSettings.NumUpDown({
         name: "minValue",
         displayName: "Minimum Value",
         value: null,
+        options: {
+            placeholderText: "Auto",
+            placeholder: "Auto"
+        } as any,
+        visible: true
+    });
+
+    public maxValueType = new formattingSettings.ItemDropdown({
+        name: "maxValueType",
+        displayName: "Maximum Type",
+        value: { value: "Amount", displayName: "Amount" },
+        items: [
+            { value: "Amount", displayName: "Amount" },
+            { value: "Percentage", displayName: "By percentage" }
+        ],
         visible: true
     });
 
@@ -240,6 +266,10 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
         name: "maxValue",
         displayName: "Maximum Value",
         value: null,
+        options: {
+            placeholderText: "Auto",
+            placeholder: "Auto"
+        } as any,
         visible: true
     });
 
@@ -280,7 +310,7 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
     public dataBarsGroup = new formattingSettings.Group({
         displayName: "Data Bars Settings",
         name: "dataBarsGroup",
-        slices: [this.showDataBars, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.minValue, this.maxValue, this.labelsOutside, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
+        slices: [this.showDataBars, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.minValueType, this.minValue, this.maxValueType, this.maxValue, this.labelsOutside, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
     });
 
     public groups: formattingSettings.Group[] = [this.selectSeriesGroup, this.dataBarsGroup];

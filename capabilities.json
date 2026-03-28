@@ -98,9 +98,25 @@
                         }
                     }
                 },
+                "minValueType": {
+                    "type": {
+                        "enumeration": [
+                            { "value": "Amount" },
+                            { "value": "Percentage" }
+                        ]
+                    }
+                },
                 "minValue": {
                     "type": {
                         "numeric": true
+                    }
+                },
+                "maxValueType": {
+                    "type": {
+                        "enumeration": [
+                            { "value": "Amount" },
+                            { "value": "Percentage" }
+                        ]
                     }
                 },
                 "maxValue": {
@@ -250,6 +266,10 @@
                             {
                                 "value": "Min",
                                 "displayName": "Min"
+                            },
+                            {
+                                "value": "None",
+                                "displayName": "None"
                             }
                         ]
                     }
