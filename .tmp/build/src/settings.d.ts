@@ -62,13 +62,15 @@ export declare class DataBarsFormattingSettings extends formattingSettings.Compo
     matchDataBarColor: formattingSettings.ToggleSwitch;
     borderThickness: formattingSettings.NumUpDown;
     borderColor: formattingSettings.ColorPicker;
-    minValue: formattingSettings.NumUpDown;
+    axisType: formattingSettings.ItemDropdown;
     maxValue: formattingSettings.NumUpDown;
+    minValue: formattingSettings.NumUpDown;
     labelsOutside: formattingSettings.ToggleSwitch;
     showZeroLine: formattingSettings.ToggleSwitch;
     zeroLineColor: formattingSettings.ColorPicker;
     zeroLineTransparency: formattingSettings.NumUpDown;
     selectSeriesGroup: formattingSettings.Group;
+    yAxisGroup: formattingSettings.Group;
     dataBarsGroup: formattingSettings.Group;
     groups: formattingSettings.Group[];
 }
