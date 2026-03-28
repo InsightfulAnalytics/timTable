@@ -141,6 +141,13 @@ export class ValueConditionalFormattingSettings extends FormattingSettingsCard {
     public slices: FormattingSettingsSlice[] = [];
 }
 
+export class ValueBackgroundConditionalFormattingSettings extends FormattingSettingsCard {
+    name: string = "valueBackgroundConditionalFormatting";
+    displayName: string = "Value background conditional formatting";
+    visible: boolean = true;
+    public slices: FormattingSettingsSlice[] = [];
+}
+
 export class DataBarsConditionalFormattingSettings extends FormattingSettingsCard {
     name: string = "dataBarsConditionalFormatting";
     displayName: string = "Data bar conditional formatting";
@@ -715,6 +722,7 @@ export class VisualSettings extends FormattingSettingsModel {
     public table: TableSettings = new TableSettings();
     public categoryConditionalFormatting: CategoryConditionalFormattingSettings = new CategoryConditionalFormattingSettings();
     public valueConditionalFormatting: ValueConditionalFormattingSettings = new ValueConditionalFormattingSettings();
+    public valueBackgroundConditionalFormatting: ValueBackgroundConditionalFormattingSettings = new ValueBackgroundConditionalFormattingSettings();
     public dataBarsConditionalFormatting: DataBarsConditionalFormattingSettings = new DataBarsConditionalFormattingSettings();
     public dataBarsFormatting: DataBarsFormattingSettings = new DataBarsFormattingSettings();
     public dataBarMarkers: DataBarMarkersSettings = new DataBarMarkersSettings();
@@ -722,5 +730,5 @@ export class VisualSettings extends FormattingSettingsModel {
     public gridMenu: GridSettings = new GridSettings();
     public columnWidth: ColumnWidthSettings = new ColumnWidthSettings();
 
-    public cards: FormattingSettingsCard[] = [this.specificColumn, this.columnHeaders, this.valuesMenu, this.table, this.columnWidth, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
+    public cards: FormattingSettingsCard[] = [this.specificColumn, this.columnHeaders, this.valuesMenu, this.table, this.columnWidth, this.totals, this.gridMenu, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.valueBackgroundConditionalFormatting, this.dataBarsConditionalFormatting, this.dataBarsFormatting, this.dataBarMarkers];
 }

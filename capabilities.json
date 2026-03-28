@@ -54,7 +54,9 @@
                 }
             }
         },
-        "valueConditionalFormatting": { "properties": { "textColor": { "type": { "fill": { "solid": { "color": true } } } } } }, "dataBarsConditionalFormatting": { "properties": { "dataBarColor": { "type": { "fill": { "solid": { "color": true } } } } } },
+        "valueConditionalFormatting": { "properties": { "textColor": { "type": { "fill": { "solid": { "color": true } } } } } },
+        "valueBackgroundConditionalFormatting": { "properties": { "backgroundColor": { "type": { "fill": { "solid": { "color": true } } } } } },
+        "dataBarsConditionalFormatting": { "properties": { "dataBarColor": { "type": { "fill": { "solid": { "color": true } } } } } },
         "dataBarsFormatting": {
             "properties": {
                 "showDataBars": {

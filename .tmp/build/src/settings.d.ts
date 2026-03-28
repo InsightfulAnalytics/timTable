@@ -32,6 +32,12 @@ export declare class ValueConditionalFormattingSettings extends FormattingSettin
     visible: boolean;
     slices: FormattingSettingsSlice[];
 }
+export declare class ValueBackgroundConditionalFormattingSettings extends FormattingSettingsCard {
+    name: string;
+    displayName: string;
+    visible: boolean;
+    slices: FormattingSettingsSlice[];
+}
 export declare class DataBarsConditionalFormattingSettings extends FormattingSettingsCard {
     name: string;
     displayName: string;
@@ -153,6 +159,7 @@ export declare class VisualSettings extends FormattingSettingsModel {
     table: TableSettings;
     categoryConditionalFormatting: CategoryConditionalFormattingSettings;
     valueConditionalFormatting: ValueConditionalFormattingSettings;
+    valueBackgroundConditionalFormatting: ValueBackgroundConditionalFormattingSettings;
     dataBarsConditionalFormatting: DataBarsConditionalFormattingSettings;
     dataBarsFormatting: DataBarsFormattingSettings;
     dataBarMarkers: DataBarMarkersSettings;

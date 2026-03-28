@@ -110,6 +110,8 @@ export class Visual implements IVisual {
         const defaultCategoryTextColor = categoryCFSettings.textColor.value.value;
         const valueCFSettings = this.visualSettings.valueConditionalFormatting;
         valueCFSettings.slices = []; // Will be populated dynamically per-measure
+        const valueBgCFSettings = this.visualSettings.valueBackgroundConditionalFormatting;
+        valueBgCFSettings.slices = []; // Will be populated dynamically per-measure
 
         totalsSettings.slices = [
             totalsSettings.showTotalRow,
@@ -410,6 +412,21 @@ interface MeasureSpecificSettings {
                 altConstantSelector: { metadata: queryName },
                 instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
             }));
+
+              const defaultMeasureBgColor = dataViewObjects.getFillColor(
+                  valueColumn.source.objects || {},
+                  { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" },
+                  backgroundColor
+              );
+              valueBgCFSettings.slices.push(new formattingSettings.ColorPicker({
+                  name: "backgroundColor",
+                  displayName: displayName + " Background Color",
+                  value: { value: defaultMeasureBgColor },
+                  visible: true,
+                  selector: compositeSelector,
+                  altConstantSelector: { metadata: queryName },
+                  instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
+              }));
 
             // Data bar color CF: register per-measure slice on the simple card
             const defaultDataBarColor = dataViewObjects.getFillColor(
@@ -853,6 +870,12 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         (typeof isEvenRow !== 'undefined') ? (isEvenRow ? textColor : alternateTextColor) : textColor
                     );
 
+                    const defaultMeasureBgColor = dataViewObjects.getFillColor(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" },
+                        (typeof isEvenRow !== 'undefined') ? (isEvenRow ? backgroundColor : alternateBackgroundColor) : backgroundColor
+                    );
+
                     let cellTextColor = defaultMeasureTextColor;
                     if (valueColumn.objects && valueColumn.objects[i]) {
                         const cfColor = dataViewObjects.getFillColor(
@@ -861,6 +884,17 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         );
                         if (cfColor) {
                             cellTextColor = cfColor;
+                        }
+                    }
+
+                    let cellBackgroundColor = defaultMeasureBgColor;
+                    if (valueColumn.objects && valueColumn.objects[i]) {
+                        const cfBgColor = dataViewObjects.getFillColor(
+                            valueColumn.objects[i],
+                            { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" }
+                        );
+                        if (cfBgColor) {
+                            cellBackgroundColor = cfBgColor;
                         }
                     }
 
@@ -1072,20 +1106,20 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                       cell.style.fontStyle = cellItalic ? "italic" : "normal";
                       cell.style.textDecoration = cellUnderline ? "underline" : "none";
                     cell.style.borderRight = vertBorderValue;
-                    cell.style.backgroundColor = rowBgColor;
+                    cell.style.backgroundColor = cellBackgroundColor;
                     cell.style.color = cellTextColor;
                     cell.style.overflow = "hidden";
                     cell.style.textOverflow = "ellipsis";
 
                     let specSettings = measureSettingsList[measureIndex];
                     let specRowBgColor = isEvenRow ? 
-                        (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : rowBgColor) : 
-                        (specSettings.alternateBackgroundColor !== undefined ? specSettings.alternateBackgroundColor : rowBgColor);
+                        (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : cellBackgroundColor) : 
+                        (specSettings.alternateBackgroundColor !== undefined ? specSettings.alternateBackgroundColor : cellBackgroundColor);
                     let specCellTextColor = isEvenRow ? 
                         (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) : 
                         (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor);
 
-                    let effectiveBg = specSettings.applyToValues ? specRowBgColor : rowBgColor;
+                    let effectiveBg = specSettings.applyToValues ? specRowBgColor : cellBackgroundColor;
                     let effectiveColor = specSettings.applyToValues ? specCellTextColor : cellTextColor;
 
                     let efBold = specSettings.applyToValues && specSettings.bold !== undefined ? specSettings.bold : valueBold;
@@ -1354,6 +1388,12 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         (typeof isEvenRow !== 'undefined') ? (isEvenRow ? textColor : alternateTextColor) : textColor
                     );
 
+                    const defaultMeasureBgColor = dataViewObjects.getFillColor(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" },
+                        (typeof isEvenRow !== 'undefined') ? (isEvenRow ? backgroundColor : alternateBackgroundColor) : backgroundColor
+                    );
+
                 const objects = valueColumn.source.objects || {};
                 const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
                 const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
@@ -1388,6 +1428,15 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (cfColor) cellTextColor = cfColor;
                         
                         
+                    }
+
+                    let cellBackgroundColor = defaultMeasureBgColor;
+                    if (valueColumn.objects && valueColumn.objects[i]) {
+                        const cfBgColor = dataViewObjects.getFillColor(
+                            valueColumn.objects[i],
+                            { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" }
+                        );
+                        if (cfBgColor) cellBackgroundColor = cfBgColor;
                     }
 
                     let value = valueColumn.values[i];
@@ -1595,20 +1644,20 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                       cell.style.fontStyle = cellItalic ? "italic" : "normal";
                       cell.style.textDecoration = cellUnderline ? "underline" : "none";
                     cell.style.borderRight = vertBorderValue;
-                    cell.style.backgroundColor = rowBgColor;
+                    cell.style.backgroundColor = cellBackgroundColor;
                     cell.style.color = cellTextColor;
                     cell.style.overflow = "hidden";
                     cell.style.textOverflow = "ellipsis";
 
                     let specSettings = measureSettingsList[measureIndex];
                     let specRowBgColor = isEvenRow ? 
-                        (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : rowBgColor) : 
-                        (specSettings.alternateBackgroundColor !== undefined ? specSettings.alternateBackgroundColor : rowBgColor);
+                        (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : cellBackgroundColor) : 
+                        (specSettings.alternateBackgroundColor !== undefined ? specSettings.alternateBackgroundColor : cellBackgroundColor);
                     let specCellTextColor = isEvenRow ? 
                         (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) : 
                         (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor);
 
-                    let effectiveBg = specSettings.applyToValues ? specRowBgColor : rowBgColor;
+                    let effectiveBg = specSettings.applyToValues ? specRowBgColor : cellBackgroundColor;
                     let effectiveColor = specSettings.applyToValues ? specCellTextColor : cellTextColor;
 
                     let efBold = specSettings.applyToValues && specSettings.bold !== undefined ? specSettings.bold : valueBold;
