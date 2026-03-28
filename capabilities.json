@@ -98,20 +98,7 @@
                         }
                     }
                 },
-                "minValueType": {
-                    "type": {
-                        "enumeration": [
-                            { "value": "Amount" },
-                            { "value": "Percentage" }
-                        ]
-                    }
-                },
-                "minValue": {
-                    "type": {
-                        "numeric": true
-                    }
-                },
-                "maxValueType": {
+                "axisType": {
                     "type": {
                         "enumeration": [
                             { "value": "Amount" },
@@ -120,6 +107,11 @@
                     }
                 },
                 "maxValue": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "minValue": {
                     "type": {
                         "numeric": true
                     }

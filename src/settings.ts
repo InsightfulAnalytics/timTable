@@ -229,31 +229,9 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
         instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
     });
 
-    public minValueType = new formattingSettings.ItemDropdown({
-        name: "minValueType",
-        displayName: "Minimum Type",
-        value: { value: "Amount", displayName: "Amount" },
-        items: [
-            { value: "Amount", displayName: "Amount" },
-            { value: "Percentage", displayName: "By percentage" }
-        ],
-        visible: true
-    });
-
-    public minValue = new formattingSettings.NumUpDown({
-        name: "minValue",
-        displayName: "Minimum Value",
-        value: null,
-        options: {
-            placeholderText: "Auto",
-            placeholder: "Auto"
-        } as any,
-        visible: true
-    });
-
-    public maxValueType = new formattingSettings.ItemDropdown({
-        name: "maxValueType",
-        displayName: "Maximum Type",
+    public axisType = new formattingSettings.ItemDropdown({
+        name: "axisType",
+        displayName: "Type",
         value: { value: "Amount", displayName: "Amount" },
         items: [
             { value: "Amount", displayName: "Amount" },
@@ -264,7 +242,18 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
 
     public maxValue = new formattingSettings.NumUpDown({
         name: "maxValue",
-        displayName: "Maximum Value",
+        displayName: "Upper bound",
+        value: null,
+        options: {
+            placeholderText: "Auto",
+            placeholder: "Auto"
+        } as any,
+        visible: true
+    });
+
+    public minValue = new formattingSettings.NumUpDown({
+        name: "minValue",
+        displayName: "Lower bound",
         value: null,
         options: {
             placeholderText: "Auto",
@@ -307,13 +296,19 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
         slices: [this.series]
     });
 
+    public yAxisGroup = new formattingSettings.Group({
+        displayName: "Y-axis",
+        name: "yAxisGroup",
+        slices: [this.axisType, this.maxValue, this.minValue]
+    });
+
     public dataBarsGroup = new formattingSettings.Group({
         displayName: "Data Bars Settings",
         name: "dataBarsGroup",
-        slices: [this.showDataBars, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.minValueType, this.minValue, this.maxValueType, this.maxValue, this.labelsOutside, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
+        slices: [this.showDataBars, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.labelsOutside, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
     });
 
-    public groups: formattingSettings.Group[] = [this.selectSeriesGroup, this.dataBarsGroup];
+    public groups: formattingSettings.Group[] = [this.selectSeriesGroup, this.dataBarsGroup, this.yAxisGroup];
 }
 
 export class DataBarMarkersSettings extends FormattingSettingsCard {
