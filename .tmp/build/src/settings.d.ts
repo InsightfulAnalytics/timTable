@@ -140,6 +140,7 @@ export declare class SpecificColumnSettings extends formattingSettings.Composite
     alignment: formattingSettings.AlignmentGroup;
     displayUnits: formattingSettings.AutoDropdown;
     decimalPlaces: formattingSettings.NumUpDown;
+    horizontalGrid: formattingSettings.ToggleSwitch;
     valuesGroup: formattingSettings.Group;
     name: string;
     displayName: string;

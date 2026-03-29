@@ -653,6 +653,11 @@
                     "type": {
                         "bool": true
                     }
+                },
+                "horizontalGrid": {
+                    "type": {
+                        "bool": true
+                    }
                 }
             }
         }

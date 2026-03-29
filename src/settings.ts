@@ -711,10 +711,17 @@ export class SpecificColumnSettings extends formattingSettings.CompositeCard {
         visible: true
     });
 
+    public horizontalGrid = new formattingSettings.ToggleSwitch({
+        name: "horizontalGrid",
+        displayName: "Horizontal grid",
+        value: true,
+        visible: true
+    });
+
     public valuesGroup = new formattingSettings.Group({
         displayName: "Values",
         name: "specificValues", // NOTE: renamed to specificValues to avoid clash with global 'values' object
-        slices: [this.font, this.textColor, this.backgroundColor, this.alternateTextColor, this.alternateBackgroundColor, this.alignment, this.displayUnits, this.decimalPlaces, this.textWrap]
+        slices: [this.font, this.textColor, this.backgroundColor, this.alternateTextColor, this.alternateBackgroundColor, this.alignment, this.displayUnits, this.decimalPlaces, this.textWrap, this.horizontalGrid]
     });
 
     public name: string = "specificColumn";

@@ -164,8 +164,10 @@ export class Visual implements IVisual {
         const horizLines = gridSettings.horizontalGridlines.value;
         const horizColor = applyTransparency(gridSettings.horizontalGridColor.value.value, gridSettings.horizontalGridTransparency.value);
         const horizWidth = gridSettings.horizontalGridWidth.value;
-        const horizBorderValue = horizLines ? `${horizWidth}px solid ${horizColor}` : 'none';
-        const horizBorder2xValue = horizLines ? `${horizWidth * 2}px solid ${horizColor}` : 'none';
+        const horizBorderValue = horizLines ? `${horizWidth}px solid ${horizColor}` : 'hidden';
+        const horizBorder2xValue = horizLines ? `${horizWidth * 2}px solid ${horizColor}` : 'hidden';
+        const horizBorderValueOn = `${horizWidth}px solid ${horizColor}`;
+        const horizBorder2xValueOn = `${horizWidth * 2}px solid ${horizColor}`;
 
         const vertLines = gridSettings.verticalGridlines.value;
         const vertColor = applyTransparency(gridSettings.verticalGridColor.value.value, gridSettings.verticalGridTransparency.value);
@@ -330,6 +332,7 @@ interface MeasureSpecificSettings {
     italic: boolean | undefined;
     underline: boolean | undefined;
     textWrap: boolean | undefined;
+    horizontalGrid: boolean;
 }
 
           let measureSettingsList: MeasureSpecificSettings[] = [];
@@ -353,7 +356,8 @@ interface MeasureSpecificSettings {
                   bold: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "bold" }, undefined) as boolean | undefined,
                   italic: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "italic" }, undefined) as boolean | undefined,
                   underline: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "underline" }, undefined) as boolean | undefined,
-                  textWrap: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "textWrap" }, undefined) as boolean | undefined
+                  textWrap: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "textWrap" }, undefined) as boolean | undefined,
+                  horizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true)
               };
               measureSettingsList.push(settings);
 
@@ -563,6 +567,7 @@ interface MeasureSpecificSettings {
           const scDisplayUnits = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "displayUnits" }, 0);
           const scDecimalPlaces = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "decimalPlaces" }, 1);
           const scTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "textWrap" }, undefined);
+          const scHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true);
 
           // Populate columnHeaders nameSeries dropdown and rebuild names group with per-measure selector
           columnHeadersSettings.nameSeries.items = measureHeaders.map(name => ({ value: name, displayName: name }));
@@ -626,7 +631,8 @@ interface MeasureSpecificSettings {
               new formattingSettings.AlignmentGroup({ name: "alignment", displayName: "Alignment", value: scAlignment || "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true, selector }),
               new formattingSettings.AutoDropdown({ name: "displayUnits", displayName: "Display units", value: scDisplayUnits, visible: true, selector }),
               new formattingSettings.NumUpDown({ name: "decimalPlaces", displayName: "Value decimal places", value: scDecimalPlaces, visible: true, selector }),
-              new formattingSettings.ToggleSwitch({ name: "textWrap", displayName: "Text wrap", value: scTextWrap ?? false, visible: true, selector })
+              new formattingSettings.ToggleSwitch({ name: "textWrap", displayName: "Text wrap", value: scTextWrap ?? false, visible: true, selector }),
+              new formattingSettings.ToggleSwitch({ name: "horizontalGrid", displayName: "Horizontal grid", value: scHorizontalGrid, visible: true, selector })
           ];
 
           // Populate dataBarsSettings series dropdown and rebuild value slices with per-measure selector
@@ -801,6 +807,15 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 header.style.color = effectiveColor;
                 header.style.textAlign = effectiveAlign;
                 header.style.borderRight = vertBorderValue;
+
+                if (specSettings.applyToHeader && specSettings.horizontalGrid !== undefined) {
+                    if (specSettings.horizontalGrid) {
+                        header.style.borderBottom = horizBorder2xValueOn;
+                    } else {
+                        header.style.borderBottom = 'hidden';
+                    }
+                }
+
                 header.style.backgroundColor = effectiveBg;
                 header.style.overflow = "hidden";
                 header.style.textOverflow = "ellipsis";
@@ -1173,6 +1188,15 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let efFontSize = specSettings.applyToValues && specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
                     let efWordWrap = specSettings.applyToValues && specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
                     let effectiveAlign = specSettings.applyToValues && specSettings.alignment ? specSettings.alignment : "right";
+
+                    if (specSettings.applyToValues && specSettings.horizontalGrid !== undefined) {
+                        if (specSettings.horizontalGrid) {
+                            cell.style.borderBottom = horizBorderValueOn;
+                        } else {
+                            cell.style.borderBottom = 'hidden';
+                        }
+                    }
+
                     cell.style.backgroundColor = effectiveBg;
                     cell.style.color = effectiveColor;
                     cell.style.fontWeight = efBold ? "bold" : "normal";
@@ -1256,6 +1280,17 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 cell.style.fontFamily = efFontFamily;
                 cell.style.fontStyle = efItalic ? "italic" : "normal";
                 cell.style.borderRight = vertBorderValue;
+
+                if (specSettings.applyToTotal && specSettings.horizontalGrid !== undefined) {
+                    if (specSettings.horizontalGrid) {
+                        cell.style.borderBottom = horizBorder2xValueOn;
+                        cell.style.borderTop = horizBorder2xValueOn;
+                    } else {
+                        cell.style.borderBottom = 'hidden';
+                        cell.style.borderTop = 'hidden';
+                    }
+                }
+
                 cell.style.backgroundColor = effectiveBg;
                 cell.style.color = effectiveColor;
                 cell.style.overflow = "hidden";
@@ -1401,7 +1436,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             values.forEach((valueColumn, measureIndex) => {
                 let row = this.table.insertRow();
                 row.className = 'table-data-row';
-                row.style.borderBottom = horizBorderValue;
+                
+                let mObj = measureSettingsList[measureIndex];
+                if (mObj && mObj.horizontalGrid !== undefined && mObj.applyToValues) {
+                    row.style.borderBottom = mObj.horizontalGrid ? horizBorderValueOn : 'hidden';
+                } else {
+                    row.style.borderBottom = horizBorderValue;
+                }
                 
                 const isEvenRow = measureIndex % 2 === 0;
                 const rowHeight = isEvenRow ? valueRowHeight : alternateValueRowHeight;
@@ -1740,6 +1781,15 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let efFontSize = specSettings.applyToValues && specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
                     let efWordWrap = specSettings.applyToValues && specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
                     let effectiveAlign = specSettings.applyToValues && specSettings.alignment ? specSettings.alignment : "right";
+
+                    if (specSettings.applyToValues && specSettings.horizontalGrid !== undefined) {
+                        if (specSettings.horizontalGrid) {
+                            cell.style.borderBottom = horizBorderValueOn;
+                        } else {
+                            cell.style.borderBottom = 'hidden';
+                        }
+                    }
+
                     cell.style.backgroundColor = effectiveBg;
                     cell.style.color = effectiveColor;
                     cell.style.fontWeight = efBold ? "bold" : "normal";
@@ -1790,6 +1840,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     totalCell.style.backgroundColor = efTotalBg;
                     totalCell.style.color = efTotalColor;
                     totalCell.style.textAlign = efTotalAlign;
+
+                    if (specSettings.applyToTotal && specSettings.horizontalGrid !== undefined) {
+                        if (specSettings.horizontalGrid) {
+                            totalCell.style.borderBottom = horizBorderValueOn;
+                        } else {
+                            totalCell.style.borderBottom = 'hidden';
+                        }
+                    }
                     totalCell.style.overflow = "hidden";
                     totalCell.style.textOverflow = "ellipsis";
                     totalCell.style.whiteSpace = efTotalWordWrap ? "normal" : "nowrap";
