@@ -333,6 +333,7 @@ interface MeasureSpecificSettings {
     underline: boolean | undefined;
     textWrap: boolean | undefined;
     horizontalGrid: boolean;
+    transparency: number;
 }
 
           let measureSettingsList: MeasureSpecificSettings[] = [];
@@ -357,7 +358,8 @@ interface MeasureSpecificSettings {
                   italic: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "italic" }, undefined) as boolean | undefined,
                   underline: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "underline" }, undefined) as boolean | undefined,
                   textWrap: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "textWrap" }, undefined) as boolean | undefined,
-                  horizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true)
+                  horizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true),
+                  transparency: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "transparency" }, 0)
               };
               measureSettingsList.push(settings);
 
@@ -568,6 +570,7 @@ interface MeasureSpecificSettings {
           const scDecimalPlaces = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "decimalPlaces" }, 1);
           const scTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "textWrap" }, undefined);
           const scHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true);
+          const scTransparency = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "transparency" }, 0);
 
           // Populate columnHeaders nameSeries dropdown and rebuild names group with per-measure selector
           columnHeadersSettings.nameSeries.items = measureHeaders.map(name => ({ value: name, displayName: name }));
@@ -632,6 +635,7 @@ interface MeasureSpecificSettings {
               new formattingSettings.AutoDropdown({ name: "displayUnits", displayName: "Display units", value: scDisplayUnits, visible: true, selector }),
               new formattingSettings.NumUpDown({ name: "decimalPlaces", displayName: "Value decimal places", value: scDecimalPlaces, visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "textWrap", displayName: "Text wrap", value: scTextWrap ?? false, visible: true, selector }),
+              new formattingSettings.NumUpDown({ name: "transparency", displayName: "Value Transparency (%)", value: scTransparency, visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "horizontalGrid", displayName: "Horizontal grid", value: scHorizontalGrid, visible: true, selector })
           ];
 
@@ -792,6 +796,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 let efFontSize = specSettings.applyToHeader && specSettings.fontSize !== undefined ? specSettings.fontSize : headerFontSize;
                 let efWordWrap = specSettings.applyToHeader && specSettings.textWrap !== undefined ? specSettings.textWrap : headerWordWrap;
                 let effectiveColor = specSettings.applyToHeader && specSettings.textColor ? specSettings.textColor : headerTextColor;
+                if (specSettings.applyToHeader && specSettings.transparency > 0) {
+                    effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
+                }
                 let effectiveAlign = specSettings.applyToHeader && specSettings.alignment ? specSettings.alignment : headerAlignment;
                 let header = headerRow.insertCell();
                 header.textContent = effectiveDisplayName;
@@ -1180,6 +1187,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                     let effectiveBg = specSettings.applyToValues ? specRowBgColor : cellBackgroundColor;
                     let effectiveColor = specSettings.applyToValues ? specCellTextColor : cellTextColor;
+                    if (specSettings.applyToValues && specSettings.transparency > 0) {
+                        effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
+                    }
 
                     let efBold = specSettings.applyToValues && specSettings.bold !== undefined ? specSettings.bold : valueBold;
                     let efItalic = specSettings.applyToValues && specSettings.italic !== undefined ? specSettings.italic : cellItalic;
@@ -1252,6 +1262,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 let specSettings = measureSettingsList[i];
                 let effectiveBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : totalRowBackgroundColor;
                 let effectiveColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : totalRowTextColor;
+                if (specSettings.applyToTotal && specSettings.transparency > 0) {
+                    effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
+                }
                 
                 let efBold = specSettings.applyToTotal && specSettings.bold !== undefined ? specSettings.bold : totalRowBold;
                 let efItalic = specSettings.applyToTotal && specSettings.italic !== undefined ? specSettings.italic : totalRowItalic;
@@ -1773,6 +1786,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                     let effectiveBg = specSettings.applyToValues ? specRowBgColor : cellBackgroundColor;
                     let effectiveColor = specSettings.applyToValues ? specCellTextColor : cellTextColor;
+                    if (specSettings.applyToValues && specSettings.transparency > 0) {
+                        effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
+                    }
 
                     let efBold = specSettings.applyToValues && specSettings.bold !== undefined ? specSettings.bold : valueBold;
                     let efItalic = specSettings.applyToValues && specSettings.italic !== undefined ? specSettings.italic : cellItalic;

@@ -556,6 +556,11 @@
                         "bool": true
                     }
                 },
+                "transparency": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
                 "textColor": {
                     "type": {
                         "fill": {

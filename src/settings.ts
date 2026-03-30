@@ -711,6 +711,13 @@ export class SpecificColumnSettings extends formattingSettings.CompositeCard {
         visible: true
     });
 
+    public transparency = new formattingSettings.NumUpDown({
+        name: "transparency",
+        displayName: "Value Transparency (%)",
+        value: 0,
+        visible: true
+    });
+
     public horizontalGrid = new formattingSettings.ToggleSwitch({
         name: "horizontalGrid",
         displayName: "Horizontal grid",
@@ -721,7 +728,7 @@ export class SpecificColumnSettings extends formattingSettings.CompositeCard {
     public valuesGroup = new formattingSettings.Group({
         displayName: "Values",
         name: "specificValues", // NOTE: renamed to specificValues to avoid clash with global 'values' object
-        slices: [this.font, this.textColor, this.backgroundColor, this.alternateTextColor, this.alternateBackgroundColor, this.alignment, this.displayUnits, this.decimalPlaces, this.textWrap, this.horizontalGrid]
+        slices: [this.font, this.textColor, this.backgroundColor, this.alternateTextColor, this.alternateBackgroundColor, this.alignment, this.displayUnits, this.decimalPlaces, this.textWrap, this.transparency, this.horizontalGrid]
     });
 
     public name: string = "specificColumn";
