@@ -34,6 +34,7 @@ import DataView = powerbi.DataView;
 import { VisualSettings } from "./settings";
 import { FormattingSettingsService, formattingSettings } from "powerbi-visuals-utils-formattingmodel";
 import { dataViewObjects, dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
+import { valueFormatter } from "powerbi-visuals-utils-formattingutils";
 
 export class Visual implements IVisual {
     private table: HTMLTableElement;
@@ -176,27 +177,13 @@ export class Visual implements IVisual {
 
         // Helper function to get text color for a category row, supporting conditional formatting
 
-        const formatNumber = (num: number, units: number, decimals: number): string => {
-            let divisor = 1;
-            let suffix = "";
-            if (units === 0) { // Auto
-                let absNum = Math.abs(num);
-                if (absNum >= 1000000000000) { divisor = 1000000000000; suffix = "T"; }
-                else if (absNum >= 1000000000) { divisor = 1000000000; suffix = "bn"; }
-                else if (absNum >= 1000000) { divisor = 1000000; suffix = "M"; }
-                else if (absNum >= 1000) { divisor = 1000; suffix = "K"; }
-            } else if (units > 1) {
-                divisor = units;
-                if (units === 1000) suffix = "K";
-                else if (units === 1000000) suffix = "M";
-                else if (units === 1000000000) suffix = "bn";
-                else if (units === 1000000000000) suffix = "T";
-            }
-            
-            return (num / divisor).toLocaleString(undefined, {
-                maximumFractionDigits: decimals,
-                minimumFractionDigits: decimals
-            }) + suffix;
+        const formatValue = (num: number, formatString: string, units: number, decimals: number): string => {
+            const formatter = valueFormatter.create({
+                format: formatString,
+                value: units,
+                precision: decimals
+            });
+            return formatter.format(num);
         };
 
         const getCategoryTextColor = (rowIndex: number, dataView: DataView): string => {
@@ -337,6 +324,7 @@ interface MeasureSpecificSettings {
 }
 
           let measureSettingsList: MeasureSpecificSettings[] = [];
+          let measureFormats: string[] = [];
           let valueColumnWidths: number[] = [];
 
           values.forEach((valueColumn) => {
@@ -362,6 +350,7 @@ interface MeasureSpecificSettings {
                   transparency: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "transparency" }, 0)
               };
               measureSettingsList.push(settings);
+              measureFormats.push(valueColumn.source.format || "");
 
             let displayName = valueColumn.source.displayName || `Measure ${measureHeaders.length + 1}`;
             measureHeaders.push(displayName);
@@ -945,10 +934,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                     if (value !== null && value !== undefined) {
                         let numValue = Number(value);
-                        const formattedValue = numValue.toLocaleString(undefined, {
-                            maximumFractionDigits: 2,
-                            minimumFractionDigits: 0
-                        });
+                        const specSettings = measureSettingsList[measureIndex];
+                        const formattedValue = formatValue(numValue, measureFormats[measureIndex], specSettings.displayUnits, specSettings.decimalPlaces);
 
                         const objects = valueColumn.source.objects || {};
                         const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
@@ -1278,10 +1265,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 if (total === null || total === undefined) {
                     cell.textContent = "";
                 } else {
-                    cell.textContent = total.toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                        minimumFractionDigits: 0
-                    });
+                    cell.textContent = formatValue(total, measureFormats[i], specSettings.displayUnits, specSettings.decimalPlaces);
                 }
                 cell.className = 'table-total-cell';
                 cell.style.width = `${valueColumnWidths[i]}px`;
@@ -1544,10 +1528,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let value = valueColumn.values[i];
                     if (value !== null && value !== undefined) {
                         let numValue = Number(value);
-                        const formattedValue = numValue.toLocaleString(undefined, {
-                            maximumFractionDigits: 2,
-                            minimumFractionDigits: 0
-                        });
+                        const specSettings = measureSettingsList[measureIndex];
+                        const formattedValue = formatValue(numValue, measureFormats[measureIndex], specSettings.displayUnits, specSettings.decimalPlaces);
 
                         const objects = valueColumn.source.objects || {};
                         const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
@@ -1825,19 +1807,16 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 if (showTotalRow) {
                     let totalCell = row.insertCell();
                     let totalVal = totals[measureIndex];
+                    let specSettings = measureSettingsList[measureIndex];
                     if (totalVal === null || totalVal === undefined) {
                         totalCell.textContent = "";
                     } else {
-                        totalCell.textContent = totalVal.toLocaleString(undefined, {
-                            maximumFractionDigits: 2,
-                            minimumFractionDigits: 0
-                        });
+                        totalCell.textContent = formatValue(totalVal, measureFormats[measureIndex], specSettings.displayUnits, specSettings.decimalPlaces);
                     }
                     totalCell.className = 'table-data-cell';
                     totalCell.style.width = `${valueColumnWidths[measureIndex]}px`;
                     totalCell.style.minWidth = `${valueColumnWidths[measureIndex]}px`;
                     totalCell.style.maxWidth = `${valueColumnWidths[measureIndex]}px`;
-                    let specSettings = measureSettingsList[measureIndex];
                     let efTotalBold = specSettings.applyToTotal && specSettings.bold !== undefined ? specSettings.bold : totalRowBold;
                     let efTotalItalic = specSettings.applyToTotal && specSettings.italic !== undefined ? specSettings.italic : totalRowItalic;
                     let efTotalUnderline = specSettings.applyToTotal && specSettings.underline !== undefined ? specSettings.underline : totalRowUnderline;
