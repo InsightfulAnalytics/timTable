@@ -178,12 +178,41 @@ export class Visual implements IVisual {
         // Helper function to get text color for a category row, supporting conditional formatting
 
         const formatValue = (num: number, formatString: string, units: number, decimals: number): string => {
-            const formatter = valueFormatter.create({
-                format: formatString,
-                value: units,
-                precision: decimals
-            });
-            return formatter.format(num);
+            let options: any = { format: formatString };
+            let finalNum = num;
+
+            // Handle DAX trailing comma scaling (e.g. #,0, or #,0;) since valueFormatter doesn't support it natively
+            if (formatString) {
+                const sections = formatString.split(';');
+                // DAX format strings can have up to 3 sections: Positive;Negative;Zero
+                let sectionIndex = 0;
+                if (num < 0 && sections.length > 1) sectionIndex = 1;
+                else if (num === 0 && sections.length > 2) sectionIndex = 2;
+                
+                let activeSection = sections[sectionIndex];
+                if (activeSection) {
+                    // Safe regex to find trailing commas ignoring non-digit formatting characters at the end
+                    const commaScaleRegex = /(,+)(?=[^\d,#0]*$)/;
+                    const match = activeSection.match(commaScaleRegex);
+                    if (match) {
+                        const commas = match[1];
+                        if (!units) {
+                            finalNum = finalNum / Math.pow(1000, commas.length);
+                        }
+                        sections[sectionIndex] = activeSection.replace(commaScaleRegex, '');
+                        options.format = sections.join(';');
+                    }
+                }
+            }
+
+            if (units !== 0 && units !== undefined && units !== null) {
+                options.value = units;
+            }
+            if (decimals !== null && decimals !== undefined) {
+                options.precision = decimals;
+            }
+            const formatter = valueFormatter.create(options);
+            return formatter.format(finalNum);
         };
 
         const getCategoryTextColor = (rowIndex: number, dataView: DataView): string => {
@@ -339,7 +368,7 @@ interface MeasureSpecificSettings {
                   applyToValues: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "applyToValues" }, true),
                   applyToTotal: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "applyToTotal" }, true),
                   displayUnits: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "displayUnits" }, 0),
-                  decimalPlaces: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "decimalPlaces" }, 1),
+                  decimalPlaces: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "decimalPlaces" }, null),
                   fontFamily: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "fontFamily" }, undefined) as string | undefined,
                   fontSize: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "fontSize" }, undefined) as number | undefined,
                   bold: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "bold" }, undefined) as boolean | undefined,
@@ -556,7 +585,7 @@ interface MeasureSpecificSettings {
           const scUnderline = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "underline" }, undefined);
           const scAlignment = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "alignment" }, undefined);
           const scDisplayUnits = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "displayUnits" }, 0);
-          const scDecimalPlaces = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "decimalPlaces" }, 1);
+          const scDecimalPlaces = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "decimalPlaces" }, null);
           const scTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "textWrap" }, undefined);
           const scHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true);
           const scTransparency = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "transparency" }, 0);
@@ -622,7 +651,7 @@ interface MeasureSpecificSettings {
               new formattingSettings.ColorPicker({ name: "alternateBackgroundColor", displayName: "Alternate background color", value: { value: scAltBgColor || "#f5f5f5" }, visible: true, selector }),
               new formattingSettings.AlignmentGroup({ name: "alignment", displayName: "Alignment", value: scAlignment || "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true, selector }),
               new formattingSettings.AutoDropdown({ name: "displayUnits", displayName: "Display units", value: scDisplayUnits, visible: true, selector }),
-              new formattingSettings.NumUpDown({ name: "decimalPlaces", displayName: "Value decimal places", value: scDecimalPlaces, visible: true, selector }),
+              new formattingSettings.NumUpDown({ name: "decimalPlaces", displayName: "Value decimal places", value: scDecimalPlaces, visible: true, selector, options: { placeholderText: "Auto" } as any }),
               new formattingSettings.ToggleSwitch({ name: "textWrap", displayName: "Text wrap", value: scTextWrap ?? false, visible: true, selector }),
               new formattingSettings.NumUpDown({ name: "transparency", displayName: "Value Transparency (%)", value: scTransparency, visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "horizontalGrid", displayName: "Horizontal grid", value: scHorizontalGrid, visible: true, selector })
@@ -935,7 +964,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (value !== null && value !== undefined) {
                         let numValue = Number(value);
                         const specSettings = measureSettingsList[measureIndex];
-                        const formattedValue = formatValue(numValue, measureFormats[measureIndex], specSettings.displayUnits, specSettings.decimalPlaces);
+                        const dynamicFormat = valueColumn.objects?.[i]?.general?.formatString as string;
+                        const cellFormat = dynamicFormat || measureFormats[measureIndex];
+                        const formattedValue = formatValue(numValue, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces);
 
                         const objects = valueColumn.source.objects || {};
                         const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
@@ -1265,7 +1296,17 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 if (total === null || total === undefined) {
                     cell.textContent = "";
                 } else {
-                    cell.textContent = formatValue(total, measureFormats[i], specSettings.displayUnits, specSettings.decimalPlaces);
+                    let firstRowDynamicFormat: string;
+                    if (values[i].objects) {
+                        for (let obj of values[i].objects) {
+                            if (obj?.general?.formatString) {
+                                firstRowDynamicFormat = obj.general.formatString as string;
+                                break;
+                            }
+                        }
+                    }
+                    const totalFormat = firstRowDynamicFormat || measureFormats[i];
+                    cell.textContent = formatValue(total, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces);
                 }
                 cell.className = 'table-total-cell';
                 cell.style.width = `${valueColumnWidths[i]}px`;
@@ -1529,7 +1570,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (value !== null && value !== undefined) {
                         let numValue = Number(value);
                         const specSettings = measureSettingsList[measureIndex];
-                        const formattedValue = formatValue(numValue, measureFormats[measureIndex], specSettings.displayUnits, specSettings.decimalPlaces);
+                        const dynamicFormat = valueColumn.objects?.[i]?.general?.formatString as string;
+                        const cellFormat = dynamicFormat || measureFormats[measureIndex];
+                        const formattedValue = formatValue(numValue, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces);
 
                         const objects = valueColumn.source.objects || {};
                         const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
@@ -1811,7 +1854,17 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (totalVal === null || totalVal === undefined) {
                         totalCell.textContent = "";
                     } else {
-                        totalCell.textContent = formatValue(totalVal, measureFormats[measureIndex], specSettings.displayUnits, specSettings.decimalPlaces);
+                        let firstRowDynamicFormat: string;
+                        if (values[measureIndex].objects) {
+                            for (let obj of values[measureIndex].objects) {
+                                if (obj?.general?.formatString) {
+                                    firstRowDynamicFormat = obj.general.formatString as string;
+                                    break;
+                                }
+                            }
+                        }
+                        const totalFormat = firstRowDynamicFormat || measureFormats[measureIndex];
+                        totalCell.textContent = formatValue(totalVal, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces);
                     }
                     totalCell.className = 'table-data-cell';
                     totalCell.style.width = `${valueColumnWidths[measureIndex]}px`;

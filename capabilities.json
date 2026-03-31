@@ -12,6 +12,17 @@
         }
     ],
     "objects": {
+        "general": {
+            "properties": {
+                "formatString": {
+                    "type": {
+                        "formatting": {
+                            "formatString": true
+                        }
+                    }
+                }
+            }
+        },
         "rowHeight": {
             "properties": {
                 "alternateValueRowHeight": {

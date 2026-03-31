@@ -707,8 +707,11 @@ export class SpecificColumnSettings extends formattingSettings.CompositeCard {
     public decimalPlaces = new formattingSettings.NumUpDown({
         name: "decimalPlaces",
         displayName: "Value decimal places",
-        value: 1,
-        visible: true
+        value: null,
+        visible: true,
+        options: {
+            placeholderText: "Auto"
+        } as any
     });
 
     public transparency = new formattingSettings.NumUpDown({
