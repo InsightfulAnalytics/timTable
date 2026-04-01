@@ -676,6 +676,30 @@
                     }
                 }
             }
+        },
+        "subTotals": {
+            "displayName": "Subtotals",
+            "properties": {
+                "rowSubtotals": {
+                    "type": {
+                        "bool": true
+                    },
+                    "displayName": "Row subtotals",
+                    "suppressFormatPainterCopy": true
+                },
+                "levelSubtotalEnabled": {
+                    "type": {
+                        "bool": true
+                    },
+                    "suppressFormatPainterCopy": true
+                },
+                "rowSubtotalsType": {
+                    "type": {
+                        "text": true
+                    },
+                    "suppressFormatPainterCopy": true
+                }
+            }
         }
     },
     "dataViewMappings": [
@@ -690,24 +714,22 @@
                     }
                 }
             ],
-            "categorical": {
-                "categories": {
+            "matrix": {
+                "rows": {
                     "for": {
                         "in": "category"
                     },
-                    "dataReductionBehavior": {
-                        "default": {
-                            "window": {
-                                "count": 30000
-                            }
+                    "dataReductionAlgorithm": {
+                        "window": {
+                            "count": 30000
                         }
                     }
                 },
                 "values": {
                     "select": [
                         {
-                            "bind": {
-                                "to": "measure"
+                            "for": {
+                                "in": "measure"
                             }
                         }
                     ]
@@ -715,6 +737,31 @@
             }
         }
     ],
+    "subtotals": {
+        "matrix": {
+            "rowSubtotals": {
+                "propertyIdentifier": {
+                    "objectName": "subTotals",
+                    "propertyName": "rowSubtotals"
+                },
+                "defaultValue": true
+            },
+            "levelSubtotalEnabled": {
+                "propertyIdentifier": {
+                    "objectName": "subTotals",
+                    "propertyName": "levelSubtotalEnabled"
+                },
+                "defaultValue": true
+            },
+            "rowSubtotalsType": {
+                "propertyIdentifier": {
+                    "objectName": "subTotals",
+                    "propertyName": "rowSubtotalsType"
+                },
+                "defaultValue": "Bottom"
+            }
+        }
+    },
     "privileges": []
 }
 

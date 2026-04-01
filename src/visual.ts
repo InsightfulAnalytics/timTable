@@ -62,7 +62,7 @@ export class Visual implements IVisual {
     public update(options: VisualUpdateOptions) {
         if (options.dataViews && options.dataViews[0]) {
             this.visualSettings = this.formattingSettingsService.populateFormattingSettingsModel(VisualSettings, options.dataViews[0]);
-            this.dataView = options.dataViews[0]; // Update dataView here
+            this.dataView = options.dataViews[0];
         }
         
         const columnWidthSettings = this.visualSettings.columnWidth;
@@ -313,9 +313,79 @@ export class Visual implements IVisual {
 
         let dataView: DataView = options.dataViews[0];
 
-        let hasCategories = dataView.categorical && dataView.categorical.categories && dataView.categorical.categories.length > 0;
-        let categories = hasCategories ? dataView.categorical.categories[0] : null;
-        let values = dataView.categorical && dataView.categorical.values ? dataView.categorical.values : null;
+        // Store matrix subtotal values for "Measure" total behavior
+        let matrixSubtotalValues: { [queryName: string]: number } = {};
+
+        let hasCategories: boolean;
+        let categories: any;
+        let values: any;
+
+        // Extract data from matrix structure (primary path with matrix-only mapping)
+        if (dataView.matrix && dataView.matrix.rows && dataView.matrix.rows.root) {
+            const matrixRows = dataView.matrix.rows;
+            const root = matrixRows.root;
+            const allChildren = root.children || [];
+            const regularChildren = allChildren.filter((c: any) => !c.isSubtotal);
+            const subtotalChild = allChildren.find((c: any) => c.isSubtotal);
+            const vSources = dataView.matrix.valueSources || [];
+
+            const hasCatLevel = matrixRows.levels && matrixRows.levels.length > 0 && matrixRows.levels[0].sources.length > 0;
+            hasCategories = hasCatLevel;
+
+            if (hasCatLevel) {
+                categories = {
+                    source: matrixRows.levels[0].sources[0],
+                    values: regularChildren.map(c => c.value),
+                    objects: regularChildren.map(c => c.objects || undefined),
+                    identity: regularChildren.map(c => c.identity)
+                };
+            } else {
+                categories = null;
+            }
+
+            // Build values array (DataViewValueColumn-compatible objects)
+            values = vSources.map((vs, mIdx) => ({
+                source: vs,
+                values: regularChildren.map(c => c.values?.[mIdx]?.value ?? null),
+                objects: regularChildren.map(c => c.values?.[mIdx]?.objects || undefined)
+            }));
+
+            // Extract subtotal values for "Measure" total
+            if (subtotalChild?.values) {
+                vSources.forEach((vs, mIdx) => {
+                    const stVal = subtotalChild.values[mIdx];
+                    if (stVal && stVal.value !== null && stVal.value !== undefined) {
+                        matrixSubtotalValues[vs.queryName] = Number(stVal.value);
+                    }
+                });
+            }
+
+            // Debug: log subtotals found
+            console.log('[timTable] matrix extraction', JSON.stringify({
+                regularChildCount: regularChildren.length,
+                subtotalFound: !!subtotalChild,
+                subtotalValues: matrixSubtotalValues,
+                measureCount: vSources.length
+            }));
+
+            // Populate dataView.categorical for helper functions that access it directly
+            if (!dataView.categorical) {
+                (dataView as any).categorical = {
+                    categories: categories ? [categories] : [],
+                    values: values
+                };
+            }
+        } else if (dataView.categorical) {
+            // Fallback to categorical if available
+            hasCategories = dataView.categorical.categories && dataView.categorical.categories.length > 0;
+            categories = hasCategories ? dataView.categorical.categories[0] : null;
+            values = dataView.categorical.values || null;
+        } else {
+            let row = this.table.insertRow();
+            let cell = row.insertCell();
+            cell.textContent = "No data available";
+            return;
+        }
 
         if (!values || values.length === 0) {
             let row = this.table.insertRow();
@@ -523,8 +593,8 @@ interface MeasureSpecificSettings {
                 }));
             }
 
-              let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Sum");
-              const totalBehaviorVal = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Sum");
+              let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
+              const totalBehaviorVal = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Measure");
 
               const totalBehaviorItems = [
                   { value: "Measure", displayName: "Measure" },
@@ -536,7 +606,7 @@ interface MeasureSpecificSettings {
                   { value: "Min", displayName: "Min" },
                   { value: "None", displayName: "None" }
               ];
-              const currentBehaviorItem = totalBehaviorItems.find(x => x.value === totalBehaviorVal) || totalBehaviorItems[1];
+              const currentBehaviorItem = totalBehaviorItems.find(x => x.value === totalBehaviorVal) || totalBehaviorItems[0];
 
               totalsSettings.slices.splice(measureHeaders.length, 0, new formattingSettings.ItemDropdown({
                   name: "totalBehavior",
@@ -747,13 +817,28 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             }
 
             const objects = valueColumn.source.objects || {};
-            let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Sum");
-            const totalBehavior = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Sum");
+            let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
+            const totalBehavior = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Measure");
 
             if (totalBehavior === "None") {
                 totals[measureIndex] = null;
+            } else if (totalBehavior === "Measure") {
+                let semanticTotal: number | null = null;
+
+                // Use matrix subtotal (engine-computed DAX grand total) if available
+                const qn = valueColumn.source.queryName;
+                if (qn && matrixSubtotalValues[qn] !== undefined) {
+                    semanticTotal = matrixSubtotalValues[qn];
+                }
+
+                // Fallback: sum of row values (same as Sum behavior)
+                if (semanticTotal === null && numValues.length > 0) {
+                    semanticTotal = numValues.reduce((a, b) => a + b, 0);
+                }
+
+                totals[measureIndex] = semanticTotal;
             } else if (numValues.length > 0) {
-                if (totalBehavior === "Sum" || totalBehavior === "Measure") {
+                if (totalBehavior === "Sum") {
                     totals[measureIndex] = numValues.reduce((a, b) => a + b, 0);
                 } else if (totalBehavior === "Average") {
                     totals[measureIndex] = numValues.reduce((a, b) => a + b, 0) / numValues.length;
