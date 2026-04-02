@@ -773,6 +773,28 @@ export class ColumnWidthSettings extends FormattingSettingsCard {
     public slices: FormattingSettingsSlice[] = [this.categoryColumnWidth, this.alignedColumns, this.valueColumnWidth, this.categoryWordWrap];
 }
 
+export class SubTotalsSettings extends FormattingSettingsCard {
+    public name: string = "subTotals";
+    public displayName: string = "Subtotals";
+    public visible: boolean = false;
+
+    public rowSubtotals = new formattingSettings.ToggleSwitch({
+        name: "rowSubtotals",
+        displayName: "Row subtotals",
+        value: true,
+        visible: false
+    });
+
+    public levelSubtotalEnabled = new formattingSettings.ToggleSwitch({
+        name: "levelSubtotalEnabled",
+        displayName: "Level subtotal enabled",
+        value: true,
+        visible: false
+    });
+
+    public slices: FormattingSettingsSlice[] = [this.rowSubtotals, this.levelSubtotalEnabled];
+}
+
 export class VisualSettings extends FormattingSettingsModel {
     public valuesMenu: ValuesSettings = new ValuesSettings();
     public specificColumn: SpecificColumnSettings = new SpecificColumnSettings();
@@ -785,8 +807,9 @@ export class VisualSettings extends FormattingSettingsModel {
     public dataBarsFormatting: DataBarsFormattingSettings = new DataBarsFormattingSettings();
     public dataBarMarkers: DataBarMarkersSettings = new DataBarMarkersSettings();
     public totals: TotalsSettings = new TotalsSettings();
+    public subTotals: SubTotalsSettings = new SubTotalsSettings();
     public gridMenu: GridSettings = new GridSettings();
     public columnWidth: ColumnWidthSettings = new ColumnWidthSettings();
 
-    public cards: FormattingSettingsCard[] = [this.gridMenu, this.valuesMenu, this.totals, this.rowHeight, this.columnWidth, this.columnHeaders, this.specificColumn, this.dataBarsFormatting, this.dataBarMarkers, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.valueBackgroundConditionalFormatting];
+    public cards: FormattingSettingsCard[] = [this.gridMenu, this.valuesMenu, this.totals, this.subTotals, this.rowHeight, this.columnWidth, this.columnHeaders, this.specificColumn, this.dataBarsFormatting, this.dataBarMarkers, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.valueBackgroundConditionalFormatting];
 }

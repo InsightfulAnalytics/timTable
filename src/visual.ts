@@ -31,6 +31,9 @@ import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructor
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
 import DataView = powerbi.DataView;
+import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInstancesOptions;
+import VisualObjectInstance = powerbi.VisualObjectInstance;
+import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
 import { VisualSettings } from "./settings";
 import { FormattingSettingsService, formattingSettings } from "powerbi-visuals-utils-formattingmodel";
 import { dataViewObjects, dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
@@ -57,6 +60,23 @@ export class Visual implements IVisual {
 
     public getFormattingModel(): any {
         return this.formattingSettingsService.buildFormattingModel(this.visualSettings);
+    }
+
+    public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject {
+        if (options.objectName === "subTotals") {
+            const objects = this.dataView?.metadata?.objects;
+            const subTotalsObj = objects?.subTotals || {};
+            return [{
+                objectName: "subTotals",
+                selector: null,
+                properties: {
+                    rowSubtotals: subTotalsObj.rowSubtotals !== undefined ? subTotalsObj.rowSubtotals : true,
+                    levelSubtotalEnabled: subTotalsObj.levelSubtotalEnabled !== undefined ? subTotalsObj.levelSubtotalEnabled : true,
+                    rowSubtotalsType: subTotalsObj.rowSubtotalsType !== undefined ? subTotalsObj.rowSubtotalsType : "Bottom"
+                }
+            }];
+        }
+        return [];
     }
 
     public update(options: VisualUpdateOptions) {
@@ -351,6 +371,7 @@ export class Visual implements IVisual {
             }));
 
             // Extract subtotal values for "Measure" total
+            // Path 1: subtotal child node (multi-level hierarchy)
             if (subtotalChild?.values) {
                 vSources.forEach((vs, mIdx) => {
                     const stVal = subtotalChild.values[mIdx];
@@ -360,12 +381,26 @@ export class Visual implements IVisual {
                 });
             }
 
+            // Path 2: root.values (grand total at root level for single-level grouping)
+            if (Object.keys(matrixSubtotalValues).length === 0 && root.values) {
+                vSources.forEach((vs, mIdx) => {
+                    const rootVal = root.values[mIdx];
+                    if (rootVal && rootVal.value !== null && rootVal.value !== undefined) {
+                        matrixSubtotalValues[vs.queryName] = Number(rootVal.value);
+                    }
+                });
+            }
+
             // Debug: log subtotals found
             console.log('[timTable] matrix extraction', JSON.stringify({
                 regularChildCount: regularChildren.length,
                 subtotalFound: !!subtotalChild,
+                rootHasValues: !!root.values,
+                rootKeys: Object.keys(root),
                 subtotalValues: matrixSubtotalValues,
-                measureCount: vSources.length
+                measureCount: vSources.length,
+                allChildCount: allChildren.length,
+                childIsSubtotalFlags: allChildren.map((c: any) => ({ value: c.value, isSubtotal: c.isSubtotal, keys: Object.keys(c) }))
             }));
 
             // Populate dataView.categorical for helper functions that access it directly

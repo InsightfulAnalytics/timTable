@@ -158,6 +158,14 @@ export declare class ColumnWidthSettings extends FormattingSettingsCard {
     categoryWordWrap: formattingSettings.ToggleSwitch;
     slices: FormattingSettingsSlice[];
 }
+export declare class SubTotalsSettings extends FormattingSettingsCard {
+    name: string;
+    displayName: string;
+    visible: boolean;
+    rowSubtotals: formattingSettings.ToggleSwitch;
+    levelSubtotalEnabled: formattingSettings.ToggleSwitch;
+    slices: FormattingSettingsSlice[];
+}
 export declare class VisualSettings extends FormattingSettingsModel {
     valuesMenu: ValuesSettings;
     specificColumn: SpecificColumnSettings;
@@ -170,6 +178,7 @@ export declare class VisualSettings extends FormattingSettingsModel {
     dataBarsFormatting: DataBarsFormattingSettings;
     dataBarMarkers: DataBarMarkersSettings;
     totals: TotalsSettings;
+    subTotals: SubTotalsSettings;
     gridMenu: GridSettings;
     columnWidth: ColumnWidthSettings;
     cards: FormattingSettingsCard[];
