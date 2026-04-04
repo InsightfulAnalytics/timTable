@@ -6,6 +6,11 @@
             "kind": "Grouping"
         },
         {
+            "displayName": "Columns",
+            "name": "columns",
+            "kind": "Grouping"
+        },
+        {
             "displayName": "Measure",
             "name": "measure",
             "kind": "Measure"
@@ -685,44 +690,50 @@
                         "bool": true
                     },
                     "displayName": "Row subtotals",
+                    "description": "Show subtotals for all row groups",
                     "suppressFormatPainterCopy": true
                 },
-                "levelSubtotalEnabled": {
+                "perRowLevel": {
+                    "displayName": "Per row level",
                     "type": {
                         "bool": true
                     },
                     "suppressFormatPainterCopy": true
                 },
-                "rowSubtotalsType": {
+                "columnSubtotals": {
                     "type": {
-                        "text": true
+                        "bool": true
+                    },
+                    "displayName": "Column subtotals",
+                    "description": "Show subtotals for all column groups",
+                    "suppressFormatPainterCopy": true
+                },
+                "perColumnLevel": {
+                    "displayName": "Per column level",
+                    "type": {
+                        "bool": true
                     },
                     "suppressFormatPainterCopy": true
+                },
+                "levelSubtotalEnabled": {
+                    "type": {
+                        "bool": true
+                    }
                 }
             }
         }
     },
     "dataViewMappings": [
         {
-            "conditions": [
-                {
-                    "category": {
-                        "max": 1
-                    },
-                    "measure": {
-                        "min": 1
-                    }
-                }
-            ],
             "matrix": {
                 "rows": {
                     "for": {
                         "in": "category"
-                    },
-                    "dataReductionAlgorithm": {
-                        "window": {
-                            "count": 30000
-                        }
+                    }
+                },
+                "columns": {
+                    "for": {
+                        "in": "columns"
                     }
                 },
                 "values": {
@@ -746,19 +757,33 @@
                 },
                 "defaultValue": true
             },
+            "rowSubtotalsPerLevel": {
+                "propertyIdentifier": {
+                    "objectName": "subTotals",
+                    "propertyName": "perRowLevel"
+                },
+                "defaultValue": false
+            },
+            "columnSubtotals": {
+                "propertyIdentifier": {
+                    "objectName": "subTotals",
+                    "propertyName": "columnSubtotals"
+                },
+                "defaultValue": true
+            },
+            "columnSubtotalsPerLevel": {
+                "propertyIdentifier": {
+                    "objectName": "subTotals",
+                    "propertyName": "perColumnLevel"
+                },
+                "defaultValue": false
+            },
             "levelSubtotalEnabled": {
                 "propertyIdentifier": {
                     "objectName": "subTotals",
                     "propertyName": "levelSubtotalEnabled"
                 },
                 "defaultValue": true
-            },
-            "rowSubtotalsType": {
-                "propertyIdentifier": {
-                    "objectName": "subTotals",
-                    "propertyName": "rowSubtotalsType"
-                },
-                "defaultValue": "Bottom"
             }
         }
     },

@@ -1,4 +1,4 @@
-/*
+﻿/*
 *  Power BI Visual CLI
 *
 *  Copyright (c) Microsoft Corporation
@@ -63,18 +63,61 @@ export class Visual implements IVisual {
     }
 
     public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject {
+        if (!this.dataView) return [];
+
+        const objects = this.dataView.metadata?.objects || null;
+
         if (options.objectName === "subTotals") {
-            const objects = this.dataView?.metadata?.objects;
-            const subTotalsObj = objects?.subTotals || {};
-            return [{
+            const instances: VisualObjectInstance[] = [];
+
+            const getVal = <T>(objs: any, propName: string, def: T): T => {
+                if (!objs || !objs.subTotals) return def;
+                const v = objs.subTotals[propName];
+                return v !== undefined ? v as T : def;
+            };
+
+            // Row + Column subtotals
+            const rowST = getVal(objects, "rowSubtotals", true);
+            const colST = getVal(objects, "columnSubtotals", true);
+            instances.push({
                 objectName: "subTotals",
                 selector: null,
-                properties: {
-                    rowSubtotals: subTotalsObj.rowSubtotals !== undefined ? subTotalsObj.rowSubtotals : true,
-                    levelSubtotalEnabled: subTotalsObj.levelSubtotalEnabled !== undefined ? subTotalsObj.levelSubtotalEnabled : true,
-                    rowSubtotalsType: subTotalsObj.rowSubtotalsType !== undefined ? subTotalsObj.rowSubtotalsType : "Bottom"
+                properties: { rowSubtotals: rowST, columnSubtotals: colST }
+            });
+
+            if (rowST) {
+                const perLevel = getVal(objects, "perRowLevel", false);
+                instances.push({ objectName: "subTotals", selector: null, properties: { perRowLevel: perLevel } });
+                if (perLevel && this.dataView.matrix?.rows?.levels) {
+                    for (const level of this.dataView.matrix.rows.levels) {
+                        for (const source of level.sources) {
+                            if (!source.isMeasure) {
+                                const lvlObj = source.objects as any;
+                                const enabled = lvlObj?.subTotals?.levelSubtotalEnabled !== undefined ? lvlObj.subTotals.levelSubtotalEnabled : true;
+                                instances.push({ objectName: "subTotals", selector: { metadata: source.queryName } as any, displayName: source.displayName, properties: { levelSubtotalEnabled: enabled } });
+                            }
+                        }
+                    }
                 }
-            }];
+            }
+
+            if (colST) {
+                const perLevel = getVal(objects, "perColumnLevel", false);
+                instances.push({ objectName: "subTotals", selector: null, properties: { perColumnLevel: perLevel } });
+                if (perLevel && this.dataView.matrix?.columns?.levels) {
+                    for (const level of this.dataView.matrix.columns.levels) {
+                        for (const source of level.sources) {
+                            if (!source.isMeasure) {
+                                const lvlObj = source.objects as any;
+                                const enabled = lvlObj?.subTotals?.levelSubtotalEnabled !== undefined ? lvlObj.subTotals.levelSubtotalEnabled : true;
+                                instances.push({ objectName: "subTotals", selector: { metadata: source.queryName } as any, displayName: source.displayName, properties: { levelSubtotalEnabled: enabled } });
+                            }
+                        }
+                    }
+                }
+            }
+
+            return { instances };
         }
         return [];
     }
