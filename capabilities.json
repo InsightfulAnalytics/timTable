@@ -17,7 +17,10 @@
         }
     ],
     "drilldown": {
-        "roles": ["category", "columns"]
+        "roles": [
+            "category",
+            "columns"
+        ]
     },
     "objects": {
         "general": {
@@ -73,9 +76,45 @@
                 }
             }
         },
-        "valueConditionalFormatting": { "properties": { "textColor": { "type": { "fill": { "solid": { "color": true } } } } } },
-        "valueBackgroundConditionalFormatting": { "properties": { "backgroundColor": { "type": { "fill": { "solid": { "color": true } } } } } },
-        "dataBarsConditionalFormatting": { "properties": { "dataBarColor": { "type": { "fill": { "solid": { "color": true } } } } } },
+        "valueConditionalFormatting": {
+            "properties": {
+                "textColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "valueBackgroundConditionalFormatting": {
+            "properties": {
+                "backgroundColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "dataBarsConditionalFormatting": {
+            "properties": {
+                "dataBarColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "dataBarsFormatting": {
             "properties": {
                 "showDataBars": {
@@ -120,8 +159,12 @@
                 "axisType": {
                     "type": {
                         "enumeration": [
-                            { "value": "Amount" },
-                            { "value": "Percentage" }
+                            {
+                                "value": "Amount"
+                            },
+                            {
+                                "value": "Percentage"
+                            }
                         ]
                     }
                 },
@@ -140,7 +183,6 @@
                         "bool": true
                     }
                 },
-                
                 "matchDataBarColor": {
                     "type": {
                         "bool": true
@@ -236,103 +278,6 @@
                 "markerSize": {
                     "type": {
                         "numeric": true
-                    }
-                }
-            }
-        },
-        "totals": {
-            "properties": {
-                "showTotalRow": {
-                    "type": {
-                        "bool": true
-                    }
-                },
-                "totalBehavior": {
-                    "type": {
-                        "enumeration": [
-                            {
-                                "value": "Measure",
-                                "displayName": "Measure"
-                            },
-                            {
-                                "value": "Sum",
-                                "displayName": "Sum"
-                            },
-                            {
-                                "value": "Average",
-                                "displayName": "Average"
-                            },
-                            {
-                                "value": "Count",
-                                "displayName": "Count"
-                            },
-                            {
-                                "value": "Count Distinct",
-                                "displayName": "Count Distinct"
-                            },
-                            {
-                                "value": "Max",
-                                "displayName": "Max"
-                            },
-                            {
-                                "value": "Min",
-                                "displayName": "Min"
-                            },
-                            {
-                                "value": "None",
-                                "displayName": "None"
-                            }
-                        ]
-                    }
-                },
-                "fontFamily": {
-                    "type": {
-                        "formatting": {
-                            "fontFamily": true
-                        }
-                    }
-                },
-                "fontSize": {
-                    "type": {
-                        "numeric": true
-                    }
-                },
-                "bold": {
-                    "type": {
-                        "bool": true
-                    }
-                },
-                "italic": {
-                    "type": {
-                        "bool": true
-                    }
-                },
-                "underline": {
-                    "type": {
-                        "bool": true
-                    }
-                },
-                "textColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
-                "backgroundColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
-                "textWrap": {
-                    "type": {
-                        "bool": true
                     }
                 }
             }
@@ -724,6 +669,112 @@
                     }
                 }
             }
+        },
+        "totalsFormatting": {
+            "properties": {
+                "fontFamily": {
+                    "type": {
+                        "formatting": {
+                            "fontFamily": true
+                        }
+                    }
+                },
+                "fontSize": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "bold": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "italic": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "underline": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "textColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "backgroundColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "textWrap": {
+                    "type": {
+                        "bool": true
+                    }
+                }
+            }
+        },
+        "categoryTotals": {
+            "properties": {
+                "series": {
+                    "type": {
+                        "text": true
+                    }
+                },
+                "showTotalRow": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "totalBehavior": {
+                    "type": {
+                        "enumeration": [
+                            {
+                                "value": "Measure",
+                                "displayName": "Measure"
+                            },
+                            {
+                                "value": "Sum",
+                                "displayName": "Sum"
+                            },
+                            {
+                                "value": "Average",
+                                "displayName": "Average"
+                            },
+                            {
+                                "value": "Count",
+                                "displayName": "Count"
+                            },
+                            {
+                                "value": "Count Distinct",
+                                "displayName": "Count Distinct"
+                            },
+                            {
+                                "value": "Max",
+                                "displayName": "Max"
+                            },
+                            {
+                                "value": "Min",
+                                "displayName": "Min"
+                            },
+                            {
+                                "value": "None",
+                                "displayName": "None"
+                            }
+                        ]
+                    }
+                }
+            }
         }
     },
     "dataViewMappings": [
@@ -792,5 +843,3 @@
     },
     "privileges": []
 }
-
-

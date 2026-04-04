@@ -80,18 +80,19 @@ export declare class DataBarMarkersSettings extends FormattingSettingsCard {
     visible: boolean;
     slices: FormattingSettingsSlice[];
 }
-export declare class TotalsSettings extends FormattingSettingsCard {
+export declare class TotalsSettings extends formattingSettings.CompositeCard {
     name: string;
     displayName: string;
     visible: boolean;
+    series: formattingSettings.ItemDropdown;
     showTotalRow: formattingSettings.ToggleSwitch;
-    totalBehavior: formattingSettings.ItemDropdown;
     font: formattingSettings.FontControl;
     textColor: formattingSettings.ColorPicker;
     backgroundColor: formattingSettings.ColorPicker;
     textWrap: formattingSettings.ToggleSwitch;
-    switchValuesToRows: formattingSettings.ToggleSwitch;
-    slices: FormattingSettingsSlice[];
+    categorySelectionGroup: formattingSettings.Group;
+    totalsFormattingGroup: formattingSettings.Group;
+    groups: formattingSettings.Group[];
 }
 export declare class GridSettings extends FormattingSettingsCard {
     horizontalGridlines: formattingSettings.ToggleSwitch;

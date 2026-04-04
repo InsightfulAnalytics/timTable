@@ -319,31 +319,23 @@ export class DataBarMarkersSettings extends FormattingSettingsCard {
 }
 
 
-export class TotalsSettings extends FormattingSettingsCard {
+export class TotalsSettings extends formattingSettings.CompositeCard {
     name: string = "totals";
-    displayName: string = "Totals";
+    displayName: string = "Row Totals";
     visible: boolean = true;
     
+    public series = new formattingSettings.ItemDropdown({
+        name: "series",
+        displayName: "Series",
+        value: { value: "", displayName: "" },
+        items: [],
+        visible: true
+    });
+
     public showTotalRow = new formattingSettings.ToggleSwitch({
         name: "showTotalRow",
         displayName: "Show Total Row",
         value: true,
-        visible: true
-    });
-
-    public totalBehavior = new formattingSettings.ItemDropdown({
-        name: "totalBehavior",
-        displayName: "Measure Selection",
-        value: { value: "Measure", displayName: "Measure" },
-        items: [
-            { value: "Measure", displayName: "Measure" },
-            { value: "Sum", displayName: "Sum" },
-            { value: "Average", displayName: "Average" },
-            { value: "Count", displayName: "Count" },
-            { value: "Count Distinct", displayName: "Count Distinct" },
-            { value: "Max", displayName: "Max" },
-            { value: "Min", displayName: "Min" }
-        ],
         visible: true
     });
 
@@ -398,14 +390,19 @@ export class TotalsSettings extends FormattingSettingsCard {
         visible: true
     });
 
-    public switchValuesToRows = new formattingSettings.ToggleSwitch({
-        name: "switchValuesToRows",
-        displayName: "Switch values to rows",
-        value: false,
-        visible: true
+    public categorySelectionGroup = new formattingSettings.Group({
+        displayName: "Category Selection",
+        name: "categorySelectionGroup",
+        slices: [this.series, this.showTotalRow]
     });
 
-    public slices: FormattingSettingsSlice[] = [this.showTotalRow, this.totalBehavior, this.font, this.textColor, this.backgroundColor, this.textWrap];
+    public totalsFormattingGroup = new formattingSettings.Group({
+        displayName: "Totals formatting",
+        name: "totalsFormattingGroup",
+        slices: [this.font, this.textColor, this.backgroundColor, this.textWrap]
+    });
+
+    public groups: formattingSettings.Group[] = [this.categorySelectionGroup, this.totalsFormattingGroup];
 }
 
 

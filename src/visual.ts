@@ -142,7 +142,7 @@ export class Visual implements IVisual {
         const alternateTextColor = valuesSettings.alternateTextColor.value.value;
         const cellFontFamily = valuesSettings.font.fontFamily.value;
         const totalsSettings = this.visualSettings.totals;
-        const showTotalRow = totalsSettings.showTotalRow.value;
+        let showTotalRow = totalsSettings.showTotalRow.value;
         const totalRowItalic = totalsSettings.font.italic?.value || false;
         const totalRowWordWrap = totalsSettings.textWrap.value;
         const totalRowFontSize = totalsSettings.font.fontSize.value;
@@ -182,12 +182,19 @@ export class Visual implements IVisual {
         const valueBgCFSettings = this.visualSettings.valueBackgroundConditionalFormatting;
         valueBgCFSettings.slices = []; // Will be populated dynamically per-measure
 
-        totalsSettings.slices = [
-            totalsSettings.showTotalRow,
+        totalsSettings.categorySelectionGroup.slices = [
+            totalsSettings.series,
+            totalsSettings.showTotalRow
+        ];
+        totalsSettings.totalsFormattingGroup.slices = [
             totalsSettings.font,
             totalsSettings.textColor,
             totalsSettings.backgroundColor,
             totalsSettings.textWrap
+        ];
+        totalsSettings.groups = [
+            totalsSettings.categorySelectionGroup,
+            totalsSettings.totalsFormattingGroup
         ];
 
         const dataBarsSettings = this.visualSettings.dataBarsFormatting;
@@ -740,7 +747,7 @@ interface MeasureSpecificSettings {
               ];
               const currentBehaviorItem = totalBehaviorItems.find(x => x.value === totalBehaviorVal) || totalBehaviorItems[0];
 
-              totalsSettings.slices.splice(measureHeaders.length, 0, new formattingSettings.ItemDropdown({
+              totalsSettings.categorySelectionGroup.slices.push(new formattingSettings.ItemDropdown({
                   name: "totalBehavior",
                   displayName: displayName + " Measure Selection",
                   value: currentBehaviorItem,
@@ -749,6 +756,39 @@ interface MeasureSpecificSettings {
                   selector: { metadata: queryName }
               }));
           });
+
+          // Populate totals series dropdown and apply selector to showTotalRow
+          const categoryHeaders = categories?.sources.map((src: any) => src.displayName || src.queryName) || [];
+          totalsSettings.series.items = categoryHeaders.map(name => ({ value: name, displayName: name }));
+          const persistedTotalsSeries = dataViewObjects.getValue<string>(
+              this.dataView.metadata.objects || {},
+              { objectName: "totals", propertyName: "series" },
+              undefined
+          );
+          const matchedTotalsItem = persistedTotalsSeries
+              ? totalsSettings.series.items.find(i => i.value === persistedTotalsSeries)
+              : null;
+          totalsSettings.series.value = matchedTotalsItem || totalsSettings.series.items[0] || { value: "", displayName: "" };
+
+          const selectedTotalsSeriesName = totalsSettings.series.value?.value as string;
+          const selectedTotalsCategoryIdx = categoryHeaders.indexOf(selectedTotalsSeriesName);
+          const selectedTotalsSource = selectedTotalsCategoryIdx >= 0 && categories ? categories.sources[selectedTotalsCategoryIdx] : null;
+          const selectedTotalsQueryName = selectedTotalsSource?.queryName;
+          const totalsSelector = selectedTotalsQueryName ? { metadata: selectedTotalsQueryName } : undefined;
+
+          // Rebuild totalsSettings.showTotalRow to use the selector
+          const tShowTotalRow = dataViewObjects.getValue<boolean>(selectedTotalsSource?.objects || {}, { objectName: "totals", propertyName: "showTotalRow" }, true);
+          totalsSettings.showTotalRow = new formattingSettings.ToggleSwitch({
+              name: "showTotalRow",
+              displayName: "Show Total Row",
+              value: tShowTotalRow,
+              visible: true,
+              selector: totalsSelector
+          });
+          const showTotalRowIdx = totalsSettings.categorySelectionGroup.slices.findIndex(s => s.name === "showTotalRow");
+          if (showTotalRowIdx >= 0) {
+              totalsSettings.categorySelectionGroup.slices[showTotalRowIdx] = totalsSettings.showTotalRow;
+          }
 
           // Populate specificColumn series dropdown and rebuild value slices with per-measure selector
           const specificColumnSettings = this.visualSettings.specificColumn;
@@ -1085,8 +1125,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 console.log(`[DB CF INIT] measure0 .source.objects=${JSON.stringify(vc0.source.objects)}`);
             }
 
+            const categoryShowTotals = (categories?.sources || []).map((catSource: any) => {
+                return dataViewObjects.getValue<boolean>(catSource.objects || {}, { objectName: "totals", propertyName: "showTotalRow" }, true);
+            });
+
+            // Update global showTotalRow so the manual "Totals" at the bottom respects at least the first category's setting if categories exist.
+            showTotalRow = categoryShowTotals.length > 0 ? categoryShowTotals[0] : showTotalRow;
+
             // Create data rows
             for (let i = 0; i < rowCount; i++) {
+                // If it's a matrix subtotal row, respect the category-level showTotalRow toggle
+                if (hasCategories) {
+                    const checkPaths = categories.paths ? categories.paths[i] : [categories.values[i]];
+                    const totalIdx = checkPaths ? checkPaths.indexOf("Total") : -1;
+                    if (totalIdx >= 0 && !categoryShowTotals[totalIdx]) {
+                        continue;
+                    }
+                }
+
                 let row = this.table.insertRow();
                 row.className = 'table-data-row';
                 row.style.borderBottom = horizBorderValue;
