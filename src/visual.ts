@@ -40,19 +40,20 @@ import { dataViewObjects, dataViewWildcard } from "powerbi-visuals-utils-datavie
 import { valueFormatter } from "powerbi-visuals-utils-formattingutils";
 
 export class Visual implements IVisual {
+    private tableContainer: HTMLDivElement;
     private table: HTMLTableElement;
     private formattingSettingsService: FormattingSettingsService;
     private visualSettings: VisualSettings;
     private dataView: DataView;
 
     constructor(options: VisualConstructorOptions) {
-        const tableContainer = document.createElement("div");
-        tableContainer.className = "table-container";
-        options.element.appendChild(tableContainer);
+        this.tableContainer = document.createElement("div");
+        this.tableContainer.className = "table-container";
+        options.element.appendChild(this.tableContainer);
 
         this.table = document.createElement('table');
         this.table.className = 'pbi-table';
-        tableContainer.appendChild(this.table);
+        this.tableContainer.appendChild(this.table);
 
         this.formattingSettingsService = new FormattingSettingsService();
         this.visualSettings = new VisualSettings();
@@ -128,6 +129,10 @@ export class Visual implements IVisual {
             this.dataView = options.dataViews[0];
         }
         
+        // Fix for fractional pixel offsets blurring text when scrollbar is present
+        this.tableContainer.style.width = Math.floor(options.viewport.width) + "px";
+        this.tableContainer.style.height = Math.floor(options.viewport.height) + "px";
+
         const columnWidthSettings = this.visualSettings.columnWidth;
         const rowHeightSettings = this.visualSettings.rowHeight;
         const valuesSettings = this.visualSettings.valuesMenu;

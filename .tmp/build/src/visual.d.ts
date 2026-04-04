@@ -7,6 +7,7 @@ import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInst
 import VisualObjectInstance = powerbi.VisualObjectInstance;
 import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
 export declare class Visual implements IVisual {
+    private tableContainer;
     private table;
     private formattingSettingsService;
     private visualSettings;

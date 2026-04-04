@@ -1,9 +1,31 @@
 .table-container {
-  width: 100%;
-  height: 100%;
-  overflow-x: auto;
+  overflow: auto;
   padding: 10px;
   box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+/* Custom scrollbars to prevent the native Chromium scrollbar from 
+   creating fractional pixel offsets that blur the text when scaled */
+.table-container::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+.table-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.table-container::-webkit-scrollbar-thumb {
+  background-color: rgba(153, 153, 153, 0.5);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.table-container::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(102, 102, 102, 0.8);
+}
+.table-container::-webkit-scrollbar-corner {
+  background: transparent;
 }
 .pbi-table {
   border-collapse: collapse;
