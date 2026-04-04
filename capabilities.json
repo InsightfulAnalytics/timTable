@@ -670,7 +670,7 @@
                 }
             }
         },
-        "totalsFormatting": {
+        "totals": {
             "properties": {
                 "fontFamily": {
                     "type": {
@@ -721,11 +721,7 @@
                     "type": {
                         "bool": true
                     }
-                }
-            }
-        },
-        "categoryTotals": {
-            "properties": {
+                },
                 "series": {
                     "type": {
                         "text": true
