@@ -16,6 +16,9 @@
             "kind": "Measure"
         }
     ],
+    "drilldown": {
+        "roles": ["category", "columns"]
+    },
     "objects": {
         "general": {
             "properties": {

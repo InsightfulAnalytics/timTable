@@ -388,19 +388,47 @@ export class Visual implements IVisual {
             const matrixRows = dataView.matrix.rows;
             const root = matrixRows.root;
             const allChildren = root.children || [];
-            const regularChildren = allChildren.filter((c: any) => !c.isSubtotal);
             const subtotalChild = allChildren.find((c: any) => c.isSubtotal);
             const vSources = dataView.matrix.valueSources || [];
 
             const hasCatLevel = matrixRows.levels && matrixRows.levels.length > 0 && matrixRows.levels[0].sources.length > 0;
             hasCategories = hasCatLevel;
 
+            let flatRows: any[] = [];
+            const flattenNode = (node: any, depth: number = 0) => {
+                const subTChild = (node.children || []).find((c: any) => c.isSubtotal);
+                const nodeVals = node.values || subTChild?.values || {};
+                
+                // Construct prefixed display name for stepped layout indentation
+                const prefix = "\u00A0\u00A0\u00A0\u00A0".repeat(depth);
+                
+                flatRows.push({
+                    value: prefix + (node.value != null ? node.value : ""),
+                    identity: node.identity,
+                    objects: node.objects,
+                    rawValues: nodeVals
+                });
+                
+                if (node.children) {
+                    node.children.filter((c: any) => !c.isSubtotal).forEach((c: any) => {
+                        flattenNode(c, depth + 1);
+                    });
+                }
+            };
+            
+            allChildren.filter((c: any) => !c.isSubtotal).forEach((c: any) => {
+                flattenNode(c, 0);
+            });
+
             if (hasCatLevel) {
+                const catSource = matrixRows.levels.map((l: any) => l.sources[0].displayName).filter((d: any) => d).join(' & ');
+                const baseSource = matrixRows.levels[0].sources[0];
+                const compositeSource = { ...baseSource, displayName: catSource };
                 categories = {
-                    source: matrixRows.levels[0].sources[0],
-                    values: regularChildren.map(c => c.value),
-                    objects: regularChildren.map(c => c.objects || undefined),
-                    identity: regularChildren.map(c => c.identity)
+                    source: compositeSource,
+                    values: flatRows.map(r => r.value),
+                    objects: flatRows.map(r => r.objects || undefined),
+                    identity: flatRows.map(r => r.identity)
                 };
             } else {
                 categories = null;
@@ -409,8 +437,8 @@ export class Visual implements IVisual {
             // Build values array (DataViewValueColumn-compatible objects)
             values = vSources.map((vs, mIdx) => ({
                 source: vs,
-                values: regularChildren.map(c => c.values?.[mIdx]?.value ?? null),
-                objects: regularChildren.map(c => c.values?.[mIdx]?.objects || undefined)
+                values: flatRows.map(r => r.rawValues[mIdx]?.value ?? null),
+                objects: flatRows.map(r => r.rawValues[mIdx]?.objects || undefined)
             }));
 
             // Extract subtotal values for "Measure" total
@@ -436,7 +464,7 @@ export class Visual implements IVisual {
 
             // Debug: log subtotals found
             console.log('[timTable] matrix extraction', JSON.stringify({
-                regularChildCount: regularChildren.length,
+                regularChildCount: flatRows.length,
                 subtotalFound: !!subtotalChild,
                 rootHasValues: !!root.values,
                 rootKeys: Object.keys(root),
