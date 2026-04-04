@@ -395,38 +395,59 @@ export class Visual implements IVisual {
             hasCategories = hasCatLevel;
 
             let flatRows: any[] = [];
-            const flattenNode = (node: any, depth: number = 0) => {
+            const flattenNode = (node: any, depth: number = 0, currentPath: any[] = []) => {
                 const subTChild = (node.children || []).find((c: any) => c.isSubtotal);
                 const nodeVals = node.values || subTChild?.values || {};
                 
-                // Construct prefixed display name for stepped layout indentation
-                const prefix = "\u00A0\u00A0\u00A0\u00A0".repeat(depth);
+                let newPath = [...currentPath];
+                newPath[depth] = node.value != null ? node.value : undefined;
                 
-                flatRows.push({
-                    value: prefix + (node.value != null ? node.value : ""),
-                    identity: node.identity,
-                    objects: node.objects,
-                    rawValues: nodeVals
+                // Fill any missing levels with empty strings for tabular alignment
+                const maxLevel = matrixRows.levels ? matrixRows.levels.length : 1;
+                const pathArray = Array.from({ length: maxLevel }, (_, i) => {
+                    const val = newPath[i];
+                    if (val !== undefined && val !== "") return val;
+                    if (node.isSubtotal && i === depth) return "Total";
+                    return "";
                 });
+
+                const hasRegularChildren = node.children && node.children.some((c: any) => !c.isSubtotal);
+
+                if (!hasRegularChildren || node.isSubtotal) {
+                    flatRows.push({
+                        value: newPath[depth] || "Total",
+                        path: pathArray,
+                        identity: node.identity,
+                        objects: node.objects,
+                        rawValues: nodeVals,
+                        isSubtotal: !!node.isSubtotal,
+                        depth: depth
+                    });
+                }
                 
                 if (node.children) {
                     node.children.filter((c: any) => !c.isSubtotal).forEach((c: any) => {
-                        flattenNode(c, depth + 1);
+                        flattenNode(c, depth + 1, newPath);
                     });
+                    
+                    // Add subtotals at the end of the group
+                    const stChild = node.children.find((c: any) => c.isSubtotal);
+                    if (stChild) {
+                         flattenNode(stChild, depth + 1, newPath);
+                    }
                 }
             };
             
             allChildren.filter((c: any) => !c.isSubtotal).forEach((c: any) => {
-                flattenNode(c, 0);
+                flattenNode(c, 0, []);
             });
 
             if (hasCatLevel) {
-                const catSource = matrixRows.levels.map((l: any) => l.sources[0].displayName).filter((d: any) => d).join(' & ');
-                const baseSource = matrixRows.levels[0].sources[0];
-                const compositeSource = { ...baseSource, displayName: catSource };
                 categories = {
-                    source: compositeSource,
+                    sources: matrixRows.levels.map((l: any) => l.sources[0]),
+                    source: matrixRows.levels[0].sources[0],
                     values: flatRows.map(r => r.value),
+                    paths: flatRows.map(r => r.path),
                     objects: flatRows.map(r => r.objects || undefined),
                     identity: flatRows.map(r => r.identity)
                 };
@@ -970,27 +991,30 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
             // Add category column header if categories exist
             if (hasCategories) {
-                let categoryHeader = headerRow.insertCell();
-                categoryHeader.textContent = categories.source.displayName || 'Category';
-                categoryHeader.className = 'table-header-cell';
-                categoryHeader.style.width = `${categoryColumnWidth}px`;
-                categoryHeader.style.minWidth = `${categoryColumnWidth}px`;
-                categoryHeader.style.maxWidth = `${categoryColumnWidth}px`;
-                applyRowSquash(categoryHeader, headerRowHeight, headerFontSize, headerWordWrap);
-                categoryHeader.style.fontWeight = headerBold ? "bold" : "normal";
-                categoryHeader.style.fontStyle = headerItalic ? "italic" : "normal";
-                categoryHeader.style.textDecoration = headerUnderline ? "underline" : "none";
-                categoryHeader.style.fontFamily = headerFontFamily;
-                categoryHeader.style.color = headerTextColor;
-                categoryHeader.style.textAlign = headerAlignment;
-                categoryHeader.style.borderRight = vertBorderValue;
-                categoryHeader.style.backgroundColor = headerBgColor;
-                categoryHeader.style.overflow = "hidden";
-                categoryHeader.style.textOverflow = "ellipsis";
-                categoryHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
-                if (headerWordWrap) {
-                    categoryHeader.style.wordBreak = "break-word";
-                }
+                categories.sources.forEach((source: any, levelIdx: number) => {
+                    let categoryHeader = headerRow.insertCell();
+                    categoryHeader.textContent = source.displayName || 'Category';
+                    categoryHeader.className = 'table-header-cell';
+                    const cw = levelIdx === 0 ? categoryColumnWidth : categoryColumnWidth; // Maybe configurable later, using base for now
+                    categoryHeader.style.width = `${cw}px`;
+                    categoryHeader.style.minWidth = `${cw}px`;
+                    categoryHeader.style.maxWidth = `${cw}px`;
+                    applyRowSquash(categoryHeader, headerRowHeight, headerFontSize, headerWordWrap);
+                    categoryHeader.style.fontWeight = headerBold ? "bold" : "normal";
+                    categoryHeader.style.fontStyle = headerItalic ? "italic" : "normal";
+                    categoryHeader.style.textDecoration = headerUnderline ? "underline" : "none";
+                    categoryHeader.style.fontFamily = headerFontFamily;
+                    categoryHeader.style.color = headerTextColor;
+                    categoryHeader.style.textAlign = headerAlignment;
+                    categoryHeader.style.borderRight = vertBorderValue;
+                    categoryHeader.style.backgroundColor = headerBgColor;
+                    categoryHeader.style.overflow = "hidden";
+                    categoryHeader.style.textOverflow = "ellipsis";
+                    categoryHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                    if (headerWordWrap) {
+                        categoryHeader.style.wordBreak = "break-word";
+                    }
+                });
             }
 
             // Add measure column headers
@@ -1070,23 +1094,27 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                 // Add category value
                 if (hasCategories) {
-                    let categoryCell = row.insertCell();
-                    categoryCell.textContent = String(categories.values[i]);
-                    categoryCell.className = 'table-category-cell';
-                    categoryCell.style.width = `${categoryColumnWidth}px`;
-                    categoryCell.style.minWidth = `${categoryColumnWidth}px`;
-                    categoryCell.style.maxWidth = `${categoryColumnWidth}px`;
-                    applyRowSquash(categoryCell, rowHeight, cellFontSize, categoryWordWrap);
-                    categoryCell.style.fontWeight = valueBold ? "bold" : "normal";
-                    categoryCell.style.borderRight = vertBorderValue;
-                    categoryCell.style.backgroundColor = rowBgColor;
-                    categoryCell.style.color = getCategoryTextColor(i, dataView);
-                    categoryCell.style.overflow = "hidden";
-                    categoryCell.style.textOverflow = "ellipsis";
-                    categoryCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
-                    if (categoryWordWrap) {
-                        categoryCell.style.wordBreak = "break-word";
-                    }
+                    const rowPaths = categories.paths[i] || [categories.values[i]];
+                    const isTotal = rowPaths.some((p: any) => p === "Total");
+                    rowPaths.forEach((segmentValue: any, lvlIdx: number) => {
+                        let categoryCell = row.insertCell();
+                        categoryCell.textContent = String(segmentValue);
+                        categoryCell.className = 'table-category-cell';
+                        categoryCell.style.width = `${categoryColumnWidth}px`;
+                        categoryCell.style.minWidth = `${categoryColumnWidth}px`;
+                        categoryCell.style.maxWidth = `${categoryColumnWidth}px`;
+                        applyRowSquash(categoryCell, rowHeight, cellFontSize, categoryWordWrap);
+                        categoryCell.style.fontWeight = isTotal ? "bold" : (valueBold ? "bold" : "normal");
+                        categoryCell.style.borderRight = vertBorderValue;
+                        categoryCell.style.backgroundColor = isTotal ? totalRowBackgroundColor : rowBgColor;
+                        categoryCell.style.color = isTotal ? totalRowTextColor : getCategoryTextColor(i, dataView);
+                        categoryCell.style.overflow = "hidden";
+                        categoryCell.style.textOverflow = "ellipsis";
+                        categoryCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
+                        if (categoryWordWrap) {
+                            categoryCell.style.wordBreak = "break-word";
+                        }
+                    });
                 }
 
                 // Add measure values
@@ -1442,24 +1470,28 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             const totalBgColor = totalRowBackgroundColor;
 
             if (hasCategories) {
-                let totalLabelCell = totalRow.insertCell();
-                totalLabelCell.textContent = 'Total';
-                totalLabelCell.className = 'table-total-label-cell';
-                totalLabelCell.style.width = `${categoryColumnWidth}px`;
-                totalLabelCell.style.minWidth = `${categoryColumnWidth}px`;
-                totalLabelCell.style.maxWidth = `${categoryColumnWidth}px`;
-                applyRowSquash(totalLabelCell, totalRowHeight, totalRowFontSize, totalRowWordWrap);
-                totalLabelCell.style.fontWeight = totalRowBold ? "bold" : "normal";
-                totalLabelCell.style.textDecoration = totalRowUnderline ? "underline" : "none";
-                totalLabelCell.style.fontFamily = totalRowFontFamily;
-                totalLabelCell.style.fontStyle = totalRowItalic ? "italic" : "normal";
-                totalLabelCell.style.borderRight = vertBorderValue;
-                totalLabelCell.style.backgroundColor = totalBgColor; totalLabelCell.style.color = totalRowTextColor;
-                totalLabelCell.style.overflow = "hidden";
-                totalLabelCell.style.textOverflow = "ellipsis";
-                totalLabelCell.style.whiteSpace = totalRowWordWrap ? "normal" : "nowrap";
-                if (totalRowWordWrap) {
-                    totalLabelCell.style.wordBreak = "break-word";
+                const numCatCols = categories.sources.length;
+                for (let c = 0; c < numCatCols; c++) {
+                    let totalLabelCell = totalRow.insertCell();
+                    totalLabelCell.textContent = c === 0 ? 'Total' : '';
+                    totalLabelCell.className = 'table-total-label-cell';
+                    totalLabelCell.style.width = `${categoryColumnWidth}px`;
+                    totalLabelCell.style.minWidth = `${categoryColumnWidth}px`;
+                    totalLabelCell.style.maxWidth = `${categoryColumnWidth}px`;
+                    applyRowSquash(totalLabelCell, totalRowHeight, totalRowFontSize, totalRowWordWrap);
+                    totalLabelCell.style.fontWeight = totalRowBold ? "bold" : "normal";
+                    totalLabelCell.style.textDecoration = totalRowUnderline ? "underline" : "none";
+                    totalLabelCell.style.fontFamily = totalRowFontFamily;
+                    totalLabelCell.style.fontStyle = totalRowItalic ? "italic" : "normal";
+                    totalLabelCell.style.borderRight = vertBorderValue;
+                    totalLabelCell.style.backgroundColor = totalBgColor; 
+                    totalLabelCell.style.color = totalRowTextColor;
+                    totalLabelCell.style.overflow = "hidden";
+                    totalLabelCell.style.textOverflow = "ellipsis";
+                    totalLabelCell.style.whiteSpace = totalRowWordWrap ? "normal" : "nowrap";
+                    if (totalRowWordWrap) {
+                        totalLabelCell.style.wordBreak = "break-word";
+                    }
                 }
             } else {
                 let totalLabelCell = totalRow.insertCell();
