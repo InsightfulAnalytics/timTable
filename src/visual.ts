@@ -1185,6 +1185,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 const rowBgColor = getRowBackgroundColor(i, isEvenRow, dataView);
                 row.style.backgroundColor = rowBgColor;
 
+                // Determine if this row is a subtotal row
+                const isSubtotalRow = rowTotalIdx >= 0;
+
                 // Add category value
                 if (hasCategories) {
                     const rowPaths = categories.paths[i] || [categories.values[i]];
@@ -1196,15 +1199,19 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         categoryCell.style.width = `${categoryColumnWidth}px`;
                         categoryCell.style.minWidth = `${categoryColumnWidth}px`;
                         categoryCell.style.maxWidth = `${categoryColumnWidth}px`;
-                        applyRowSquash(categoryCell, rowHeight, cellFontSize, categoryWordWrap);
-                        categoryCell.style.fontWeight = isTotal ? "bold" : (valueBold ? "bold" : "normal");
+                        applyRowSquash(categoryCell, rowHeight, isTotal ? totalRowFontSize : cellFontSize, isTotal ? totalRowWordWrap : categoryWordWrap);
+                        categoryCell.style.fontWeight = isTotal ? (totalRowBold ? "bold" : "normal") : (valueBold ? "bold" : "normal");
+                        categoryCell.style.fontStyle = isTotal ? (totalRowItalic ? "italic" : "normal") : "normal";
+                        categoryCell.style.textDecoration = isTotal ? (totalRowUnderline ? "underline" : "none") : "none";
+                        categoryCell.style.fontFamily = isTotal ? totalRowFontFamily : cellFontFamily;
+                        categoryCell.style.fontSize = isTotal ? `${totalRowFontSize}px` : `${cellFontSize}px`;
                         categoryCell.style.borderRight = vertBorderValue;
                         categoryCell.style.backgroundColor = isTotal ? totalRowBackgroundColor : rowBgColor;
                         categoryCell.style.color = isTotal ? totalRowTextColor : getCategoryTextColor(i, dataView);
                         categoryCell.style.overflow = "hidden";
                         categoryCell.style.textOverflow = "ellipsis";
-                        categoryCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
-                        if (categoryWordWrap) {
+                        categoryCell.style.whiteSpace = (isTotal ? totalRowWordWrap : categoryWordWrap) ? "normal" : "nowrap";
+                        if ((isTotal ? totalRowWordWrap : categoryWordWrap)) {
                             categoryCell.style.wordBreak = "break-word";
                         }
                     });
@@ -1571,6 +1578,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
 
+                    // Override with totals formatting for subtotal rows
+                    if (isSubtotalRow) {
+                        effectiveBg = totalRowBackgroundColor;
+                        effectiveColor = totalRowTextColor;
+                        efBold = totalRowBold;
+                        efItalic = totalRowItalic;
+                        efUnderline = totalRowUnderline;
+                        efFontFamily = totalRowFontFamily;
+                        efFontSize = totalRowFontSize;
+                        efWordWrap = totalRowWordWrap;
+                    }
+
                     cell.style.backgroundColor = effectiveBg;
                     cell.style.color = effectiveColor;
                     cell.style.fontWeight = efBold ? "bold" : "normal";
@@ -1581,7 +1600,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.whiteSpace = efWordWrap ? "normal" : "nowrap";
 
                     cell.style.textAlign = effectiveAlign;
-                    if (efWordWrap) { // and here
+                    if (efWordWrap) {
                         cell.style.wordBreak = "break-word";
                     }
                 });
@@ -1893,6 +1912,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 
                 // Data Cells: Values for each category (or the 1 value if no categories)
                 for (let i = 0; i < rowCount; i++) {
+                    // Check if this column is a subtotal column in transposed mode
+                    let transposedIsSubtotal = false;
+                    if (hasCategories) {
+                        const colPaths = categories.paths ? categories.paths[i] : [categories.values[i]];
+                        transposedIsSubtotal = colPaths ? colPaths.some((p: any) => p === "Total") : false;
+                    }
+
                     let cell = row.insertCell();
                     cell.style.position = "relative";
                     
@@ -2181,6 +2207,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
 
+                    // Override with totals formatting for subtotal columns in transposed mode
+                    if (transposedIsSubtotal) {
+                        effectiveBg = totalRowBackgroundColor;
+                        effectiveColor = totalRowTextColor;
+                        efBold = totalRowBold;
+                        efItalic = totalRowItalic;
+                        efUnderline = totalRowUnderline;
+                        efFontFamily = totalRowFontFamily;
+                        efFontSize = totalRowFontSize;
+                        efWordWrap = totalRowWordWrap;
+                    }
+
                     cell.style.backgroundColor = effectiveBg;
                     cell.style.color = effectiveColor;
                     cell.style.fontWeight = efBold ? "bold" : "normal";
@@ -2191,7 +2229,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.whiteSpace = efWordWrap ? "normal" : "nowrap";
 
                     cell.style.textAlign = effectiveAlign;
-                    if (efWordWrap) { // and here
+                    if (efWordWrap) {
                         cell.style.wordBreak = "break-word";
                     }
                 }
