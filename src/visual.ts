@@ -732,29 +732,6 @@ interface MeasureSpecificSettings {
                 }));
             }
 
-              let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
-              const totalBehaviorVal = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Measure");
-
-              const totalBehaviorItems = [
-                  { value: "Measure", displayName: "Measure" },
-                  { value: "Sum", displayName: "Sum" },
-                  { value: "Average", displayName: "Average" },
-                  { value: "Count", displayName: "Count" },
-                  { value: "Count Distinct", displayName: "Count Distinct" },
-                  { value: "Max", displayName: "Max" },
-                  { value: "Min", displayName: "Min" },
-                  { value: "None", displayName: "None" }
-              ];
-              const currentBehaviorItem = totalBehaviorItems.find(x => x.value === totalBehaviorVal) || totalBehaviorItems[0];
-
-              totalsSettings.categorySelectionGroup.slices.push(new formattingSettings.ItemDropdown({
-                  name: "totalBehavior",
-                  displayName: displayName + " Measure Selection",
-                  value: currentBehaviorItem,
-                  items: totalBehaviorItems,
-                  visible: true,
-                  selector: { metadata: queryName }
-              }));
           });
 
           // Populate totals series dropdown and apply selector to showTotalRow
@@ -788,6 +765,53 @@ interface MeasureSpecificSettings {
           const showTotalRowIdx = totalsSettings.categorySelectionGroup.slices.findIndex(s => s.name === "showTotalRow");
           if (showTotalRowIdx >= 0) {
               totalsSettings.categorySelectionGroup.slices[showTotalRowIdx] = totalsSettings.showTotalRow;
+          }
+
+          // Build totalBehavior dropdowns scoped to the selected category level
+          const totalBehaviorItems = [
+              { value: "Measure", displayName: "Measure" },
+              { value: "Sum", displayName: "Sum" },
+              { value: "Average", displayName: "Average" },
+              { value: "Count", displayName: "Count" },
+              { value: "Count Distinct", displayName: "Count Distinct" },
+              { value: "Max", displayName: "Max" },
+              { value: "Min", displayName: "Min" },
+              { value: "None", displayName: "None" }
+          ];
+
+          if (selectedTotalsCategoryIdx <= 0) {
+              // Top-level category (or no categories): per-measure totalBehavior for the grand total row
+              values.forEach((valueColumn) => {
+                  const objects = valueColumn.source.objects || {};
+                  const displayName = valueColumn.source.displayName || "Measure";
+                  const queryName = valueColumn.source.queryName;
+                  let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
+                  const totalBehaviorVal = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Measure");
+                  const currentBehaviorItem = totalBehaviorItems.find(x => x.value === totalBehaviorVal) || totalBehaviorItems[0];
+
+                  totalsSettings.categorySelectionGroup.slices.push(new formattingSettings.ItemDropdown({
+                      name: "totalBehavior",
+                      displayName: displayName + " Measure Selection",
+                      value: currentBehaviorItem,
+                      items: totalBehaviorItems,
+                      visible: true,
+                      selector: { metadata: queryName }
+                  }));
+              });
+          } else {
+              // Lower-level category: per-category totalBehavior for subtotal rows at this level
+              let catBehaviorRaw = dataViewObjects.getValue<any>(selectedTotalsSource?.objects || {}, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
+              const catBehaviorVal = typeof catBehaviorRaw === "string" ? catBehaviorRaw : (catBehaviorRaw?.value || "Measure");
+              const currentCatBehaviorItem = totalBehaviorItems.find(x => x.value === catBehaviorVal) || totalBehaviorItems[0];
+
+              totalsSettings.categorySelectionGroup.slices.push(new formattingSettings.ItemDropdown({
+                  name: "totalBehavior",
+                  displayName: "Measure Selection",
+                  value: currentCatBehaviorItem,
+                  items: totalBehaviorItems,
+                  visible: true,
+                  selector: totalsSelector
+              }));
           }
 
           // Populate specificColumn series dropdown and rebuild value slices with per-measure selector
@@ -1129,16 +1153,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 return dataViewObjects.getValue<boolean>(catSource.objects || {}, { objectName: "totals", propertyName: "showTotalRow" }, true);
             });
 
+            // Per-category-level totalBehavior for subtotal rows
+            const categoryLevelBehaviors: string[] = (categories?.sources || []).map((catSource: any) => {
+                const raw = dataViewObjects.getValue<any>(catSource.objects || {}, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
+                return typeof raw === "string" ? raw : (raw?.value || "Measure");
+            });
+
             // Update global showTotalRow so the manual "Totals" at the bottom respects at least the first category's setting if categories exist.
             showTotalRow = categoryShowTotals.length > 0 ? categoryShowTotals[0] : showTotalRow;
 
             // Create data rows
             for (let i = 0; i < rowCount; i++) {
-                // If it's a matrix subtotal row, respect the category-level showTotalRow toggle
+                // Determine if this is a subtotal row and at which category level
+                let rowTotalIdx = -1;
+                let rowPaths_check: any[] | null = null;
                 if (hasCategories) {
-                    const checkPaths = categories.paths ? categories.paths[i] : [categories.values[i]];
-                    const totalIdx = checkPaths ? checkPaths.indexOf("Total") : -1;
-                    if (totalIdx >= 0 && !categoryShowTotals[totalIdx]) {
+                    rowPaths_check = categories.paths ? categories.paths[i] : [categories.values[i]];
+                    rowTotalIdx = rowPaths_check ? rowPaths_check.indexOf("Total") : -1;
+                    if (rowTotalIdx >= 0 && !categoryShowTotals[rowTotalIdx]) {
                         continue;
                     }
                 }
@@ -1240,6 +1272,40 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let cell = row.insertCell();
                     let value = valueColumn.values[i];
                     cell.style.position = "relative"; // for data bar positioning
+
+                    // Apply per-category totalBehavior to subtotal rows (lower levels only)
+                    if (rowTotalIdx > 0 && categoryLevelBehaviors[rowTotalIdx]) {
+                        const subtotalBehavior = categoryLevelBehaviors[rowTotalIdx];
+                        if (subtotalBehavior === "None") {
+                            value = null;
+                        } else if (subtotalBehavior !== "Measure") {
+                            // Re-compute from detail rows within this group
+                            const groupPrefix = rowPaths_check ? rowPaths_check.slice(0, rowTotalIdx) : [];
+                            const detailValues: number[] = [];
+                            for (let j = 0; j < rowCount; j++) {
+                                const jPaths = categories.paths ? categories.paths[j] : [categories.values[j]];
+                                if (!jPaths || jPaths.indexOf("Total") >= 0) continue;
+                                let match = true;
+                                for (let k = 0; k < groupPrefix.length; k++) {
+                                    if (jPaths[k] !== groupPrefix[k]) { match = false; break; }
+                                }
+                                if (match) {
+                                    const v = valueColumn.values[j];
+                                    if (v !== null && v !== undefined) detailValues.push(Number(v));
+                                }
+                            }
+                            if (detailValues.length > 0) {
+                                if (subtotalBehavior === "Sum") value = detailValues.reduce((a, b) => a + b, 0);
+                                else if (subtotalBehavior === "Average") value = detailValues.reduce((a, b) => a + b, 0) / detailValues.length;
+                                else if (subtotalBehavior === "Count") value = detailValues.length;
+                                else if (subtotalBehavior === "Count Distinct") value = new Set(detailValues).size;
+                                else if (subtotalBehavior === "Max") value = Math.max(...detailValues);
+                                else if (subtotalBehavior === "Min") value = Math.min(...detailValues);
+                            } else {
+                                value = null;
+                            }
+                        }
+                    }
 
                     if (value !== null && value !== undefined) {
                         let numValue = Number(value);
