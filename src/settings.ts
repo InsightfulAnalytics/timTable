@@ -399,7 +399,7 @@ export class TotalsSettings extends formattingSettings.CompositeCard {
     public totalsFormattingGroup = new formattingSettings.Group({
         displayName: "Totals formatting",
         name: "totalsFormattingGroup",
-        slices: [this.font, this.textColor, this.backgroundColor, this.textWrap]
+        slices: [this.font, this.textWrap]
     });
 
     public groups: formattingSettings.Group[] = [this.categorySelectionGroup, this.totalsFormattingGroup];

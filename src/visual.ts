@@ -147,7 +147,7 @@ export class Visual implements IVisual {
         const totalRowWordWrap = totalsSettings.textWrap.value;
         const totalRowFontSize = totalsSettings.font.fontSize.value;
         const totalRowFontFamily = totalsSettings.font.fontFamily.value;
-        const totalRowTextColor = totalsSettings.textColor.value.value;
+
         const categoryColumnWidth = columnWidthSettings.categoryColumnWidth.value;
         const categoryWordWrap = columnWidthSettings.categoryWordWrap.value;
         const valueWordWrap = valuesSettings.textWrap.value;
@@ -172,7 +172,7 @@ export class Visual implements IVisual {
         const alternateBackgroundColor = valuesSettings.alternateBackgroundColor.value.value;
         const headerBackgroundColor = columnHeadersSettings.backgroundColor.value.value;
         const headerTextColor = columnHeadersSettings.textColor.value.value;
-        const totalRowBackgroundColor = totalsSettings.backgroundColor.value.value;
+
         const gridSettings = this.visualSettings.gridMenu;
         const gridBorderColor = gridSettings.horizontalGridColor.value.value;
         const categoryCFSettings = this.visualSettings.categoryConditionalFormatting;
@@ -188,8 +188,6 @@ export class Visual implements IVisual {
         ];
         totalsSettings.totalsFormattingGroup.slices = [
             totalsSettings.font,
-            totalsSettings.textColor,
-            totalsSettings.backgroundColor,
             totalsSettings.textWrap
         ];
         totalsSettings.groups = [
@@ -343,8 +341,8 @@ export class Visual implements IVisual {
             cell.style.textDecoration = totalRowUnderline ? "underline" : "none";
             cell.style.fontFamily = totalRowFontFamily;
             cell.style.fontStyle = totalRowItalic ? "italic" : "normal";
-            cell.style.backgroundColor = totalRowBackgroundColor;
-            cell.style.color = totalRowTextColor;
+            cell.style.backgroundColor = backgroundColor;
+            cell.style.color = textColor;
             cell.style.overflow = "hidden";
             cell.style.textOverflow = "ellipsis";
             cell.style.whiteSpace = wordWrap ? "normal" : "nowrap";
@@ -1206,8 +1204,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         categoryCell.style.fontFamily = isTotal ? totalRowFontFamily : cellFontFamily;
                         categoryCell.style.fontSize = isTotal ? `${totalRowFontSize}px` : `${cellFontSize}px`;
                         categoryCell.style.borderRight = vertBorderValue;
-                        categoryCell.style.backgroundColor = isTotal ? totalRowBackgroundColor : rowBgColor;
-                        categoryCell.style.color = isTotal ? totalRowTextColor : getCategoryTextColor(i, dataView);
+                        categoryCell.style.backgroundColor = rowBgColor;
+                        categoryCell.style.color = isTotal ? (isEvenRow ? textColor : alternateTextColor) : getCategoryTextColor(i, dataView);
                         categoryCell.style.overflow = "hidden";
                         categoryCell.style.textOverflow = "ellipsis";
                         categoryCell.style.whiteSpace = (isTotal ? totalRowWordWrap : categoryWordWrap) ? "normal" : "nowrap";
@@ -1580,8 +1578,6 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                     // Override with totals formatting for subtotal rows
                     if (isSubtotalRow) {
-                        effectiveBg = totalRowBackgroundColor;
-                        effectiveColor = totalRowTextColor;
                         efBold = totalRowBold;
                         efItalic = totalRowItalic;
                         efUnderline = totalRowUnderline;
@@ -1613,7 +1609,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             totalRow.style.borderTop = horizBorder2xValue;
             totalRow.style.borderBottom = horizBorder2xValue;
             totalRow.style.height = `${totalRowHeight}px`;
-            const totalBgColor = totalRowBackgroundColor;
+            const totalBgColor = backgroundColor;
 
             if (hasCategories) {
                 const numCatCols = categories.sources.length;
@@ -1631,7 +1627,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     totalLabelCell.style.fontStyle = totalRowItalic ? "italic" : "normal";
                     totalLabelCell.style.borderRight = vertBorderValue;
                     totalLabelCell.style.backgroundColor = totalBgColor; 
-                    totalLabelCell.style.color = totalRowTextColor;
+                    totalLabelCell.style.color = textColor;
                     totalLabelCell.style.overflow = "hidden";
                     totalLabelCell.style.textOverflow = "ellipsis";
                     totalLabelCell.style.whiteSpace = totalRowWordWrap ? "normal" : "nowrap";
@@ -1647,8 +1643,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
             totals.forEach((total, i) => {
                 let specSettings = measureSettingsList[i];
-                let effectiveBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : totalRowBackgroundColor;
-                let effectiveColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : totalRowTextColor;
+                let effectiveBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+                let effectiveColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
                 if (specSettings.applyToTotal && specSettings.transparency > 0) {
                     effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
                 }
@@ -2209,8 +2205,6 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                     // Override with totals formatting for subtotal columns in transposed mode
                     if (transposedIsSubtotal) {
-                        effectiveBg = totalRowBackgroundColor;
-                        effectiveColor = totalRowTextColor;
                         efBold = totalRowBold;
                         efItalic = totalRowItalic;
                         efUnderline = totalRowUnderline;
@@ -2264,8 +2258,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let efTotalFontFamily = specSettings.applyToTotal && specSettings.fontFamily !== undefined ? specSettings.fontFamily : totalRowFontFamily;
                     let efTotalFontSize = specSettings.applyToTotal && specSettings.fontSize !== undefined ? specSettings.fontSize : totalRowFontSize;
                     let efTotalWordWrap = specSettings.applyToTotal && specSettings.textWrap !== undefined ? specSettings.textWrap : totalRowWordWrap;
-                    let efTotalBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : totalRowBackgroundColor;
-                    let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : totalRowTextColor;
+                    let efTotalBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+                    let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
                     let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
                     applyRowSquash(totalCell, rowHeight, efTotalFontSize, efTotalWordWrap);
                     totalCell.style.fontWeight = efTotalBold ? "bold" : "normal";
