@@ -393,6 +393,15 @@ export class Visual implements IVisual {
         let categories: any;
         let values: any;
 
+        // Column grouping support (matrix columns field)
+        let hasColumnGrouping = false;
+        let columnLeaves: { path: any[] }[] = [];
+        let columnHeaderGroups: { label: string, span: number }[][] = [];
+        let storedFlatRows: any[] = null;
+        let storedMeasureCount = 0;
+        let storedRoot: any = null;
+        let storedSubtotalChild: any = null;
+
         // Extract data from matrix structure (primary path with matrix-only mapping)
         if (dataView.matrix && dataView.matrix.rows && dataView.matrix.rows.root) {
             const matrixRows = dataView.matrix.rows;
@@ -471,6 +480,78 @@ export class Visual implements IVisual {
                 values: flatRows.map(r => r.rawValues[mIdx]?.value ?? null),
                 objects: flatRows.map(r => r.rawValues[mIdx]?.objects || undefined)
             }));
+
+            // Store references for column expansion later
+            storedFlatRows = flatRows;
+            storedMeasureCount = vSources.length || 1;
+            storedRoot = root;
+            storedSubtotalChild = subtotalChild;
+
+            // Detect column grouping from the matrix columns hierarchy
+            if (dataView.matrix.columns) {
+                const matrixCols = dataView.matrix.columns;
+                let columnLevelNames: string[] = [];
+                // Find the depth at which the measure level appears (so we stop before it)
+                let measureLevelDepth = -1;
+                if (matrixCols.levels) {
+                    for (let i = 0; i < matrixCols.levels.length; i++) {
+                        if (matrixCols.levels[i].sources.length > 0 && matrixCols.levels[i].sources[0].isMeasure) {
+                            measureLevelDepth = i;
+                            break;
+                        }
+                    }
+                    columnLevelNames = matrixCols.levels
+                        .filter(l => l.sources.length > 0 && !l.sources[0].isMeasure)
+                        .map(l => l.sources[0].displayName);
+                }
+                hasColumnGrouping = columnLevelNames.length > 0;
+
+                if (hasColumnGrouping && matrixCols.root.children && matrixCols.root.children.length > 0) {
+                    // Flatten column tree to get leaf nodes, stopping before the measure level
+                    const flattenCol = (node: any, path: any[], depth: number) => {
+                        let newPath = [...path];
+                        if (node.value !== undefined) newPath.push(node.value);
+                        const nonSubtotalChildren = (node.children || []).filter((c: any) => !c.isSubtotal);
+                        // Stop recursing if the next level is the measure level
+                        const nextIsMeasureLevel = measureLevelDepth >= 0 && (depth + 1) === measureLevelDepth;
+                        if (nonSubtotalChildren.length === 0 || nextIsMeasureLevel) {
+                            columnLeaves.push({ path: newPath });
+                        } else {
+                            nonSubtotalChildren.forEach((c: any) => flattenCol(c, newPath, depth + 1));
+                        }
+                    };
+                    matrixCols.root.children.filter((c: any) => !c.isSubtotal).forEach((c: any) => {
+                        flattenCol(c, [], 0);
+                    });
+
+                    console.log('[timTable] column detection', JSON.stringify({
+                        columnLevelNames,
+                        measureLevelDepth,
+                        columnLeafCount: columnLeaves.length,
+                        columnLeafPaths: columnLeaves.map(l => l.path)
+                    }));
+
+                    // Build column header grouping info for rendering multi-row headers
+                    const M = storedMeasureCount;
+                    for (let level = 0; level < columnLevelNames.length; level++) {
+                        let groups: { label: string, span: number }[] = [];
+                        let lastValue: string | null = null;
+                        let currentSpan = 0;
+                        columnLeaves.forEach(leaf => {
+                            const val = leaf.path[level] !== undefined ? String(leaf.path[level]) : "";
+                            if (val === lastValue) {
+                                currentSpan += M;
+                            } else {
+                                if (lastValue !== null) groups.push({ label: lastValue, span: currentSpan });
+                                lastValue = val;
+                                currentSpan = M;
+                            }
+                        });
+                        if (lastValue !== null) groups.push({ label: lastValue, span: currentSpan });
+                        columnHeaderGroups.push(groups);
+                    }
+                }
+            }
 
             // Extract subtotal values for "Measure" total
             // Path 1: subtotal child node (multi-level hierarchy)
@@ -998,6 +1079,65 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
             dataBarsSettings.dataBarsGroup.slices = dataBarsSlices;
             dataBarsSettings.yAxisGroup.slices = yAxisSlices;
+
+          // Expand values and settings arrays for column grouping (column × measure display columns)
+          if (hasColumnGrouping && columnLeaves.length > 0 && storedFlatRows) {
+              const M = storedMeasureCount;
+              const baseValues = [...values];
+              const baseMSettings = [...measureSettingsList];
+              const baseMFormats = [...measureFormats];
+              const baseMHeaders = [...measureHeaders];
+              const baseMHeaderOvr = [...measureHeaderOverrides];
+              const baseVCWidths = [...valueColumnWidths];
+
+              values = [];
+              measureSettingsList = [];
+              measureFormats = [];
+              measureHeaders = [];
+              measureHeaderOverrides = [];
+              valueColumnWidths = [];
+
+              for (let colIdx = 0; colIdx < columnLeaves.length; colIdx++) {
+                  for (let mIdx = 0; mIdx < M; mIdx++) {
+                      const vKey = colIdx * M + mIdx;
+                      values.push({
+                          source: baseValues[mIdx].source,
+                          columnPath: columnLeaves[colIdx].path,
+                          values: storedFlatRows.map(r => r.rawValues[vKey]?.value ?? null),
+                          objects: storedFlatRows.map(r => r.rawValues[vKey]?.objects || undefined)
+                      });
+                      measureSettingsList.push(baseMSettings[mIdx]);
+                      measureFormats.push(baseMFormats[mIdx]);
+                      measureHeaders.push(baseMHeaders[mIdx]);
+                      measureHeaderOverrides.push(baseMHeaderOvr[mIdx]);
+                      valueColumnWidths.push(baseVCWidths[mIdx]);
+                  }
+              }
+          }
+
+          // Build display column subtotals for "Measure" total behavior
+          let displayColumnSubtotals: (number | null)[] = new Array(values.length).fill(null);
+          if (hasColumnGrouping && columnLeaves.length > 0) {
+              const M = storedMeasureCount;
+              const subtotalSource = storedSubtotalChild?.values || storedRoot?.values || {};
+              for (let i = 0; i < values.length; i++) {
+                  const colIdx = Math.floor(i / M);
+                  const mIdx = i % M;
+                  const vKey = colIdx * M + mIdx;
+                  const stVal = subtotalSource[vKey];
+                  if (stVal && stVal.value !== null && stVal.value !== undefined) {
+                      displayColumnSubtotals[i] = Number(stVal.value);
+                  }
+              }
+          } else {
+              values.forEach((vc, idx) => {
+                  const qn = vc.source?.queryName;
+                  if (qn && matrixSubtotalValues[qn] !== undefined) {
+                      displayColumnSubtotals[idx] = matrixSubtotalValues[qn];
+                  }
+              });
+          }
+
           // Compute min and max values for data bars AND Calculate totals based on selection
           let measureMins: number[] = new Array(values.length).fill(0);
           let measureMaxs: number[] = new Array(values.length).fill(0);
@@ -1019,10 +1159,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             } else if (totalBehavior === "Measure") {
                 let semanticTotal: number | null = null;
 
-                // Use matrix subtotal (engine-computed DAX grand total) if available
-                const qn = valueColumn.source.queryName;
-                if (qn && matrixSubtotalValues[qn] !== undefined) {
-                    semanticTotal = matrixSubtotalValues[qn];
+                // Use display column subtotals (handles both column-grouped and non-grouped cases)
+                if (displayColumnSubtotals[measureIndex] !== null && displayColumnSubtotals[measureIndex] !== undefined) {
+                    semanticTotal = displayColumnSubtotals[measureIndex];
                 }
 
                 // Fallback: sum of row values (same as Sum behavior)
@@ -1050,11 +1189,69 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
         if (!switchValuesToRows) {
             // Normal horizontal table structure
+            const headerBgColor = headerBackgroundColor;
+            const numCategoryColumns = hasCategories ? categories.sources.length : 0;
+
+            // Add column grouping header rows (for matrix columns field, only when multiple measures)
+            if (hasColumnGrouping && columnHeaderGroups.length > 0 && storedMeasureCount > 1) {
+                columnHeaderGroups.forEach((groups, levelIdx) => {
+                    let colHeaderRow = this.table.insertRow();
+                    colHeaderRow.className = 'table-header-row';
+                    colHeaderRow.style.borderBottom = horizBorderValue;
+                    colHeaderRow.style.height = `${headerRowHeight}px`;
+
+                    // Empty cell(s) spanning category columns
+                    if (hasCategories) {
+                        categories.sources.forEach((source: any) => {
+                            let emptyCell = colHeaderRow.insertCell();
+                            emptyCell.textContent = '';
+                            emptyCell.className = 'table-header-cell';
+                            emptyCell.style.width = `${categoryColumnWidth}px`;
+                            emptyCell.style.minWidth = `${categoryColumnWidth}px`;
+                            emptyCell.style.maxWidth = `${categoryColumnWidth}px`;
+                            emptyCell.style.backgroundColor = headerBgColor;
+                            emptyCell.style.borderRight = vertBorderValue;
+                            applyRowSquash(emptyCell, headerRowHeight, headerFontSize, headerWordWrap);
+                            emptyCell.style.fontWeight = headerBold ? "bold" : "normal";
+                            emptyCell.style.fontStyle = headerItalic ? "italic" : "normal";
+                            emptyCell.style.textDecoration = headerUnderline ? "underline" : "none";
+                            emptyCell.style.fontFamily = headerFontFamily;
+                            emptyCell.style.color = headerTextColor;
+                            emptyCell.style.textAlign = headerAlignment;
+                        });
+                    }
+
+                    // Column grouping cells with colspan
+                    let displayColOffset = 0;
+                    groups.forEach(group => {
+                        let cell = colHeaderRow.insertCell();
+                        cell.textContent = group.label;
+                        cell.colSpan = group.span;
+                        cell.className = 'table-header-cell';
+                        cell.style.backgroundColor = headerBgColor;
+                        cell.style.borderRight = vertBorderValue;
+                        cell.style.textAlign = "center";
+                        applyRowSquash(cell, headerRowHeight, headerFontSize, headerWordWrap);
+                        cell.style.fontWeight = headerBold ? "bold" : "normal";
+                        cell.style.fontStyle = headerItalic ? "italic" : "normal";
+                        cell.style.textDecoration = headerUnderline ? "underline" : "none";
+                        cell.style.fontFamily = headerFontFamily;
+                        cell.style.color = headerTextColor;
+                        cell.style.overflow = "hidden";
+                        cell.style.textOverflow = "ellipsis";
+                        cell.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                        if (headerWordWrap) {
+                            cell.style.wordBreak = "break-word";
+                        }
+                        displayColOffset += group.span;
+                    });
+                });
+            }
+
             let headerRow = this.table.insertRow();
             headerRow.className = 'table-header-row';
             headerRow.style.borderBottom = horizBorder2xValue;
             headerRow.style.height = `${headerRowHeight}px`;
-            const headerBgColor = headerBackgroundColor;
 
             // Add category column header if categories exist
             if (hasCategories) {
@@ -1084,9 +1281,17 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 });
             }
 
-            // Add measure column headers
+            // Add measure column headers (or column-value headers for single-measure + columns)
             measureHeaders.forEach((displayName, idx) => {
-                const effectiveDisplayName = measureHeaderOverrides[idx];
+                // For single-measure with columns, use the column path as header text
+                let headerText = measureHeaderOverrides[idx];
+                if (hasColumnGrouping && columnLeaves.length > 0 && storedMeasureCount === 1) {
+                    const colIdx = idx; // 1 measure, so display col idx == column leaf idx
+                    if (colIdx < columnLeaves.length) {
+                        headerText = columnLeaves[colIdx].path.join(' \u203A ');
+                    }
+                }
+                const effectiveDisplayName = headerText;
                 let specSettings = measureSettingsList[idx];
                 let effectiveBg = specSettings.applyToHeader && specSettings.backgroundColor ? specSettings.backgroundColor : headerBgColor;
                 let efBold = specSettings.applyToHeader && specSettings.bold !== undefined ? specSettings.bold : headerBold;
