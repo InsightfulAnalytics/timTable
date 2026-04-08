@@ -2054,7 +2054,6 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.width = `${valueColumnWidths[measureIndex]}px`;
                     cell.style.minWidth = `${valueColumnWidths[measureIndex]}px`;
                     cell.style.maxWidth = `${valueColumnWidths[measureIndex]}px`;
-                    applyRowSquash(cell, rowHeight, cellFontSize, valueWordWrap);
                     cell.style.fontWeight = valueBold ? "bold" : "normal";
                       cell.style.fontStyle = cellItalic ? "italic" : "normal";
                       cell.style.textDecoration = cellUnderline ? "underline" : "none";
@@ -2104,6 +2103,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         efWordWrap = totalRowWordWrap;
                     }
 
+                    applyRowSquash(cell, rowHeight, efFontSize, efWordWrap);
                     cell.style.backgroundColor = effectiveBg;
                     cell.style.color = effectiveColor;
                     cell.style.fontWeight = efBold ? "bold" : "normal";
@@ -2809,7 +2809,6 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.width = `${valueColumnWidths[measureIndex]}px`;
                     cell.style.minWidth = `${valueColumnWidths[measureIndex]}px`;
                     cell.style.maxWidth = `${valueColumnWidths[measureIndex]}px`;
-                    applyRowSquash(cell, rowHeight, cellFontSize, valueWordWrap);
                     cell.style.fontWeight = valueBold ? "bold" : "normal";
                       cell.style.fontStyle = cellItalic ? "italic" : "normal";
                       cell.style.textDecoration = cellUnderline ? "underline" : "none";
@@ -2859,6 +2858,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         efWordWrap = totalRowWordWrap;
                     }
 
+                    applyRowSquash(cell, rowHeight, efFontSize, efWordWrap);
                     cell.style.backgroundColor = effectiveBg;
                     cell.style.color = effectiveColor;
                     cell.style.fontWeight = efBold ? "bold" : "normal";
