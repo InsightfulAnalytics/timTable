@@ -1392,41 +1392,60 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         }
 
         // Compute grand totals for each base measure's column total (for the row total row)
+        // This is the intersection cell: apply the column total behavior to the row-total values across column leaves
         let colTotalsGrandPerMeasure: (number | null)[] = new Array(M).fill(null);
         if (showTotalRow) {
             for (let mIdx = 0; mIdx < M; mIdx++) {
                 if (!baseMeasureColTotalIncluded[mIdx]) continue;
-                // Use the row totals for the expanded columns of this measure
-                // Grand total = sum of column total values (which is the row total behavior applied to the column totals)
-                let grandValues = colTotalsPerMeasure[mIdx].filter(v => v !== null && v !== undefined) as number[];
-                if (grandValues.length > 0) {
-                    // Use the row totalBehavior for the grand total of this measure
-                    const objects = baseValues[mIdx]?.source?.objects || {};
-                    let rowBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
-                    const rowBehavior = typeof rowBehaviorRaw === "string" ? rowBehaviorRaw : (rowBehaviorRaw?.value || "Measure");
+                const colBehavior = baseMeasureColTotalBehaviors[mIdx];
+                if (colBehavior === "None") continue;
 
-                    if (rowBehavior === "None") {
-                        colTotalsGrandPerMeasure[mIdx] = null;
-                    } else if (rowBehavior === "Measure") {
-                        // For "Measure" behavior, try to use semantic subtotal
-                        const qn = baseValues[mIdx]?.source?.queryName;
-                        if (qn && matrixSubtotalValues[qn] !== undefined) {
-                            colTotalsGrandPerMeasure[mIdx] = matrixSubtotalValues[qn];
-                        } else {
+                // The subtotal source for the row-total row
+                const subtotalSource = storedSubtotalChild?.values || storedRoot?.values || {};
+
+                if (colBehavior === "Measure") {
+                    // Use the DAX engine's column subtotal value from the row-total row
+                    // columnSubtotalValueKeys[mIdx] is the value key for the column subtotal of measure mIdx
+                    let semanticVal: number | null = null;
+                    if (hasColumnGrouping && columnSubtotalValueKeys.length > mIdx) {
+                        const subtotalKey = columnSubtotalValueKeys[mIdx];
+                        const stVal = subtotalSource[subtotalKey];
+                        if (stVal && stVal.value !== null && stVal.value !== undefined) {
+                            semanticVal = Number(stVal.value);
+                        }
+                    }
+                    if (semanticVal !== null) {
+                        colTotalsGrandPerMeasure[mIdx] = semanticVal;
+                    } else {
+                        // Fallback: sum of per-row column totals
+                        let grandValues = colTotalsPerMeasure[mIdx].filter(v => v !== null && v !== undefined) as number[];
+                        if (grandValues.length > 0) {
                             colTotalsGrandPerMeasure[mIdx] = grandValues.reduce((a, b) => a + b, 0);
                         }
-                    } else if (rowBehavior === "Sum") {
-                        colTotalsGrandPerMeasure[mIdx] = grandValues.reduce((a, b) => a + b, 0);
-                    } else if (rowBehavior === "Average") {
-                        colTotalsGrandPerMeasure[mIdx] = grandValues.reduce((a, b) => a + b, 0) / grandValues.length;
-                    } else if (rowBehavior === "Count") {
-                        colTotalsGrandPerMeasure[mIdx] = grandValues.length;
-                    } else if (rowBehavior === "Count Distinct") {
-                        colTotalsGrandPerMeasure[mIdx] = new Set(grandValues).size;
-                    } else if (rowBehavior === "Max") {
-                        colTotalsGrandPerMeasure[mIdx] = Math.max(...grandValues);
-                    } else if (rowBehavior === "Min") {
-                        colTotalsGrandPerMeasure[mIdx] = Math.min(...grandValues);
+                    }
+                } else {
+                    // Non-Measure behaviors: aggregate the row-total row's values across column leaves
+                    let colLeafTotals: number[] = [];
+                    if (hasColumnGrouping && numColumnLeaves > 1) {
+                        for (let colIdx = 0; colIdx < numColumnLeaves; colIdx++) {
+                            const vKey = colIdx * M + mIdx;
+                            const stVal = subtotalSource[vKey];
+                            if (stVal && stVal.value !== null && stVal.value !== undefined) {
+                                colLeafTotals.push(Number(stVal.value));
+                            }
+                        }
+                    }
+                    // If no column grouping or no subtotal source, use per-row column totals
+                    if (colLeafTotals.length === 0) {
+                        colLeafTotals = colTotalsPerMeasure[mIdx].filter(v => v !== null && v !== undefined) as number[];
+                    }
+                    if (colLeafTotals.length > 0) {
+                        if (colBehavior === "Sum") colTotalsGrandPerMeasure[mIdx] = colLeafTotals.reduce((a, b) => a + b, 0);
+                        else if (colBehavior === "Average") colTotalsGrandPerMeasure[mIdx] = colLeafTotals.reduce((a, b) => a + b, 0) / colLeafTotals.length;
+                        else if (colBehavior === "Count") colTotalsGrandPerMeasure[mIdx] = colLeafTotals.length;
+                        else if (colBehavior === "Count Distinct") colTotalsGrandPerMeasure[mIdx] = new Set(colLeafTotals).size;
+                        else if (colBehavior === "Max") colTotalsGrandPerMeasure[mIdx] = Math.max(...colLeafTotals);
+                        else if (colBehavior === "Min") colTotalsGrandPerMeasure[mIdx] = Math.min(...colLeafTotals);
                     }
                 }
             }
