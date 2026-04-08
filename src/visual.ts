@@ -1451,8 +1451,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             }
         }
 
-        // Determine column total column width
-        const colTotalColumnWidth = columnWidthSettings.valueColumnWidth.value;
+        // Determine column total column widths (per base measure)
+        const colTotalColumnWidths = Array.from({ length: M }, (_, i) => valueColumnWidths[i]);
 
         if (!switchValuesToRows) {
             // Normal horizontal table structure
@@ -1629,9 +1629,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let colTotalHeader = headerRow.insertCell();
                     colTotalHeader.textContent = baseMeasureHeaders[mIdx] + " Total";
                     colTotalHeader.className = 'table-header-cell';
-                    colTotalHeader.style.width = `${colTotalColumnWidth}px`;
-                    colTotalHeader.style.minWidth = `${colTotalColumnWidth}px`;
-                    colTotalHeader.style.maxWidth = `${colTotalColumnWidth}px`;
+                    colTotalHeader.style.width = `${colTotalColumnWidths[mIdx]}px`;
+                    colTotalHeader.style.minWidth = `${colTotalColumnWidths[mIdx]}px`;
+                    colTotalHeader.style.maxWidth = `${colTotalColumnWidths[mIdx]}px`;
                     applyRowSquash(colTotalHeader, headerRowHeight, headerFontSize, headerWordWrap);
                     colTotalHeader.style.fontWeight = headerBold ? "bold" : "normal";
                     colTotalHeader.style.fontStyle = headerItalic ? "italic" : "normal";
@@ -2142,9 +2142,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             colTotalCell.textContent = '-';
                         }
                         colTotalCell.className = 'table-data-cell';
-                        colTotalCell.style.width = `${colTotalColumnWidth}px`;
-                        colTotalCell.style.minWidth = `${colTotalColumnWidth}px`;
-                        colTotalCell.style.maxWidth = `${colTotalColumnWidth}px`;
+                        colTotalCell.style.width = `${colTotalColumnWidths[mIdx]}px`;
+                        colTotalCell.style.minWidth = `${colTotalColumnWidths[mIdx]}px`;
+                        colTotalCell.style.maxWidth = `${colTotalColumnWidths[mIdx]}px`;
 
                         // Inherit formatting from Values menu, with per-measure specificColumn overrides
                         let specSettings = baseMeasureSettings[mIdx];
@@ -2317,9 +2317,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         grandCell.textContent = "";
                     }
                     grandCell.className = 'table-total-cell';
-                    grandCell.style.width = `${colTotalColumnWidth}px`;
-                    grandCell.style.minWidth = `${colTotalColumnWidth}px`;
-                    grandCell.style.maxWidth = `${colTotalColumnWidth}px`;
+                    grandCell.style.width = `${colTotalColumnWidths[mIdx]}px`;
+                    grandCell.style.minWidth = `${colTotalColumnWidths[mIdx]}px`;
+                    grandCell.style.maxWidth = `${colTotalColumnWidths[mIdx]}px`;
 
                     // Use Row Totals formatting (same as other total row cells)
                     let specSettings = baseMeasureSettings[mIdx];
@@ -2987,9 +2987,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             cell.textContent = "";
                         }
                         cell.className = 'table-data-cell';
-                        cell.style.width = `${valueColumnWidths[0] || colTotalColumnWidth}px`;
-                        cell.style.minWidth = `${valueColumnWidths[0] || colTotalColumnWidth}px`;
-                        cell.style.maxWidth = `${valueColumnWidths[0] || colTotalColumnWidth}px`;
+                        cell.style.width = `${valueColumnWidths[0] || colTotalColumnWidths[mIdx]}px`;
+                        cell.style.minWidth = `${valueColumnWidths[0] || colTotalColumnWidths[mIdx]}px`;
+                        cell.style.maxWidth = `${valueColumnWidths[0] || colTotalColumnWidths[mIdx]}px`;
 
                         // Use Values menu formatting
                         let specSettings = baseMeasureSettings[mIdx];
@@ -3039,9 +3039,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             grandCell.textContent = "";
                         }
                         grandCell.className = 'table-total-cell';
-                        grandCell.style.width = `${colTotalColumnWidth}px`;
-                        grandCell.style.minWidth = `${colTotalColumnWidth}px`;
-                        grandCell.style.maxWidth = `${colTotalColumnWidth}px`;
+                        grandCell.style.width = `${colTotalColumnWidths[mIdx]}px`;
+                        grandCell.style.minWidth = `${colTotalColumnWidths[mIdx]}px`;
+                        grandCell.style.maxWidth = `${colTotalColumnWidths[mIdx]}px`;
 
                         // Use Row Totals formatting for the intersection
                         let specSettings = baseMeasureSettings[mIdx];
