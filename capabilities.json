@@ -771,6 +771,108 @@
                     }
                 }
             }
+        },
+        "columnTotals": {
+            "properties": {
+                "fontFamily": {
+                    "type": {
+                        "formatting": {
+                            "fontFamily": true
+                        }
+                    }
+                },
+                "fontSize": {
+                    "type": {
+                        "numeric": true
+                    }
+                },
+                "bold": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "italic": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "underline": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "textColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "backgroundColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "textWrap": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "series": {
+                    "type": {
+                        "text": true
+                    }
+                },
+                "showTotalColumn": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "totalBehavior": {
+                    "type": {
+                        "enumeration": [
+                            {
+                                "value": "Measure",
+                                "displayName": "Measure"
+                            },
+                            {
+                                "value": "Sum",
+                                "displayName": "Sum"
+                            },
+                            {
+                                "value": "Average",
+                                "displayName": "Average"
+                            },
+                            {
+                                "value": "Count",
+                                "displayName": "Count"
+                            },
+                            {
+                                "value": "Count Distinct",
+                                "displayName": "Count Distinct"
+                            },
+                            {
+                                "value": "Max",
+                                "displayName": "Max"
+                            },
+                            {
+                                "value": "Min",
+                                "displayName": "Min"
+                            },
+                            {
+                                "value": "None",
+                                "displayName": "None"
+                            }
+                        ]
+                    }
+                }
+            }
         }
     },
     "dataViewMappings": [

@@ -406,6 +406,93 @@ export class TotalsSettings extends formattingSettings.CompositeCard {
 }
 
 
+export class ColumnTotalsSettings extends formattingSettings.CompositeCard {
+    name: string = "columnTotals";
+    displayName: string = "Column Totals";
+    visible: boolean = true;
+    
+    public series = new formattingSettings.ItemDropdown({
+        name: "series",
+        displayName: "Series",
+        value: { value: "", displayName: "" },
+        items: [],
+        visible: true
+    });
+
+    public showTotalColumn = new formattingSettings.ToggleSwitch({
+        name: "showTotalColumn",
+        displayName: "Show Total Column",
+        value: false,
+        visible: true
+    });
+
+    public font = new formattingSettings.FontControl({
+        name: "font",
+        displayName: "Font",
+        fontFamily: new formattingSettings.FontPicker({
+            name: "fontFamily",
+            displayName: "Font Family",
+            value: "Arial, sans-serif"
+        }),
+        fontSize: new formattingSettings.NumUpDown({
+            name: "fontSize",
+            displayName: "Font Size",
+            value: 12
+        }),
+        bold: new formattingSettings.ToggleSwitch({
+            name: "bold",
+            displayName: "Bold",
+            value: true
+        }),
+        italic: new formattingSettings.ToggleSwitch({
+            name: "italic",
+            displayName: "Italic",
+            value: false
+        }),
+        underline: new formattingSettings.ToggleSwitch({
+            name: "underline",
+            displayName: "Underline",
+            value: false
+        })
+    });
+
+    public textColor = new formattingSettings.ColorPicker({
+        name: "textColor",
+        displayName: "Text color",
+        value: { value: "#333333" },
+        visible: true
+    });
+
+    public backgroundColor = new formattingSettings.ColorPicker({
+        name: "backgroundColor",
+        displayName: "Background color",
+        value: { value: "#d0d0d0" },
+        visible: true
+    });
+
+    public textWrap = new formattingSettings.ToggleSwitch({
+        name: "textWrap",
+        displayName: "Text wrap",
+        value: false,
+        visible: true
+    });
+
+    public columnSelectionGroup = new formattingSettings.Group({
+        displayName: "Measure Selection",
+        name: "columnSelectionGroup",
+        slices: [this.series, this.showTotalColumn]
+    });
+
+    public columnTotalsFormattingGroup = new formattingSettings.Group({
+        displayName: "Totals formatting",
+        name: "columnTotalsFormattingGroup",
+        slices: [this.font, this.textWrap]
+    });
+
+    public groups: formattingSettings.Group[] = [this.columnSelectionGroup, this.columnTotalsFormattingGroup];
+}
+
+
 export class GridSettings extends FormattingSettingsCard {
     public horizontalGridlines = new formattingSettings.ToggleSwitch({
         name: "horizontalGridlines",
@@ -804,9 +891,10 @@ export class VisualSettings extends FormattingSettingsModel {
     public dataBarsFormatting: DataBarsFormattingSettings = new DataBarsFormattingSettings();
     public dataBarMarkers: DataBarMarkersSettings = new DataBarMarkersSettings();
     public totals: TotalsSettings = new TotalsSettings();
+    public columnTotals: ColumnTotalsSettings = new ColumnTotalsSettings();
     public subTotals: SubTotalsSettings = new SubTotalsSettings();
     public gridMenu: GridSettings = new GridSettings();
     public columnWidth: ColumnWidthSettings = new ColumnWidthSettings();
 
-    public cards: FormattingSettingsCard[] = [this.gridMenu, this.valuesMenu, this.totals, this.subTotals, this.rowHeight, this.columnWidth, this.columnHeaders, this.specificColumn, this.dataBarsFormatting, this.dataBarMarkers, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.valueBackgroundConditionalFormatting];
+    public cards: FormattingSettingsCard[] = [this.gridMenu, this.valuesMenu, this.totals, this.columnTotals, this.subTotals, this.rowHeight, this.columnWidth, this.columnHeaders, this.specificColumn, this.dataBarsFormatting, this.dataBarMarkers, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.valueBackgroundConditionalFormatting];
 }

@@ -94,6 +94,20 @@ export declare class TotalsSettings extends formattingSettings.CompositeCard {
     totalsFormattingGroup: formattingSettings.Group;
     groups: formattingSettings.Group[];
 }
+export declare class ColumnTotalsSettings extends formattingSettings.CompositeCard {
+    name: string;
+    displayName: string;
+    visible: boolean;
+    series: formattingSettings.ItemDropdown;
+    showTotalColumn: formattingSettings.ToggleSwitch;
+    font: formattingSettings.FontControl;
+    textColor: formattingSettings.ColorPicker;
+    backgroundColor: formattingSettings.ColorPicker;
+    textWrap: formattingSettings.ToggleSwitch;
+    columnSelectionGroup: formattingSettings.Group;
+    columnTotalsFormattingGroup: formattingSettings.Group;
+    groups: formattingSettings.Group[];
+}
 export declare class GridSettings extends FormattingSettingsCard {
     horizontalGridlines: formattingSettings.ToggleSwitch;
     horizontalGridColor: formattingSettings.ColorPicker;
@@ -179,6 +193,7 @@ export declare class VisualSettings extends FormattingSettingsModel {
     dataBarsFormatting: DataBarsFormattingSettings;
     dataBarMarkers: DataBarMarkersSettings;
     totals: TotalsSettings;
+    columnTotals: ColumnTotalsSettings;
     subTotals: SubTotalsSettings;
     gridMenu: GridSettings;
     columnWidth: ColumnWidthSettings;

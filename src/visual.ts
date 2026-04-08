@@ -148,6 +148,17 @@ export class Visual implements IVisual {
         const totalRowFontSize = totalsSettings.font.fontSize.value;
         const totalRowFontFamily = totalsSettings.font.fontFamily.value;
 
+        const columnTotalsSettings = this.visualSettings.columnTotals;
+        let showTotalColumn = columnTotalsSettings.showTotalColumn.value;
+        const colTotalItalic = columnTotalsSettings.font.italic?.value || false;
+        const colTotalWordWrap = columnTotalsSettings.textWrap.value;
+        const colTotalFontSize = columnTotalsSettings.font.fontSize.value;
+        const colTotalFontFamily = columnTotalsSettings.font.fontFamily.value;
+        const colTotalBold = columnTotalsSettings.font.bold?.value || false;
+        const colTotalUnderline = columnTotalsSettings.font.underline?.value || false;
+        const colTotalTextColor = columnTotalsSettings.textColor.value.value;
+        const colTotalBgColor = columnTotalsSettings.backgroundColor.value.value;
+
         const categoryColumnWidth = columnWidthSettings.categoryColumnWidth.value;
         const categoryWordWrap = columnWidthSettings.categoryWordWrap.value;
         const valueWordWrap = valuesSettings.textWrap.value;
@@ -193,6 +204,19 @@ export class Visual implements IVisual {
         totalsSettings.groups = [
             totalsSettings.categorySelectionGroup,
             totalsSettings.totalsFormattingGroup
+        ];
+
+        columnTotalsSettings.columnSelectionGroup.slices = [
+            columnTotalsSettings.series,
+            columnTotalsSettings.showTotalColumn
+        ];
+        columnTotalsSettings.columnTotalsFormattingGroup.slices = [
+            columnTotalsSettings.font,
+            columnTotalsSettings.textWrap
+        ];
+        columnTotalsSettings.groups = [
+            columnTotalsSettings.columnSelectionGroup,
+            columnTotalsSettings.columnTotalsFormattingGroup
         ];
 
         const dataBarsSettings = this.visualSettings.dataBarsFormatting;
@@ -401,6 +425,7 @@ export class Visual implements IVisual {
         let storedMeasureCount = 0;
         let storedRoot: any = null;
         let storedSubtotalChild: any = null;
+        let columnSubtotalValueKeys: number[] = []; // value key indices for column subtotal leaves (for "Measure" column totals)
 
         // Extract data from matrix structure (primary path with matrix-only mapping)
         if (dataView.matrix && dataView.matrix.rows && dataView.matrix.rows.root) {
@@ -507,28 +532,51 @@ export class Visual implements IVisual {
                 hasColumnGrouping = columnLevelNames.length > 0;
 
                 if (hasColumnGrouping && matrixCols.root.children && matrixCols.root.children.length > 0) {
-                    // Flatten column tree to get leaf nodes, stopping before the measure level
-                    const flattenCol = (node: any, path: any[], depth: number) => {
+                    // Flatten column tree to get leaf nodes, stopping before the measure level.
+                    // Also track ALL leaves (including subtotals) to determine value key indices,
+                    // because rawValues keys follow tree-order across all leaves including subtotals.
+                    let allColumnLeafIndex = 0; // counter for ALL leaves (regular + subtotal) in tree order
+
+                    const flattenCol = (node: any, path: any[], depth: number, isSubtotalBranch: boolean) => {
                         let newPath = [...path];
                         if (node.value !== undefined) newPath.push(node.value);
-                        const nonSubtotalChildren = (node.children || []).filter((c: any) => !c.isSubtotal);
+                        const allChildren = node.children || [];
+                        const nonSubtotalChildren = allChildren.filter((c: any) => !c.isSubtotal);
+                        const subtotalChildren = allChildren.filter((c: any) => c.isSubtotal);
+                        const isSubtotal = isSubtotalBranch || !!node.isSubtotal;
                         // Stop recursing if the next level is the measure level
                         const nextIsMeasureLevel = measureLevelDepth >= 0 && (depth + 1) === measureLevelDepth;
-                        if (nonSubtotalChildren.length === 0 || nextIsMeasureLevel) {
-                            columnLeaves.push({ path: newPath });
+                        if (nonSubtotalChildren.length === 0 && subtotalChildren.length === 0 || nextIsMeasureLevel) {
+                            // This is a leaf node
+                            if (isSubtotal) {
+                                // Record the value key start index for this subtotal leaf
+                                for (let m = 0; m < storedMeasureCount; m++) {
+                                    columnSubtotalValueKeys.push(allColumnLeafIndex * storedMeasureCount + m);
+                                }
+                            } else {
+                                columnLeaves.push({ path: newPath });
+                            }
+                            allColumnLeafIndex++;
                         } else {
-                            nonSubtotalChildren.forEach((c: any) => flattenCol(c, newPath, depth + 1));
+                            // Recurse into non-subtotal children first (tree order)
+                            nonSubtotalChildren.forEach((c: any) => flattenCol(c, newPath, depth + 1, isSubtotal));
+                            // Then subtotal children
+                            subtotalChildren.forEach((c: any) => flattenCol(c, newPath, depth + 1, true));
                         }
                     };
-                    matrixCols.root.children.filter((c: any) => !c.isSubtotal).forEach((c: any) => {
-                        flattenCol(c, [], 0);
-                    });
+                    // Process all children (non-subtotal first, then subtotal) in tree order
+                    const rootNonSubtotal = matrixCols.root.children.filter((c: any) => !c.isSubtotal);
+                    const rootSubtotal = matrixCols.root.children.filter((c: any) => c.isSubtotal);
+                    rootNonSubtotal.forEach((c: any) => flattenCol(c, [], 0, false));
+                    rootSubtotal.forEach((c: any) => flattenCol(c, [], 0, true));
 
                     console.log('[timTable] column detection', JSON.stringify({
                         columnLevelNames,
                         measureLevelDepth,
                         columnLeafCount: columnLeaves.length,
-                        columnLeafPaths: columnLeaves.map(l => l.path)
+                        columnLeafPaths: columnLeaves.map(l => l.path),
+                        columnSubtotalValueKeys: columnSubtotalValueKeys,
+                        allColumnLeafIndex: allColumnLeafIndex
                     }));
 
                     // Build column header grouping info for rendering multi-row headers
@@ -893,6 +941,87 @@ interface MeasureSpecificSettings {
               }));
           }
 
+          // Populate columnTotals series dropdown and totalBehavior per measure
+          const colTotalBehaviorItems = [
+              { value: "Measure", displayName: "Measure" },
+              { value: "Sum", displayName: "Sum" },
+              { value: "Average", displayName: "Average" },
+              { value: "Count", displayName: "Count" },
+              { value: "Count Distinct", displayName: "Count Distinct" },
+              { value: "Max", displayName: "Max" },
+              { value: "Min", displayName: "Min" },
+              { value: "None", displayName: "None" }
+          ];
+
+          // Use base measure headers for the series dropdown (before column expansion)
+          const baseMeasureHeaders = measureHeaders.slice();
+          const baseMeasureFormats = measureFormats.slice();
+          const baseMeasureSettings = measureSettingsList.slice();
+          const baseValues = values.slice();
+
+          columnTotalsSettings.series.items = baseMeasureHeaders.map(name => ({ value: name, displayName: name }));
+          const persistedColTotalsSeries = dataViewObjects.getValue<string>(
+              this.dataView.metadata.objects || {},
+              { objectName: "columnTotals", propertyName: "series" },
+              undefined
+          );
+          const matchedColTotalsItem = persistedColTotalsSeries
+              ? columnTotalsSettings.series.items.find(i => i.value === persistedColTotalsSeries)
+              : null;
+          columnTotalsSettings.series.value = matchedColTotalsItem || columnTotalsSettings.series.items[0] || { value: "", displayName: "" };
+
+          const selectedColTotalsSeriesName = columnTotalsSettings.series.value?.value as string;
+          const selectedColTotalsMeasureIdx = baseMeasureHeaders.indexOf(selectedColTotalsSeriesName);
+          const selectedColTotalsValueColumn = selectedColTotalsMeasureIdx >= 0 ? baseValues[selectedColTotalsMeasureIdx] : null;
+          const selectedColTotalsQueryName = selectedColTotalsValueColumn?.source?.queryName;
+          const selectedColTotalsObjects = selectedColTotalsValueColumn?.source?.objects || {};
+          const colTotalsSelector = selectedColTotalsQueryName ? { metadata: selectedColTotalsQueryName } : undefined;
+
+          // Read per-measure showTotalColumn for the currently selected series
+          const ctShowTotalColumn = dataViewObjects.getValue<boolean>(selectedColTotalsObjects, { objectName: "columnTotals", propertyName: "showTotalColumn" }, false);
+          columnTotalsSettings.showTotalColumn = new formattingSettings.ToggleSwitch({
+              name: "showTotalColumn",
+              displayName: "Show Total Column",
+              value: ctShowTotalColumn,
+              visible: true,
+              selector: colTotalsSelector
+          });
+          const showColTotalIdx = columnTotalsSettings.columnSelectionGroup.slices.findIndex(s => s.name === "showTotalColumn");
+          if (showColTotalIdx >= 0) {
+              columnTotalsSettings.columnSelectionGroup.slices[showColTotalIdx] = columnTotalsSettings.showTotalColumn;
+          }
+
+          // Per-measure totalBehavior for column totals (for selected series)
+          let colTotalBehaviorRaw = dataViewObjects.getValue<any>(selectedColTotalsObjects, { objectName: "columnTotals", propertyName: "totalBehavior" }, "Measure");
+          const colTotalBehaviorVal = typeof colTotalBehaviorRaw === "string" ? colTotalBehaviorRaw : (colTotalBehaviorRaw?.value || "Measure");
+          const currentColTotalBehaviorItem = colTotalBehaviorItems.find(x => x.value === colTotalBehaviorVal) || colTotalBehaviorItems[0];
+
+          columnTotalsSettings.columnSelectionGroup.slices.push(new formattingSettings.ItemDropdown({
+              name: "totalBehavior",
+              displayName: "Total Type",
+              value: currentColTotalBehaviorItem,
+              items: colTotalBehaviorItems,
+              visible: true,
+              selector: colTotalsSelector
+          }));
+
+          // Build per-BASE-measure column total inclusion flags and behaviors
+          const baseMeasureColTotalIncluded: boolean[] = [];
+          const baseMeasureColTotalBehaviors: string[] = [];
+          baseValues.forEach((valueColumn) => {
+              const objects = valueColumn.source.objects || {};
+              const included = dataViewObjects.getValue<boolean>(objects, { objectName: "columnTotals", propertyName: "showTotalColumn" }, false);
+              baseMeasureColTotalIncluded.push(included);
+              let behaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "columnTotals", propertyName: "totalBehavior" }, "Measure");
+              const behavior = typeof behaviorRaw === "string" ? behaviorRaw : (behaviorRaw?.value || "Measure");
+              baseMeasureColTotalBehaviors.push(behavior);
+          });
+
+          // Determine if at least one base measure has showTotalColumn enabled
+          showTotalColumn = baseMeasureColTotalIncluded.some(v => v);
+          // Count how many total columns we will render
+          const colTotalCount = baseMeasureColTotalIncluded.filter(v => v).length;
+
           // Populate specificColumn series dropdown and rebuild value slices with per-measure selector
           const specificColumnSettings = this.visualSettings.specificColumn;
           specificColumnSettings.series.items = measureHeaders.map(name => ({ value: name, displayName: name }));
@@ -1187,6 +1316,125 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             }
         });
 
+        // Compute column totals per base measure for each row
+        // For each base measure mIdx, sum values across all column leaves: values[colIdx*M + mIdx]
+        const M = storedMeasureCount || baseMeasureHeaders.length;
+        const numColumnLeaves = hasColumnGrouping ? columnLeaves.length : 1;
+        // colTotalsPerMeasure[mIdx][rowIdx] = aggregated value across column leaves for that measure
+        let colTotalsPerMeasure: (number | null)[][] = [];
+        for (let mIdx = 0; mIdx < M; mIdx++) {
+            let rowTotals: (number | null)[] = new Array(rowCount).fill(null);
+            if (baseMeasureColTotalIncluded[mIdx] && baseMeasureColTotalBehaviors[mIdx] !== "None") {
+                const behavior = baseMeasureColTotalBehaviors[mIdx];
+                for (let i = 0; i < rowCount; i++) {
+                    if (behavior === "Measure") {
+                        // Use semantic subtotal from the matrix column subtotal (DAX engine value)
+                        let semanticVal: number | null = null;
+                        if (hasColumnGrouping && storedFlatRows && columnSubtotalValueKeys.length > 0) {
+                            // columnSubtotalValueKeys has one key per measure for the column subtotal
+                            // Find the key for this base measure (mIdx)
+                            const subtotalKey = columnSubtotalValueKeys[mIdx];
+                            if (subtotalKey !== undefined) {
+                                const rawVal = storedFlatRows[i]?.rawValues?.[subtotalKey];
+                                if (rawVal && rawVal.value !== null && rawVal.value !== undefined) {
+                                    semanticVal = Number(rawVal.value);
+                                }
+                            }
+                        }
+                        if (semanticVal !== null) {
+                            rowTotals[i] = semanticVal;
+                        } else {
+                            // Fallback: sum across column leaves (same as Sum)
+                            let colValues: number[] = [];
+                            if (hasColumnGrouping && numColumnLeaves > 1) {
+                                for (let colIdx = 0; colIdx < numColumnLeaves; colIdx++) {
+                                    const expandedIdx = colIdx * M + mIdx;
+                                    if (expandedIdx < values.length) {
+                                        const v = values[expandedIdx].values[i];
+                                        if (v !== null && v !== undefined) colValues.push(Number(v));
+                                    }
+                                }
+                            } else {
+                                const v = values[mIdx]?.values[i];
+                                if (v !== null && v !== undefined) colValues.push(Number(v));
+                            }
+                            if (colValues.length > 0) {
+                                rowTotals[i] = colValues.reduce((a, b) => a + b, 0);
+                            }
+                        }
+                    } else {
+                        // Non-Measure behaviors: aggregate from individual column values
+                        let colValues: number[] = [];
+                        if (hasColumnGrouping && numColumnLeaves > 1) {
+                            for (let colIdx = 0; colIdx < numColumnLeaves; colIdx++) {
+                                const expandedIdx = colIdx * M + mIdx;
+                                if (expandedIdx < values.length) {
+                                    const v = values[expandedIdx].values[i];
+                                    if (v !== null && v !== undefined) colValues.push(Number(v));
+                                }
+                            }
+                        } else {
+                            const v = values[mIdx]?.values[i];
+                            if (v !== null && v !== undefined) colValues.push(Number(v));
+                        }
+                        if (colValues.length > 0) {
+                            if (behavior === "Sum") rowTotals[i] = colValues.reduce((a, b) => a + b, 0);
+                            else if (behavior === "Average") rowTotals[i] = colValues.reduce((a, b) => a + b, 0) / colValues.length;
+                            else if (behavior === "Count") rowTotals[i] = colValues.length;
+                            else if (behavior === "Count Distinct") rowTotals[i] = new Set(colValues).size;
+                            else if (behavior === "Max") rowTotals[i] = Math.max(...colValues);
+                            else if (behavior === "Min") rowTotals[i] = Math.min(...colValues);
+                        }
+                    }
+                }
+            }
+            colTotalsPerMeasure.push(rowTotals);
+        }
+
+        // Compute grand totals for each base measure's column total (for the row total row)
+        let colTotalsGrandPerMeasure: (number | null)[] = new Array(M).fill(null);
+        if (showTotalRow) {
+            for (let mIdx = 0; mIdx < M; mIdx++) {
+                if (!baseMeasureColTotalIncluded[mIdx]) continue;
+                // Use the row totals for the expanded columns of this measure
+                // Grand total = sum of column total values (which is the row total behavior applied to the column totals)
+                let grandValues = colTotalsPerMeasure[mIdx].filter(v => v !== null && v !== undefined) as number[];
+                if (grandValues.length > 0) {
+                    // Use the row totalBehavior for the grand total of this measure
+                    const objects = baseValues[mIdx]?.source?.objects || {};
+                    let rowBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
+                    const rowBehavior = typeof rowBehaviorRaw === "string" ? rowBehaviorRaw : (rowBehaviorRaw?.value || "Measure");
+
+                    if (rowBehavior === "None") {
+                        colTotalsGrandPerMeasure[mIdx] = null;
+                    } else if (rowBehavior === "Measure") {
+                        // For "Measure" behavior, try to use semantic subtotal
+                        const qn = baseValues[mIdx]?.source?.queryName;
+                        if (qn && matrixSubtotalValues[qn] !== undefined) {
+                            colTotalsGrandPerMeasure[mIdx] = matrixSubtotalValues[qn];
+                        } else {
+                            colTotalsGrandPerMeasure[mIdx] = grandValues.reduce((a, b) => a + b, 0);
+                        }
+                    } else if (rowBehavior === "Sum") {
+                        colTotalsGrandPerMeasure[mIdx] = grandValues.reduce((a, b) => a + b, 0);
+                    } else if (rowBehavior === "Average") {
+                        colTotalsGrandPerMeasure[mIdx] = grandValues.reduce((a, b) => a + b, 0) / grandValues.length;
+                    } else if (rowBehavior === "Count") {
+                        colTotalsGrandPerMeasure[mIdx] = grandValues.length;
+                    } else if (rowBehavior === "Count Distinct") {
+                        colTotalsGrandPerMeasure[mIdx] = new Set(grandValues).size;
+                    } else if (rowBehavior === "Max") {
+                        colTotalsGrandPerMeasure[mIdx] = Math.max(...grandValues);
+                    } else if (rowBehavior === "Min") {
+                        colTotalsGrandPerMeasure[mIdx] = Math.min(...grandValues);
+                    }
+                }
+            }
+        }
+
+        // Determine column total column width
+        const colTotalColumnWidth = columnWidthSettings.valueColumnWidth.value;
+
         if (!switchValuesToRows) {
             // Normal horizontal table structure
             const headerBgColor = headerBackgroundColor;
@@ -1245,6 +1493,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                         displayColOffset += group.span;
                     });
+
+                    // Add empty cells for column total columns in column grouping header rows
+                    if (showTotalColumn) {
+                        // One "Total" spanning cell covering all enabled column total columns
+                        let emptyColTotal = colHeaderRow.insertCell();
+                        emptyColTotal.textContent = '';
+                        emptyColTotal.colSpan = colTotalCount;
+                        emptyColTotal.className = 'table-header-cell';
+                        emptyColTotal.style.backgroundColor = headerBgColor;
+                        emptyColTotal.style.borderRight = vertBorderValue;
+                        applyRowSquash(emptyColTotal, headerRowHeight, headerFontSize, headerWordWrap);
+                        emptyColTotal.style.fontWeight = headerBold ? "bold" : "normal";
+                        emptyColTotal.style.fontStyle = headerItalic ? "italic" : "normal";
+                        emptyColTotal.style.textDecoration = headerUnderline ? "underline" : "none";
+                        emptyColTotal.style.fontFamily = headerFontFamily;
+                        emptyColTotal.style.color = headerTextColor;
+                        emptyColTotal.style.textAlign = headerAlignment;
+                    }
                 });
             }
 
@@ -1336,6 +1602,34 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     header.style.wordBreak = "break-word";
                 }
             });
+
+            // Add column total headers — one per enabled base measure
+            if (showTotalColumn) {
+                for (let mIdx = 0; mIdx < M; mIdx++) {
+                    if (!baseMeasureColTotalIncluded[mIdx]) continue;
+                    let colTotalHeader = headerRow.insertCell();
+                    colTotalHeader.textContent = baseMeasureHeaders[mIdx] + " Total";
+                    colTotalHeader.className = 'table-header-cell';
+                    colTotalHeader.style.width = `${colTotalColumnWidth}px`;
+                    colTotalHeader.style.minWidth = `${colTotalColumnWidth}px`;
+                    colTotalHeader.style.maxWidth = `${colTotalColumnWidth}px`;
+                    applyRowSquash(colTotalHeader, headerRowHeight, headerFontSize, headerWordWrap);
+                    colTotalHeader.style.fontWeight = headerBold ? "bold" : "normal";
+                    colTotalHeader.style.fontStyle = headerItalic ? "italic" : "normal";
+                    colTotalHeader.style.textDecoration = headerUnderline ? "underline" : "none";
+                    colTotalHeader.style.fontFamily = headerFontFamily;
+                    colTotalHeader.style.color = headerTextColor;
+                    colTotalHeader.style.textAlign = headerAlignment;
+                    colTotalHeader.style.borderRight = vertBorderValue;
+                    colTotalHeader.style.backgroundColor = headerBgColor;
+                    colTotalHeader.style.overflow = "hidden";
+                    colTotalHeader.style.textOverflow = "ellipsis";
+                    colTotalHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                    if (headerWordWrap) {
+                        colTotalHeader.style.wordBreak = "break-word";
+                    }
+                }
+            }
 
             // One-time debug dump of valueColumn objects status
             if (values.length > 0) {
@@ -1805,6 +2099,43 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         cell.style.wordBreak = "break-word";
                     }
                 });
+
+                // Add column total cells for this row — one per enabled base measure
+                if (showTotalColumn) {
+                    for (let mIdx = 0; mIdx < M; mIdx++) {
+                        if (!baseMeasureColTotalIncluded[mIdx]) continue;
+                        let colTotalCell = row.insertCell();
+                        const colTotalVal = colTotalsPerMeasure[mIdx][i];
+                        if (colTotalVal !== null && colTotalVal !== undefined) {
+                            const ctFormat = baseMeasureFormats[mIdx] || "";
+                            const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
+                            const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
+                            colTotalCell.textContent = formatValue(colTotalVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
+                        } else {
+                            colTotalCell.textContent = '-';
+                        }
+                        colTotalCell.className = 'table-data-cell';
+                        colTotalCell.style.width = `${colTotalColumnWidth}px`;
+                        colTotalCell.style.minWidth = `${colTotalColumnWidth}px`;
+                        colTotalCell.style.maxWidth = `${colTotalColumnWidth}px`;
+                        applyRowSquash(colTotalCell, rowHeight, colTotalFontSize, colTotalWordWrap);
+                        colTotalCell.style.fontWeight = colTotalBold ? "bold" : "normal";
+                        colTotalCell.style.fontStyle = colTotalItalic ? "italic" : "normal";
+                        colTotalCell.style.textDecoration = colTotalUnderline ? "underline" : "none";
+                        colTotalCell.style.fontFamily = colTotalFontFamily;
+                        colTotalCell.style.fontSize = `${colTotalFontSize}px`;
+                        colTotalCell.style.borderRight = vertBorderValue;
+                        colTotalCell.style.backgroundColor = colTotalBgColor;
+                        colTotalCell.style.color = colTotalTextColor;
+                        colTotalCell.style.overflow = "hidden";
+                        colTotalCell.style.textOverflow = "ellipsis";
+                        colTotalCell.style.whiteSpace = colTotalWordWrap ? "normal" : "nowrap";
+                        colTotalCell.style.textAlign = "right";
+                        if (colTotalWordWrap) {
+                            colTotalCell.style.wordBreak = "break-word";
+                        }
+                    }
+                }
             }
 
             // Create total row
@@ -1909,6 +2240,42 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.wordBreak = "break-word";
                 }
             });
+
+            // Add column total grand total cells — one per enabled base measure
+            if (showTotalColumn) {
+                for (let mIdx = 0; mIdx < M; mIdx++) {
+                    if (!baseMeasureColTotalIncluded[mIdx]) continue;
+                    let grandCell = totalRow.insertCell();
+                    const grandVal = colTotalsGrandPerMeasure[mIdx];
+                    if (grandVal !== null && grandVal !== undefined) {
+                        const ctFormat = baseMeasureFormats[mIdx] || "";
+                        const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
+                        const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
+                        grandCell.textContent = formatValue(grandVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
+                    } else {
+                        grandCell.textContent = "";
+                    }
+                    grandCell.className = 'table-total-cell';
+                    grandCell.style.width = `${colTotalColumnWidth}px`;
+                    grandCell.style.minWidth = `${colTotalColumnWidth}px`;
+                    grandCell.style.maxWidth = `${colTotalColumnWidth}px`;
+                    applyRowSquash(grandCell, totalRowHeight, colTotalFontSize, colTotalWordWrap);
+                    grandCell.style.fontWeight = colTotalBold ? "bold" : "normal";
+                    grandCell.style.fontStyle = colTotalItalic ? "italic" : "normal";
+                    grandCell.style.textDecoration = colTotalUnderline ? "underline" : "none";
+                    grandCell.style.fontFamily = colTotalFontFamily;
+                    grandCell.style.borderRight = vertBorderValue;
+                    grandCell.style.backgroundColor = colTotalBgColor;
+                    grandCell.style.color = colTotalTextColor;
+                    grandCell.style.overflow = "hidden";
+                    grandCell.style.textOverflow = "ellipsis";
+                    grandCell.style.whiteSpace = colTotalWordWrap ? "normal" : "nowrap";
+                    grandCell.style.textAlign = "right";
+                    if (colTotalWordWrap) {
+                        grandCell.style.wordBreak = "break-word";
+                    }
+                }
+            }
             }
         } else {
             // switchValuesToRows IS TRUE (Transpose layout)
@@ -2491,6 +2858,107 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     }
                 }
             });
+
+            // Add column totals rows in transposed layout — one row per enabled base measure
+            if (showTotalColumn) {
+                for (let mIdx = 0; mIdx < M; mIdx++) {
+                    if (!baseMeasureColTotalIncluded[mIdx]) continue;
+
+                    let colTotalRow = this.table.insertRow();
+                    colTotalRow.className = 'table-total-row';
+                    colTotalRow.style.borderTop = horizBorder2xValue;
+                    colTotalRow.style.borderBottom = horizBorder2xValue;
+                    colTotalRow.style.height = `${totalRowHeight}px`;
+
+                    // Label cell
+                    let colTotalLabel = colTotalRow.insertCell();
+                    colTotalLabel.textContent = baseMeasureHeaders[mIdx] + " Total";
+                    colTotalLabel.className = 'table-total-label-cell';
+                    colTotalLabel.style.width = `${categoryColumnWidth}px`;
+                    colTotalLabel.style.minWidth = `${categoryColumnWidth}px`;
+                    colTotalLabel.style.maxWidth = `${categoryColumnWidth}px`;
+                    applyRowSquash(colTotalLabel, totalRowHeight, colTotalFontSize, colTotalWordWrap);
+                    colTotalLabel.style.fontWeight = colTotalBold ? "bold" : "normal";
+                    colTotalLabel.style.fontStyle = colTotalItalic ? "italic" : "normal";
+                    colTotalLabel.style.textDecoration = colTotalUnderline ? "underline" : "none";
+                    colTotalLabel.style.fontFamily = colTotalFontFamily;
+                    colTotalLabel.style.borderRight = vertBorderValue;
+                    colTotalLabel.style.backgroundColor = colTotalBgColor;
+                    colTotalLabel.style.color = colTotalTextColor;
+                    colTotalLabel.style.overflow = "hidden";
+                    colTotalLabel.style.textOverflow = "ellipsis";
+                    colTotalLabel.style.whiteSpace = colTotalWordWrap ? "normal" : "nowrap";
+                    if (colTotalWordWrap) {
+                        colTotalLabel.style.wordBreak = "break-word";
+                    }
+
+                    // For each category column, use precomputed column totals for this measure
+                    for (let i = 0; i < rowCount; i++) {
+                        let cell = colTotalRow.insertCell();
+                        const colTotalVal = colTotalsPerMeasure[mIdx][i];
+                        if (colTotalVal !== null && colTotalVal !== undefined) {
+                            const ctFormat = baseMeasureFormats[mIdx] || "";
+                            const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
+                            const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
+                            cell.textContent = formatValue(colTotalVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
+                        } else {
+                            cell.textContent = "";
+                        }
+                        cell.className = 'table-total-cell';
+                        cell.style.width = `${valueColumnWidths[0] || colTotalColumnWidth}px`;
+                        cell.style.minWidth = `${valueColumnWidths[0] || colTotalColumnWidth}px`;
+                        cell.style.maxWidth = `${valueColumnWidths[0] || colTotalColumnWidth}px`;
+                        applyRowSquash(cell, totalRowHeight, colTotalFontSize, colTotalWordWrap);
+                        cell.style.fontWeight = colTotalBold ? "bold" : "normal";
+                        cell.style.fontStyle = colTotalItalic ? "italic" : "normal";
+                        cell.style.textDecoration = colTotalUnderline ? "underline" : "none";
+                        cell.style.fontFamily = colTotalFontFamily;
+                        cell.style.borderRight = vertBorderValue;
+                        cell.style.backgroundColor = colTotalBgColor;
+                        cell.style.color = colTotalTextColor;
+                        cell.style.overflow = "hidden";
+                        cell.style.textOverflow = "ellipsis";
+                        cell.style.whiteSpace = colTotalWordWrap ? "normal" : "nowrap";
+                        cell.style.textAlign = "right";
+                        if (colTotalWordWrap) {
+                            cell.style.wordBreak = "break-word";
+                        }
+                    }
+
+                    // Grand total cell (intersection) if row totals also shown
+                    if (showTotalRow) {
+                        let grandCell = colTotalRow.insertCell();
+                        const grandVal = colTotalsGrandPerMeasure[mIdx];
+                        if (grandVal !== null && grandVal !== undefined) {
+                            const ctFormat = baseMeasureFormats[mIdx] || "";
+                            const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
+                            const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
+                            grandCell.textContent = formatValue(grandVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
+                        } else {
+                            grandCell.textContent = "";
+                        }
+                        grandCell.className = 'table-total-cell';
+                        grandCell.style.width = `${colTotalColumnWidth}px`;
+                        grandCell.style.minWidth = `${colTotalColumnWidth}px`;
+                        grandCell.style.maxWidth = `${colTotalColumnWidth}px`;
+                        applyRowSquash(grandCell, totalRowHeight, colTotalFontSize, colTotalWordWrap);
+                        grandCell.style.fontWeight = colTotalBold ? "bold" : "normal";
+                        grandCell.style.fontStyle = colTotalItalic ? "italic" : "normal";
+                        grandCell.style.textDecoration = colTotalUnderline ? "underline" : "none";
+                        grandCell.style.fontFamily = colTotalFontFamily;
+                        grandCell.style.borderRight = vertBorderValue;
+                        grandCell.style.backgroundColor = colTotalBgColor;
+                        grandCell.style.color = colTotalTextColor;
+                        grandCell.style.overflow = "hidden";
+                        grandCell.style.textOverflow = "ellipsis";
+                        grandCell.style.whiteSpace = colTotalWordWrap ? "normal" : "nowrap";
+                        grandCell.style.textAlign = "right";
+                        if (colTotalWordWrap) {
+                            grandCell.style.wordBreak = "break-word";
+                        }
+                    }
+                }
+            }
         }
     }
 }
