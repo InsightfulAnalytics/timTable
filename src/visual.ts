@@ -815,6 +815,29 @@ interface MeasureSpecificSettings {
                 instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
             }));
 
+              // Read per-measure text color applyTo setting
+              const txtApplyToRaw = dataViewObjects.getValue<any>(
+                  valueColumn.source.objects || {},
+                  { objectName: "valueConditionalFormatting", propertyName: "applyTo" },
+                  "valuesOnly"
+              );
+              const txtApplyToItem = typeof txtApplyToRaw === "string"
+                  ? { value: txtApplyToRaw, displayName: txtApplyToRaw === "valuesOnly" ? "Values only" : txtApplyToRaw === "valuesAndTotals" ? "Values and totals" : "Totals only" }
+                  : txtApplyToRaw as unknown as powerbi.IEnumMember;
+
+              valueCFSettings.slices.push(new formattingSettings.ItemDropdown({
+                  name: "applyTo",
+                  displayName: displayName + " Apply to",
+                  value: txtApplyToItem,
+                  items: [
+                      { value: "valuesOnly", displayName: "Values only" },
+                      { value: "valuesAndTotals", displayName: "Values and totals" },
+                      { value: "totalsOnly", displayName: "Totals only" }
+                  ],
+                  visible: true,
+                  selector: { metadata: queryName }
+              }));
+
               const defaultMeasureBgColor = dataViewObjects.getFillColor(
                   valueColumn.source.objects || {},
                   { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" },
@@ -1819,6 +1842,29 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 measureDbCFPairs.push(pairs);
             }
 
+            // Pre-scan: build sorted (value, textColor) pairs per measure for CF interpolation on total rows
+            const measureTextCFPairs: {value: number, color: string}[][] = [];
+            for (let m = 0; m < values.length; m++) {
+                const vc = values[m];
+                const pairs: {value: number, color: string}[] = [];
+                if (vc.objects) {
+                    for (let r = 0; r < rowCount; r++) {
+                        if (vc.objects[r]) {
+                            const color = dataViewObjects.getFillColor(
+                                vc.objects[r],
+                                { objectName: "valueConditionalFormatting", propertyName: "textColor" }
+                            );
+                            const val = vc.values[r];
+                            if (color && val !== null && val !== undefined) {
+                                pairs.push({ value: Number(val), color });
+                            }
+                        }
+                    }
+                }
+                pairs.sort((a, b) => a.value - b.value);
+                measureTextCFPairs.push(pairs);
+            }
+
             // Create data rows
             for (let i = 0; i < rowCount; i++) {
                 // Determine if this is a subtotal row and at which category level
@@ -1912,13 +1958,35 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     );
 
                     let cellTextColor = defaultMeasureTextColor;
-                    if (valueColumn.objects && valueColumn.objects[i]) {
-                        const cfColor = dataViewObjects.getFillColor(
-                            valueColumn.objects[i],
-                            { objectName: "valueConditionalFormatting", propertyName: "textColor" }
-                        );
-                        if (cfColor) {
-                            cellTextColor = cfColor;
+                    // Read per-measure text color applyTo
+                    const txtApplyToRaw = dataViewObjects.getValue<any>(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueConditionalFormatting", propertyName: "applyTo" },
+                        "valuesOnly"
+                    );
+                    const measureTxtApplyTo = typeof txtApplyToRaw === "string" ? txtApplyToRaw : (txtApplyToRaw?.value || "valuesOnly");
+                    // When applyTo is "totalsOnly", regular value rows should not get the static text color
+                    if (measureTxtApplyTo === "totalsOnly" && !isSubtotalRow) {
+                        cellTextColor = (typeof isEvenRow !== 'undefined') ? (isEvenRow ? textColor : alternateTextColor) : textColor;
+                    }
+                    const shouldApplyTxtCF = (measureTxtApplyTo === "valuesAndTotals") ||
+                        (measureTxtApplyTo === "valuesOnly" && !isSubtotalRow) ||
+                        (measureTxtApplyTo === "totalsOnly" && isSubtotalRow);
+                    if (shouldApplyTxtCF) {
+                        if (valueColumn.objects && valueColumn.objects[i]) {
+                            const cfColor = dataViewObjects.getFillColor(
+                                valueColumn.objects[i],
+                                { objectName: "valueConditionalFormatting", propertyName: "textColor" }
+                            );
+                            if (cfColor) {
+                                cellTextColor = cfColor;
+                            }
+                        } else if (isSubtotalRow && measureTextCFPairs[measureIndex]?.length > 0) {
+                            const totalVal = valueColumn.values[i];
+                            if (totalVal !== null && totalVal !== undefined) {
+                                const interpolated = interpolateCFColor(Number(totalVal), measureTextCFPairs[measureIndex]);
+                                if (interpolated) cellTextColor = interpolated;
+                            }
                         }
                     }
 
@@ -2480,6 +2548,27 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                         let effectiveBg = specSettings.applyToValues ? specRowBgColor : cellBackgroundColor;
                         let effectiveColor = specSettings.applyToValues ? specCellTextColor : cellTextColor;
+
+                        // Apply text CF to column total cells if applyTo includes totals
+                        const ctTxtApplyToRaw = dataViewObjects.getValue<any>(
+                            values[mIdx].source.objects || {},
+                            { objectName: "valueConditionalFormatting", propertyName: "applyTo" },
+                            "valuesOnly"
+                        );
+                        const ctTxtApplyTo = typeof ctTxtApplyToRaw === "string" ? ctTxtApplyToRaw : (ctTxtApplyToRaw?.value || "valuesOnly");
+                        if (ctTxtApplyTo === "valuesAndTotals" || ctTxtApplyTo === "totalsOnly") {
+                            if (measureTextCFPairs[mIdx]?.length > 0) {
+                                const ctVal = colTotalsPerMeasure[mIdx][i];
+                                if (ctVal !== null && ctVal !== undefined) {
+                                    const interpolated = interpolateCFColor(Number(ctVal), measureTextCFPairs[mIdx]);
+                                    if (interpolated) effectiveColor = interpolated;
+                                }
+                            } else {
+                                const staticTxt = dataViewObjects.getFillColor(values[mIdx].source.objects || {}, { objectName: "valueConditionalFormatting", propertyName: "textColor" });
+                                if (staticTxt) effectiveColor = staticTxt;
+                            }
+                        }
+
                         if (specSettings.applyToValues && specSettings.transparency > 0) {
                             effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
                         }
@@ -2574,6 +2663,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                 let effectiveBg = baseBg;
                 let effectiveColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
+
+                // Apply text CF to total row if applyTo includes totals
+                const totalTxtApplyToRaw = dataViewObjects.getValue<any>(
+                    values[i].source.objects || {},
+                    { objectName: "valueConditionalFormatting", propertyName: "applyTo" },
+                    "valuesOnly"
+                );
+                const totalTxtApplyTo = typeof totalTxtApplyToRaw === "string" ? totalTxtApplyToRaw : (totalTxtApplyToRaw?.value || "valuesOnly");
+                if (totalTxtApplyTo === "valuesAndTotals" || totalTxtApplyTo === "totalsOnly") {
+                    if (measureTextCFPairs[i]?.length > 0 && total !== null && total !== undefined) {
+                        const interpolated = interpolateCFColor(Number(total), measureTextCFPairs[i]);
+                        if (interpolated) effectiveColor = interpolated;
+                    } else {
+                        const staticTxt = dataViewObjects.getFillColor(values[i].source.objects || {}, { objectName: "valueConditionalFormatting", propertyName: "textColor" });
+                        if (staticTxt) effectiveColor = staticTxt;
+                    }
+                }
+
                 if (specSettings.applyToTotal && specSettings.transparency > 0) {
                     effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
                 }
@@ -2919,6 +3026,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     }
 
                     let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
+
+                    // Apply text CF to grand total cell if applyTo includes totals
+                    const grandTxtApplyToRaw = dataViewObjects.getValue<any>(
+                        values[mIdx].source.objects || {},
+                        { objectName: "valueConditionalFormatting", propertyName: "applyTo" },
+                        "valuesOnly"
+                    );
+                    const grandTxtApplyTo = typeof grandTxtApplyToRaw === "string" ? grandTxtApplyToRaw : (grandTxtApplyToRaw?.value || "valuesOnly");
+                    if (grandTxtApplyTo === "valuesAndTotals" || grandTxtApplyTo === "totalsOnly") {
+                        if (measureTextCFPairs[mIdx]?.length > 0 && grandVal !== null && grandVal !== undefined) {
+                            const interpolated = interpolateCFColor(Number(grandVal), measureTextCFPairs[mIdx]);
+                            if (interpolated) efTotalColor = interpolated;
+                        } else {
+                            const staticTxt = dataViewObjects.getFillColor(values[mIdx].source.objects || {}, { objectName: "valueConditionalFormatting", propertyName: "textColor" });
+                            if (staticTxt) efTotalColor = staticTxt;
+                        }
+                    }
+
                     let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
 
                     applyRowSquash(grandCell, totalRowHeight, efTotalFontSize, efTotalWordWrap);
@@ -3115,6 +3240,29 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 measureDbCFPairs.push(pairs);
             }
 
+            // Pre-scan: build sorted (value, textColor) pairs per measure for CF interpolation on total columns
+            const measureTextCFPairs: {value: number, color: string}[][] = [];
+            for (let m = 0; m < values.length; m++) {
+                const vc = values[m];
+                const pairs: {value: number, color: string}[] = [];
+                if (vc.objects) {
+                    for (let r = 0; r < rowCount; r++) {
+                        if (vc.objects[r]) {
+                            const color = dataViewObjects.getFillColor(
+                                vc.objects[r],
+                                { objectName: "valueConditionalFormatting", propertyName: "textColor" }
+                            );
+                            const val = vc.values[r];
+                            if (color && val !== null && val !== undefined) {
+                                pairs.push({ value: Number(val), color });
+                            }
+                        }
+                    }
+                }
+                pairs.sort((a, b) => a.value - b.value);
+                measureTextCFPairs.push(pairs);
+            }
+
             // Create Rows (each row is a Measure)
             values.forEach((valueColumn, measureIndex) => {
                 let row = this.table.insertRow();
@@ -3199,14 +3347,34 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.position = "relative";
                     
                     let cellTextColor = defaultMeasureTextColor;
-                    if (valueColumn.objects && valueColumn.objects[i]) {
-                        const cfColor = dataViewObjects.getFillColor(
-                            valueColumn.objects[i],
-                            { objectName: "valueConditionalFormatting", propertyName: "textColor" }
-                        );
-                        if (cfColor) cellTextColor = cfColor;
-                        
-                        
+                    // Read per-measure text color applyTo
+                    const txtApplyToRaw = dataViewObjects.getValue<any>(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueConditionalFormatting", propertyName: "applyTo" },
+                        "valuesOnly"
+                    );
+                    const measureTxtApplyTo = typeof txtApplyToRaw === "string" ? txtApplyToRaw : (txtApplyToRaw?.value || "valuesOnly");
+                    // When applyTo is "totalsOnly", regular value columns should not get the static text color
+                    if (measureTxtApplyTo === "totalsOnly" && !transposedIsSubtotal) {
+                        cellTextColor = (typeof isEvenRow !== 'undefined') ? (isEvenRow ? textColor : alternateTextColor) : textColor;
+                    }
+                    const shouldApplyTxtCF = (measureTxtApplyTo === "valuesAndTotals") ||
+                        (measureTxtApplyTo === "valuesOnly" && !transposedIsSubtotal) ||
+                        (measureTxtApplyTo === "totalsOnly" && transposedIsSubtotal);
+                    if (shouldApplyTxtCF) {
+                        if (valueColumn.objects && valueColumn.objects[i]) {
+                            const cfColor = dataViewObjects.getFillColor(
+                                valueColumn.objects[i],
+                                { objectName: "valueConditionalFormatting", propertyName: "textColor" }
+                            );
+                            if (cfColor) cellTextColor = cfColor;
+                        } else if (transposedIsSubtotal && measureTextCFPairs[measureIndex]?.length > 0) {
+                            const totalVal = valueColumn.values[i];
+                            if (totalVal !== null && totalVal !== undefined) {
+                                const interpolated = interpolateCFColor(Number(totalVal), measureTextCFPairs[measureIndex]);
+                                if (interpolated) cellTextColor = interpolated;
+                            }
+                        }
                     }
 
                     let cellBackgroundColor = defaultMeasureBgColor;
@@ -3713,6 +3881,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     }
 
                     let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
+
+                    // Apply text CF to transposed total cell if applyTo includes totals
+                    const trTotalTxtApplyToRaw = dataViewObjects.getValue<any>(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueConditionalFormatting", propertyName: "applyTo" },
+                        "valuesOnly"
+                    );
+                    const trTotalTxtApplyTo = typeof trTotalTxtApplyToRaw === "string" ? trTotalTxtApplyToRaw : (trTotalTxtApplyToRaw?.value || "valuesOnly");
+                    if (trTotalTxtApplyTo === "valuesAndTotals" || trTotalTxtApplyTo === "totalsOnly") {
+                        if (measureTextCFPairs[measureIndex]?.length > 0 && totalVal !== null && totalVal !== undefined) {
+                            const interpolated = interpolateCFColor(Number(totalVal), measureTextCFPairs[measureIndex]);
+                            if (interpolated) efTotalColor = interpolated;
+                        } else {
+                            const staticTxt = dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "valueConditionalFormatting", propertyName: "textColor" });
+                            if (staticTxt) efTotalColor = staticTxt;
+                        }
+                    }
+
                     let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
                     applyRowSquash(totalCell, rowHeight, efTotalFontSize, efTotalWordWrap);
                     totalCell.style.fontWeight = efTotalBold ? "bold" : "normal";
@@ -3952,7 +4138,29 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
 
                         cell.style.backgroundColor = trCtBg;
-                        cell.style.color = textColor;
+
+                        // Apply text CF to transposed column total cells if applyTo includes totals
+                        let trCtTextColor = textColor;
+                        const trCtTxtApplyToRaw = dataViewObjects.getValue<any>(
+                            baseValues[mIdx].source.objects || {},
+                            { objectName: "valueConditionalFormatting", propertyName: "applyTo" },
+                            "valuesOnly"
+                        );
+                        const trCtTxtApplyTo = typeof trCtTxtApplyToRaw === "string" ? trCtTxtApplyToRaw : (trCtTxtApplyToRaw?.value || "valuesOnly");
+                        if (trCtTxtApplyTo === "valuesAndTotals" || trCtTxtApplyTo === "totalsOnly") {
+                            if (measureTextCFPairs[mIdx]?.length > 0) {
+                                const ctVal = colTotalsPerMeasure[mIdx][i];
+                                if (ctVal !== null && ctVal !== undefined) {
+                                    const interpolated = interpolateCFColor(Number(ctVal), measureTextCFPairs[mIdx]);
+                                    if (interpolated) trCtTextColor = interpolated;
+                                }
+                            } else {
+                                const staticTxt = dataViewObjects.getFillColor(baseValues[mIdx].source.objects || {}, { objectName: "valueConditionalFormatting", propertyName: "textColor" });
+                                if (staticTxt) trCtTextColor = staticTxt;
+                            }
+                        }
+
+                        cell.style.color = trCtTextColor;
                         cell.style.overflow = "hidden";
                         cell.style.textOverflow = "ellipsis";
                         cell.style.whiteSpace = efWordWrap ? "normal" : "nowrap";
@@ -4015,6 +4223,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
 
                         let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
+
+                        // Apply text CF to transposed grand total cell if applyTo includes totals
+                        const trGrandTxtApplyToRaw = dataViewObjects.getValue<any>(
+                            baseValues[mIdx].source.objects || {},
+                            { objectName: "valueConditionalFormatting", propertyName: "applyTo" },
+                            "valuesOnly"
+                        );
+                        const trGrandTxtApplyTo = typeof trGrandTxtApplyToRaw === "string" ? trGrandTxtApplyToRaw : (trGrandTxtApplyToRaw?.value || "valuesOnly");
+                        if (trGrandTxtApplyTo === "valuesAndTotals" || trGrandTxtApplyTo === "totalsOnly") {
+                            if (measureTextCFPairs[mIdx]?.length > 0 && grandVal !== null && grandVal !== undefined) {
+                                const interpolated = interpolateCFColor(Number(grandVal), measureTextCFPairs[mIdx]);
+                                if (interpolated) efTotalColor = interpolated;
+                            } else {
+                                const staticTxt = dataViewObjects.getFillColor(baseValues[mIdx].source.objects || {}, { objectName: "valueConditionalFormatting", propertyName: "textColor" });
+                                if (staticTxt) efTotalColor = staticTxt;
+                            }
+                        }
+
                         let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
 
                         applyRowSquash(grandCell, totalRowHeight, efTotalFontSize, efTotalWordWrap);
