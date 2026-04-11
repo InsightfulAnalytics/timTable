@@ -48,6 +48,7 @@ export declare class CategoryConditionalFormattingSettings extends FormattingSet
     displayName: string;
     visible: boolean;
     textColor: formattingSettings.ColorPicker;
+    applyTo: formattingSettings.ItemDropdown;
     slices: FormattingSettingsSlice[];
 }
 export declare class DataBarsFormattingSettings extends formattingSettings.CompositeCard {

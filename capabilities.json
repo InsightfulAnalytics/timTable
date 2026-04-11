@@ -65,6 +65,15 @@
         },
         "categoryConditionalFormatting": {
             "properties": {
+                "applyTo": {
+                    "type": {
+                        "enumeration": [
+                            { "value": "valuesOnly", "displayName": "Values only" },
+                            { "value": "valuesAndTotals", "displayName": "Values and totals" },
+                            { "value": "totalsOnly", "displayName": "Totals only" }
+                        ]
+                    }
+                },
                 "textColor": {
                     "type": {
                         "fill": {

@@ -188,6 +188,58 @@ export class Visual implements IVisual {
         const gridBorderColor = gridSettings.horizontalGridColor.value.value;
         const categoryCFSettings = this.visualSettings.categoryConditionalFormatting;
         const defaultCategoryTextColor = categoryCFSettings.textColor.value.value;
+        // Read category CF applyTo — stored in metadata.objects since it has no selector
+        let catCFApplyTo = "valuesOnly";
+        const metaCatCF = (this.dataView?.metadata?.objects as any)?.categoryConditionalFormatting;
+        if (metaCatCF?.applyTo) {
+            const raw = metaCatCF.applyTo;
+            catCFApplyTo = typeof raw === "string" ? raw : (raw?.value || "valuesOnly");
+        } else {
+            const modelVal = categoryCFSettings.applyTo.value;
+            if (modelVal) {
+                catCFApplyTo = typeof modelVal === "string" ? modelVal : ((modelVal as any)?.value || "valuesOnly");
+            }
+        }
+        // Resolve the actual static category CF text color
+        // With ConstantOrRule + InstancesAndTotals, PBI delivers the static color per-instance,
+        // not at metadata level. Extract from the first data row's objects as fallback.
+        let resolvedCatTextColor = defaultCategoryTextColor;
+        if (metaCatCF?.textColor) {
+            const metaColor = typeof metaCatCF.textColor === "string"
+                ? metaCatCF.textColor
+                : metaCatCF.textColor?.solid?.color;
+            if (metaColor) resolvedCatTextColor = metaColor;
+        }
+        if (resolvedCatTextColor === defaultCategoryTextColor) {
+            // Try categorical per-row objects
+            const catCats = this.dataView?.categorical?.categories;
+            if (catCats && catCats.length > 0 && catCats[0].objects) {
+                for (let r = 0; r < catCats[0].objects.length; r++) {
+                    if (catCats[0].objects[r]) {
+                        const c = dataViewObjects.getFillColor(
+                            catCats[0].objects[r],
+                            { objectName: "categoryConditionalFormatting", propertyName: "textColor" }
+                        );
+                        if (c) { resolvedCatTextColor = c; break; }
+                    }
+                }
+            }
+            // Try matrix row children objects
+            if (resolvedCatTextColor === defaultCategoryTextColor && this.dataView?.matrix) {
+                const children = this.dataView.matrix.rows?.root?.children;
+                if (children) {
+                    for (let r = 0; r < children.length; r++) {
+                        if (children[r].objects && !children[r].isSubtotal) {
+                            const c = dataViewObjects.getFillColor(
+                                children[r].objects,
+                                { objectName: "categoryConditionalFormatting", propertyName: "textColor" }
+                            );
+                            if (c) { resolvedCatTextColor = c; break; }
+                        }
+                    }
+                }
+            }
+        }
         const valueCFSettings = this.visualSettings.valueConditionalFormatting;
         valueCFSettings.slices = []; // Will be populated dynamically per-measure
         const valueBgCFSettings = this.visualSettings.valueBackgroundConditionalFormatting;
@@ -354,7 +406,18 @@ export class Visual implements IVisual {
             return formatter.format(finalNum);
         };
 
-        const getCategoryTextColor = (rowIndex: number, dataView: DataView): string => {
+        const getCategoryTextColor = (rowIndex: number, dataView: DataView, isTotal: boolean = false): string => {
+            // Determine if CF should apply based on applyTo setting
+            const shouldApply = (catCFApplyTo === "valuesAndTotals") ||
+                (catCFApplyTo === "valuesOnly" && !isTotal) ||
+                (catCFApplyTo === "totalsOnly" && isTotal);
+
+            if (!shouldApply) {
+                // When applyTo excludes this row type, return the base text color (no static CF color)
+                return textColor;
+            }
+
+            // Check categorical per-row objects (categorical mode)
             if (dataView.categorical && dataView.categorical.categories && dataView.categorical.categories.length > 0) {
                 const category = dataView.categorical.categories[0];
                 if (category.objects && category.objects[rowIndex]) {
@@ -367,7 +430,22 @@ export class Visual implements IVisual {
                     }
                 }
             }
-            return defaultCategoryTextColor;
+
+            // Check matrix row-level objects
+            if (dataView.matrix) {
+                const root = dataView.matrix.rows?.root;
+                if (root?.children && root.children[rowIndex]?.objects) {
+                    const color = dataViewObjects.getFillColor(
+                        root.children[rowIndex].objects,
+                        { objectName: "categoryConditionalFormatting", propertyName: "textColor" }
+                    );
+                    if (color) {
+                        return color;
+                    }
+                }
+            }
+
+            return resolvedCatTextColor;
         };
 
         // Helper function to apply squashing row height
@@ -1910,7 +1988,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         categoryCell.style.fontSize = isTotal ? `${totalRowFontSize}px` : `${cellFontSize}px`;
                         categoryCell.style.borderRight = vertBorderValue;
                         categoryCell.style.backgroundColor = rowBgColor;
-                        categoryCell.style.color = isTotal ? (isEvenRow ? textColor : alternateTextColor) : getCategoryTextColor(i, dataView);
+                        categoryCell.style.color = getCategoryTextColor(i, dataView, isTotal);
                         categoryCell.style.overflow = "hidden";
                         categoryCell.style.textOverflow = "ellipsis";
                         categoryCell.style.whiteSpace = (isTotal ? totalRowWordWrap : categoryWordWrap) ? "normal" : "nowrap";
@@ -2625,8 +2703,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     totalLabelCell.style.fontFamily = totalRowFontFamily;
                     totalLabelCell.style.fontStyle = totalRowItalic ? "italic" : "normal";
                     totalLabelCell.style.borderRight = vertBorderValue;
-                    totalLabelCell.style.backgroundColor = totalBgColor; 
-                    totalLabelCell.style.color = textColor;
+                    totalLabelCell.style.backgroundColor = totalBgColor;
+                    // Apply category CF to total row label if applyTo includes totals
+                    let totalLabelColor = textColor;
+                    if (catCFApplyTo === "valuesAndTotals" || catCFApplyTo === "totalsOnly") {
+                        totalLabelColor = resolvedCatTextColor;
+                    }
+                    totalLabelCell.style.color = totalLabelColor;
                     totalLabelCell.style.overflow = "hidden";
                     totalLabelCell.style.textOverflow = "ellipsis";
                     totalLabelCell.style.whiteSpace = totalRowWordWrap ? "normal" : "nowrap";

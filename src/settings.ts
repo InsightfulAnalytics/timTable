@@ -162,8 +162,19 @@ export class CategoryConditionalFormattingSettings extends FormattingSettingsCar
         selector: dataViewWildcard.createDataViewWildcardSelector(dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals),
         instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
     });
+    public applyTo = new formattingSettings.ItemDropdown({
+        name: "applyTo",
+        displayName: "Apply to",
+        value: { value: "valuesOnly", displayName: "Values only" },
+        items: [
+            { value: "valuesOnly", displayName: "Values only" },
+            { value: "valuesAndTotals", displayName: "Values and totals" },
+            { value: "totalsOnly", displayName: "Totals only" }
+        ],
+        visible: true
+    });
 
-    public slices: FormattingSettingsSlice[] = [this.textColor];
+    public slices: FormattingSettingsSlice[] = [this.textColor, this.applyTo];
 }
 
 export class DataBarsFormattingSettings extends formattingSettings.CompositeCard {
