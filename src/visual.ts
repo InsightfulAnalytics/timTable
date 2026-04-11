@@ -259,6 +259,48 @@ export class Visual implements IVisual {
             return hex; // fallback if not hex
         };
 
+        // Helper: parse hex color to RGB
+        const hexToRgb = (hex: string): [number, number, number] | null => {
+            if (!hex) return null;
+            let c = hex.replace(/^-/, '');
+            if (!c.startsWith("#")) c = "#" + c;
+            if (c.length === 9) c = c.substring(0, 7);
+            if (c.length === 4) {
+                return [parseInt(c[1]+c[1],16), parseInt(c[2]+c[2],16), parseInt(c[3]+c[3],16)];
+            } else if (c.length === 7) {
+                return [parseInt(c.substring(1,3),16), parseInt(c.substring(3,5),16), parseInt(c.substring(5,7),16)];
+            }
+            return null;
+        };
+        const rgbToHex = (r: number, g: number, b: number): string => {
+            return "#" + [r,g,b].map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+        };
+
+        // Helper: interpolate a color for a given value from sorted (value, color) pairs
+        const interpolateCFColor = (targetValue: number, pairs: {value: number, color: string}[]): string | null => {
+            if (pairs.length === 0) return null;
+            if (pairs.length === 1) return pairs[0].color;
+            if (targetValue <= pairs[0].value) return pairs[0].color;
+            if (targetValue >= pairs[pairs.length - 1].value) return pairs[pairs.length - 1].color;
+            // Find the two surrounding pairs
+            for (let k = 0; k < pairs.length - 1; k++) {
+                if (targetValue >= pairs[k].value && targetValue <= pairs[k+1].value) {
+                    const range = pairs[k+1].value - pairs[k].value;
+                    if (range === 0) return pairs[k].color;
+                    const t = (targetValue - pairs[k].value) / range;
+                    const c1 = hexToRgb(pairs[k].color);
+                    const c2 = hexToRgb(pairs[k+1].color);
+                    if (!c1 || !c2) return pairs[k].color;
+                    return rgbToHex(
+                        c1[0] + (c2[0] - c1[0]) * t,
+                        c1[1] + (c2[1] - c1[1]) * t,
+                        c1[2] + (c2[2] - c1[2]) * t
+                    );
+                }
+            }
+            return pairs[pairs.length - 1].color;
+        };
+
         const horizLines = gridSettings.horizontalGridlines.value;
         const horizColor = applyTransparency(gridSettings.horizontalGridColor.value.value, gridSettings.horizontalGridTransparency.value);
         const horizWidth = gridSettings.horizontalGridWidth.value;
@@ -778,6 +820,31 @@ interface MeasureSpecificSettings {
                   { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" },
                   backgroundColor
               );
+
+              // Read per-measure applyTo setting
+              const bgApplyToRaw = dataViewObjects.getValue<any>(
+                  valueColumn.source.objects || {},
+                  { objectName: "valueBackgroundConditionalFormatting", propertyName: "applyTo" },
+                  "valuesOnly"
+              );
+              const bgApplyToValue = typeof bgApplyToRaw === "string" ? bgApplyToRaw : (bgApplyToRaw?.value || "valuesOnly");
+              const bgApplyToItem = typeof bgApplyToRaw === "string"
+                  ? { value: bgApplyToRaw, displayName: bgApplyToRaw === "valuesOnly" ? "Values only" : bgApplyToRaw === "valuesAndTotals" ? "Values and totals" : "Totals only" }
+                  : bgApplyToRaw as unknown as powerbi.IEnumMember;
+
+              valueBgCFSettings.slices.push(new formattingSettings.ItemDropdown({
+                  name: "applyTo",
+                  displayName: displayName + " Apply to",
+                  value: bgApplyToItem,
+                  items: [
+                      { value: "valuesOnly", displayName: "Values only" },
+                      { value: "valuesAndTotals", displayName: "Values and totals" },
+                      { value: "totalsOnly", displayName: "Totals only" }
+                  ],
+                  visible: true,
+                  selector: { metadata: queryName }
+              }));
+
               valueBgCFSettings.slices.push(new formattingSettings.ColorPicker({
                   name: "backgroundColor",
                   displayName: displayName + " Background Color",
@@ -1165,6 +1232,8 @@ interface MeasureSpecificSettings {
           const dbMinValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
           const dbMaxValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
           const dbLabelsOutside = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+          const dbShowOnRowTotals = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "showOnRowTotals" }, true);
+          const dbShowOnColumnTotals = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "showOnColumnTotals" }, true);
 
           dataBarsSettings.selectSeriesGroup.slices = [
               dataBarsSettings.series
@@ -1185,6 +1254,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
             dataBarsSlices.push(
                 new formattingSettings.ToggleSwitch({ name: "labelsOutside", displayName: "Labels Outside", value: dbLabelsOutside, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.ToggleSwitch({ name: "showOnRowTotals", displayName: "Show on Row Totals", value: dbShowOnRowTotals, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.ToggleSwitch({ name: "showOnColumnTotals", displayName: "Show on Column Totals", value: dbShowOnColumnTotals, visible: true, selector: dataBarsSelector }),
                 new formattingSettings.ToggleSwitch({ name: "showZeroLine", displayName: "Show Zero Line", value: dbShowZeroLine, visible: true, selector: dataBarsSelector }),
                 new formattingSettings.ColorPicker({ name: "zeroLineColor", displayName: "Zero Line Color", value: { value: dbZeroLineColor }, visible: true, selector: dataBarsSelector }),
                 new formattingSettings.NumUpDown({ name: "zeroLineTransparency", displayName: "Zero Line Transparency (%)", value: dbZeroLineTransparency, visible: true, selector: dataBarsSelector })
@@ -1678,6 +1749,29 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             // Update global showTotalRow so the manual "Totals" at the bottom respects at least the first category's setting if categories exist.
             showTotalRow = categoryShowTotals.length > 0 ? categoryShowTotals[0] : showTotalRow;
 
+            // Pre-scan: build sorted (value, bgColor) pairs per measure for CF interpolation on total rows
+            const measureBgCFPairs: {value: number, color: string}[][] = [];
+            for (let m = 0; m < values.length; m++) {
+                const vc = values[m];
+                const pairs: {value: number, color: string}[] = [];
+                if (vc.objects) {
+                    for (let r = 0; r < rowCount; r++) {
+                        if (vc.objects[r]) {
+                            const color = dataViewObjects.getFillColor(
+                                vc.objects[r],
+                                { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" }
+                            );
+                            const val = vc.values[r];
+                            if (color && val !== null && val !== undefined) {
+                                pairs.push({ value: Number(val), color });
+                            }
+                        }
+                    }
+                }
+                pairs.sort((a, b) => a.value - b.value);
+                measureBgCFPairs.push(pairs);
+            }
+
             // Create data rows
             for (let i = 0; i < rowCount; i++) {
                 // Determine if this is a subtotal row and at which category level
@@ -1782,13 +1876,39 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     }
 
                     let cellBackgroundColor = defaultMeasureBgColor;
-                    if (valueColumn.objects && valueColumn.objects[i]) {
-                        const cfBgColor = dataViewObjects.getFillColor(
-                            valueColumn.objects[i],
-                            { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" }
-                        );
-                        if (cfBgColor) {
-                            cellBackgroundColor = cfBgColor;
+                    // Read per-measure applyTo from source.objects (measure-level, not per-row)
+                    const bgApplyToRaw = dataViewObjects.getValue<any>(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueBackgroundConditionalFormatting", propertyName: "applyTo" },
+                        "valuesOnly"
+                    );
+                    const measureBgApplyTo = typeof bgApplyToRaw === "string" ? bgApplyToRaw : (bgApplyToRaw?.value || "valuesOnly");
+                    // When applyTo is "totalsOnly", regular value rows should not get the static bg color
+                    if (measureBgApplyTo === "totalsOnly" && !isSubtotalRow) {
+                        cellBackgroundColor = (typeof isEvenRow !== 'undefined') ? (isEvenRow ? backgroundColor : alternateBackgroundColor) : backgroundColor;
+                    }
+                    const shouldApplyBgCF = (measureBgApplyTo === "valuesAndTotals") ||
+                        (measureBgApplyTo === "valuesOnly" && !isSubtotalRow) ||
+                        (measureBgApplyTo === "totalsOnly" && isSubtotalRow);
+                    if (shouldApplyBgCF) {
+                        if (valueColumn.objects && valueColumn.objects[i]) {
+                            // Regular row: PBI delivered per-row CF color
+                            const cfBgColor = dataViewObjects.getFillColor(
+                                valueColumn.objects[i],
+                                { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" }
+                            );
+                            if (cfBgColor) {
+                                cellBackgroundColor = cfBgColor;
+                            }
+                        } else if (isSubtotalRow && measureBgCFPairs[measureIndex]?.length > 0) {
+                            // Total row: PBI doesn't deliver CF for totals, interpolate from regular row colors
+                            const totalVal = valueColumn.values[i];
+                            if (totalVal !== null && totalVal !== undefined) {
+                                const interpolated = interpolateCFColor(Number(totalVal), measureBgCFPairs[measureIndex]);
+                                if (interpolated) {
+                                    cellBackgroundColor = interpolated;
+                                }
+                            }
                         }
                     }
 
@@ -1839,8 +1959,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                         const objects = valueColumn.source.objects || {};
                         const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+                        const showOnRowTotals = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showOnRowTotals" }, true);
                         
-                        if (showDataBars) {
+                        if (showDataBars && (!isSubtotalRow || showOnRowTotals)) {
                             let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
                             const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
                             const showZeroLine = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
@@ -2124,6 +2245,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     for (let mIdx = 0; mIdx < M; mIdx++) {
                         if (!baseMeasureColTotalIncluded[mIdx]) continue;
                         let colTotalCell = row.insertCell();
+                        colTotalCell.style.position = "relative";
                         const colTotalVal = colTotalsPerMeasure[mIdx][i];
                         if (colTotalVal !== null && colTotalVal !== undefined) {
                             // Use dynamic format string from semantic model (per-row, per-measure)
@@ -2137,7 +2259,108 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const ctFormat = ctDynamicFormat || baseMeasureFormats[mIdx] || "";
                             const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
                             const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
-                            colTotalCell.textContent = formatValue(colTotalVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
+                            const ctFormattedValue = formatValue(colTotalVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
+
+                            // Check if data bars should be rendered on column total cells
+                            const ctObjects = baseValues[mIdx].source.objects || {};
+                            const ctShowDataBars = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+                            const ctShowOnColumnTotals = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "showOnColumnTotals" }, true);
+
+                            if (ctShowDataBars && ctShowOnColumnTotals) {
+                                let ctDataBarColor = dataViewObjects.getFillColor(ctObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                                const ctMatchColor = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
+                                const ctShowZeroLine = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
+                                const ctZeroLineColor = dataViewObjects.getFillColor(ctObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
+                                const ctZeroLineTransparency = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
+                                const ctDbHeight = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+                                const ctDbTransparency = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "transparency" }, 20);
+                                const ctBorderOn = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "borderOn" }, true);
+                                const ctBorderThickness = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "borderThickness" }, 1);
+                                const ctBorderColor = dataViewObjects.getFillColor(ctObjects, { objectName: "dataBarsFormatting", propertyName: "borderColor" }, "#000000");
+                                const ctAxisTypeRaw = dataViewObjects.getValue<any>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "axisType" }, "Amount");
+                                const ctAxisType = typeof ctAxisTypeRaw === "string" ? ctAxisTypeRaw : (ctAxisTypeRaw.value || "Amount");
+                                const ctMinValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
+                                const ctMaxValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                                const ctLabelsOutside = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+
+                                let numValue = Number(colTotalVal);
+                                let min_raw = measureMins[mIdx];
+                                let max_raw = measureMaxs[mIdx];
+                                let min = min_raw;
+                                let max = max_raw;
+                                let domainRange = max_raw - min_raw;
+                                if (domainRange <= 0) domainRange = 1;
+                                if (ctMinValueObj !== null && ctMinValueObj !== undefined) {
+                                    min = ctAxisType === "Percentage" ? min_raw - domainRange * (ctMinValueObj / 100) : ctMinValueObj;
+                                }
+                                if (ctMaxValueObj !== null && ctMaxValueObj !== undefined) {
+                                    max = ctAxisType === "Percentage" ? max_raw + domainRange * (ctMaxValueObj / 100) : ctMaxValueObj;
+                                }
+                                let range = max - min;
+                                if (range <= 0) range = 1;
+
+                                let clampedValue = Math.max(min, Math.min(max, numValue));
+                                let zeroPoint = Math.max(min, Math.min(max, 0));
+                                let leftMarginPct = (ctLabelsOutside && min < 0) ? 25 : 0;
+                                let rightMarginPct = (ctLabelsOutside && max > 0) ? 25 : 0;
+                                let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
+                                let widthPct = 0, leftPct = 0;
+                                if (clampedValue >= zeroPoint) {
+                                    widthPct = ((clampedValue - zeroPoint) / range) * 100 * scaleMultiplier;
+                                    leftPct = leftMarginPct + ((zeroPoint - min) / range) * 100 * scaleMultiplier;
+                                } else {
+                                    widthPct = ((zeroPoint - clampedValue) / range) * 100 * scaleMultiplier;
+                                    leftPct = leftMarginPct + ((clampedValue - min) / range) * 100 * scaleMultiplier;
+                                }
+
+                                let dataBar = document.createElement("div");
+                                dataBar.style.position = "absolute";
+                                dataBar.style.top = `${(100 - ctDbHeight) / 2}%`;
+                                dataBar.style.height = `${ctDbHeight}%`;
+                                dataBar.style.left = `${leftPct}%`;
+                                dataBar.style.width = `${widthPct}%`;
+                                dataBar.style.backgroundColor = applyTransparency(ctDataBarColor, ctDbTransparency);
+                                dataBar.style.zIndex = "1";
+                                if (ctBorderOn) {
+                                    let finalBorderColor = ctMatchColor ? ctDataBarColor : ctBorderColor;
+                                    dataBar.style.border = `${ctBorderThickness}px solid ${finalBorderColor}`;
+                                    dataBar.style.boxSizing = "border-box";
+                                }
+                                colTotalCell.appendChild(dataBar);
+
+                                if (ctShowZeroLine) {
+                                    let zeroLine = document.createElement("div");
+                                    zeroLine.style.position = "absolute";
+                                    zeroLine.style.top = "0";
+                                    zeroLine.style.bottom = "0";
+                                    zeroLine.style.width = "2px";
+                                    let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                                    zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                    zeroLine.style.backgroundColor = applyTransparency(ctZeroLineColor, ctZeroLineTransparency);
+                                    zeroLine.style.zIndex = "1";
+                                    colTotalCell.appendChild(zeroLine);
+                                }
+
+                                let textDiv = document.createElement("div");
+                                textDiv.style.zIndex = "2";
+                                textDiv.textContent = ctFormattedValue;
+                                if (ctLabelsOutside) {
+                                    textDiv.style.position = "absolute";
+                                    textDiv.style.top = "50%";
+                                    textDiv.style.transform = "translateY(-50%)";
+                                    textDiv.style.whiteSpace = "nowrap";
+                                    if (numValue >= 0) {
+                                        textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                    } else {
+                                        textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                    }
+                                } else {
+                                    textDiv.style.position = "relative";
+                                }
+                                colTotalCell.appendChild(textDiv);
+                            } else {
+                                colTotalCell.textContent = ctFormattedValue;
+                            }
                         } else {
                             colTotalCell.textContent = '-';
                         }
@@ -2149,6 +2372,27 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         // Inherit formatting from Values menu, with per-measure specificColumn overrides
                         let specSettings = baseMeasureSettings[mIdx];
                         let cellBackgroundColor = isEvenRow ? backgroundColor : alternateBackgroundColor;
+
+                        // Apply background CF to column total cells if applyTo includes totals
+                        const ctBgApplyToRaw = dataViewObjects.getValue<any>(
+                            values[mIdx].source.objects || {},
+                            { objectName: "valueBackgroundConditionalFormatting", propertyName: "applyTo" },
+                            "valuesOnly"
+                        );
+                        const ctBgApplyTo = typeof ctBgApplyToRaw === "string" ? ctBgApplyToRaw : (ctBgApplyToRaw?.value || "valuesOnly");
+                        if (ctBgApplyTo === "valuesAndTotals" || ctBgApplyTo === "totalsOnly") {
+                            if (measureBgCFPairs[mIdx]?.length > 0) {
+                                const ctVal = colTotalsPerMeasure[mIdx][i];
+                                if (ctVal !== null && ctVal !== undefined) {
+                                    const interpolated = interpolateCFColor(Number(ctVal), measureBgCFPairs[mIdx]);
+                                    if (interpolated) cellBackgroundColor = interpolated;
+                                }
+                            } else {
+                                const staticBg = dataViewObjects.getFillColor(values[mIdx].source.objects || {}, { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" });
+                                if (staticBg) cellBackgroundColor = staticBg;
+                            }
+                        }
+
                         let cellTextColor = isEvenRow ? textColor : alternateTextColor;
                         let specRowBgColor = isEvenRow ?
                             (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : cellBackgroundColor) :
@@ -2232,7 +2476,26 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
             totals.forEach((total, i) => {
                 let specSettings = measureSettingsList[i];
-                let effectiveBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+                let baseBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+
+                // Apply background CF to total row if applyTo includes totals
+                const totalBgApplyToRaw = dataViewObjects.getValue<any>(
+                    values[i].source.objects || {},
+                    { objectName: "valueBackgroundConditionalFormatting", propertyName: "applyTo" },
+                    "valuesOnly"
+                );
+                const totalBgApplyTo = typeof totalBgApplyToRaw === "string" ? totalBgApplyToRaw : (totalBgApplyToRaw?.value || "valuesOnly");
+                if (totalBgApplyTo === "valuesAndTotals" || totalBgApplyTo === "totalsOnly") {
+                    if (measureBgCFPairs[i]?.length > 0 && total !== null && total !== undefined) {
+                        const interpolated = interpolateCFColor(Number(total), measureBgCFPairs[i]);
+                        if (interpolated) baseBg = interpolated;
+                    } else {
+                        const staticBg = dataViewObjects.getFillColor(values[i].source.objects || {}, { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" });
+                        if (staticBg) baseBg = staticBg;
+                    }
+                }
+
+                let effectiveBg = baseBg;
                 let effectiveColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
                 if (specSettings.applyToTotal && specSettings.transparency > 0) {
                     effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
@@ -2247,6 +2510,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 let effectiveAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
                 
                 let cell = totalRow.insertCell();
+                cell.style.position = "relative";
                 if (total === null || total === undefined) {
                     cell.textContent = "";
                 } else {
@@ -2260,7 +2524,108 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
                     const totalFormat = firstRowDynamicFormat || measureFormats[i];
-                    cell.textContent = formatValue(total, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces);
+                    const formattedTotal = formatValue(total, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces);
+
+                    // Check if data bars should be rendered on the row total
+                    const totalObjects = values[i].source.objects || {};
+                    const totalShowDataBars = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+                    const totalShowOnRowTotals = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "showOnRowTotals" }, true);
+
+                    if (totalShowDataBars && totalShowOnRowTotals) {
+                        let totalDataBarColor = dataViewObjects.getFillColor(totalObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                        const totalMatchColor = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
+                        const totalShowZeroLine = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
+                        const totalZeroLineColor = dataViewObjects.getFillColor(totalObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
+                        const totalZeroLineTransparency = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
+                        const totalDbHeight = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+                        const totalDbTransparency = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "transparency" }, 20);
+                        const totalBorderOn = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "borderOn" }, true);
+                        const totalBorderThickness = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "borderThickness" }, 1);
+                        const totalBorderColor = dataViewObjects.getFillColor(totalObjects, { objectName: "dataBarsFormatting", propertyName: "borderColor" }, "#000000");
+                        const totalAxisTypeRaw = dataViewObjects.getValue<any>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "axisType" }, "Amount");
+                        const totalAxisType = typeof totalAxisTypeRaw === "string" ? totalAxisTypeRaw : (totalAxisTypeRaw.value || "Amount");
+                        const totalMinValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
+                        const totalMaxValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                        const totalLabelsOutside = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+
+                        let numValue = Number(total);
+                        let min_raw = measureMins[i];
+                        let max_raw = measureMaxs[i];
+                        let min = min_raw;
+                        let max = max_raw;
+                        let domainRange = max_raw - min_raw;
+                        if (domainRange <= 0) domainRange = 1;
+                        if (totalMinValueObj !== null && totalMinValueObj !== undefined) {
+                            min = totalAxisType === "Percentage" ? min_raw - domainRange * (totalMinValueObj / 100) : totalMinValueObj;
+                        }
+                        if (totalMaxValueObj !== null && totalMaxValueObj !== undefined) {
+                            max = totalAxisType === "Percentage" ? max_raw + domainRange * (totalMaxValueObj / 100) : totalMaxValueObj;
+                        }
+                        let range = max - min;
+                        if (range <= 0) range = 1;
+
+                        let clampedValue = Math.max(min, Math.min(max, numValue));
+                        let zeroPoint = Math.max(min, Math.min(max, 0));
+                        let leftMarginPct = (totalLabelsOutside && min < 0) ? 25 : 0;
+                        let rightMarginPct = (totalLabelsOutside && max > 0) ? 25 : 0;
+                        let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
+                        let widthPct = 0, leftPct = 0;
+                        if (clampedValue >= zeroPoint) {
+                            widthPct = ((clampedValue - zeroPoint) / range) * 100 * scaleMultiplier;
+                            leftPct = leftMarginPct + ((zeroPoint - min) / range) * 100 * scaleMultiplier;
+                        } else {
+                            widthPct = ((zeroPoint - clampedValue) / range) * 100 * scaleMultiplier;
+                            leftPct = leftMarginPct + ((clampedValue - min) / range) * 100 * scaleMultiplier;
+                        }
+
+                        let dataBar = document.createElement("div");
+                        dataBar.style.position = "absolute";
+                        dataBar.style.top = `${(100 - totalDbHeight) / 2}%`;
+                        dataBar.style.height = `${totalDbHeight}%`;
+                        dataBar.style.left = `${leftPct}%`;
+                        dataBar.style.width = `${widthPct}%`;
+                        dataBar.style.backgroundColor = applyTransparency(totalDataBarColor, totalDbTransparency);
+                        dataBar.style.zIndex = "1";
+                        if (totalBorderOn) {
+                            let finalBorderColor = totalMatchColor ? totalDataBarColor : totalBorderColor;
+                            dataBar.style.border = `${totalBorderThickness}px solid ${finalBorderColor}`;
+                            dataBar.style.boxSizing = "border-box";
+                        }
+                        cell.appendChild(dataBar);
+
+                        if (totalShowZeroLine) {
+                            let zeroLine = document.createElement("div");
+                            zeroLine.style.position = "absolute";
+                            zeroLine.style.top = "0";
+                            zeroLine.style.bottom = "0";
+                            zeroLine.style.width = "2px";
+                            let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                            zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                            zeroLine.style.backgroundColor = applyTransparency(totalZeroLineColor, totalZeroLineTransparency);
+                            zeroLine.style.zIndex = "1";
+                            cell.appendChild(zeroLine);
+                        }
+
+                        let textDiv = document.createElement("div");
+                        textDiv.style.zIndex = "2";
+                        textDiv.textContent = formattedTotal;
+                        if (totalLabelsOutside) {
+                            textDiv.style.position = "absolute";
+                            textDiv.style.top = "50%";
+                            textDiv.style.transform = "translateY(-50%)";
+                            textDiv.style.whiteSpace = "nowrap";
+                            if (numValue >= 0) {
+                                textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                            } else {
+                                textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                            }
+                        } else {
+                            textDiv.style.position = "relative";
+                        }
+                        cell.appendChild(textDiv);
+                    } else {
+                        cell.textContent = formattedTotal;
+                    }
                 }
                 cell.className = 'table-total-cell';
                 cell.style.width = `${valueColumnWidths[i]}px`;
@@ -2299,6 +2664,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 for (let mIdx = 0; mIdx < M; mIdx++) {
                     if (!baseMeasureColTotalIncluded[mIdx]) continue;
                     let grandCell = totalRow.insertCell();
+                    grandCell.style.position = "relative";
                     const grandVal = colTotalsGrandPerMeasure[mIdx];
                     if (grandVal !== null && grandVal !== undefined) {
                         // Use dynamic format string: try column subtotal objects from first row, then source format
@@ -2312,7 +2678,108 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         const ctFormat = gtDynamicFormat || baseMeasureFormats[mIdx] || "";
                         const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
                         const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
-                        grandCell.textContent = formatValue(grandVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
+                        const grandFormattedValue = formatValue(grandVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
+
+                        // Check if data bars should be rendered on grand total column total cells
+                        const gtObjects = baseValues[mIdx].source.objects || {};
+                        const gtShowDataBars = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+                        const gtShowOnColumnTotals = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "showOnColumnTotals" }, true);
+
+                        if (gtShowDataBars && gtShowOnColumnTotals) {
+                            let gtDataBarColor = dataViewObjects.getFillColor(gtObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                            const gtMatchColor = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
+                            const gtShowZeroLine = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
+                            const gtZeroLineColor = dataViewObjects.getFillColor(gtObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
+                            const gtZeroLineTransparency = dataViewObjects.getValue<number>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
+                            const gtDbHeight = dataViewObjects.getValue<number>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+                            const gtDbTransparency = dataViewObjects.getValue<number>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "transparency" }, 20);
+                            const gtBorderOn = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "borderOn" }, true);
+                            const gtBorderThickness = dataViewObjects.getValue<number>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "borderThickness" }, 1);
+                            const gtBorderColor = dataViewObjects.getFillColor(gtObjects, { objectName: "dataBarsFormatting", propertyName: "borderColor" }, "#000000");
+                            const gtAxisTypeRaw = dataViewObjects.getValue<any>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "axisType" }, "Amount");
+                            const gtAxisType = typeof gtAxisTypeRaw === "string" ? gtAxisTypeRaw : (gtAxisTypeRaw.value || "Amount");
+                            const gtMinValueObj = dataViewObjects.getValue<number>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
+                            const gtMaxValueObj = dataViewObjects.getValue<number>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                            const gtLabelsOutside = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+
+                            let numValue = Number(grandVal);
+                            let min_raw = measureMins[mIdx];
+                            let max_raw = measureMaxs[mIdx];
+                            let min = min_raw;
+                            let max = max_raw;
+                            let domainRange = max_raw - min_raw;
+                            if (domainRange <= 0) domainRange = 1;
+                            if (gtMinValueObj !== null && gtMinValueObj !== undefined) {
+                                min = gtAxisType === "Percentage" ? min_raw - domainRange * (gtMinValueObj / 100) : gtMinValueObj;
+                            }
+                            if (gtMaxValueObj !== null && gtMaxValueObj !== undefined) {
+                                max = gtAxisType === "Percentage" ? max_raw + domainRange * (gtMaxValueObj / 100) : gtMaxValueObj;
+                            }
+                            let range = max - min;
+                            if (range <= 0) range = 1;
+
+                            let clampedValue = Math.max(min, Math.min(max, numValue));
+                            let zeroPoint = Math.max(min, Math.min(max, 0));
+                            let leftMarginPct = (gtLabelsOutside && min < 0) ? 25 : 0;
+                            let rightMarginPct = (gtLabelsOutside && max > 0) ? 25 : 0;
+                            let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
+                            let widthPct = 0, leftPct = 0;
+                            if (clampedValue >= zeroPoint) {
+                                widthPct = ((clampedValue - zeroPoint) / range) * 100 * scaleMultiplier;
+                                leftPct = leftMarginPct + ((zeroPoint - min) / range) * 100 * scaleMultiplier;
+                            } else {
+                                widthPct = ((zeroPoint - clampedValue) / range) * 100 * scaleMultiplier;
+                                leftPct = leftMarginPct + ((clampedValue - min) / range) * 100 * scaleMultiplier;
+                            }
+
+                            let dataBar = document.createElement("div");
+                            dataBar.style.position = "absolute";
+                            dataBar.style.top = `${(100 - gtDbHeight) / 2}%`;
+                            dataBar.style.height = `${gtDbHeight}%`;
+                            dataBar.style.left = `${leftPct}%`;
+                            dataBar.style.width = `${widthPct}%`;
+                            dataBar.style.backgroundColor = applyTransparency(gtDataBarColor, gtDbTransparency);
+                            dataBar.style.zIndex = "1";
+                            if (gtBorderOn) {
+                                let finalBorderColor = gtMatchColor ? gtDataBarColor : gtBorderColor;
+                                dataBar.style.border = `${gtBorderThickness}px solid ${finalBorderColor}`;
+                                dataBar.style.boxSizing = "border-box";
+                            }
+                            grandCell.appendChild(dataBar);
+
+                            if (gtShowZeroLine) {
+                                let zeroLine = document.createElement("div");
+                                zeroLine.style.position = "absolute";
+                                zeroLine.style.top = "0";
+                                zeroLine.style.bottom = "0";
+                                zeroLine.style.width = "2px";
+                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                                zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                zeroLine.style.backgroundColor = applyTransparency(gtZeroLineColor, gtZeroLineTransparency);
+                                zeroLine.style.zIndex = "1";
+                                grandCell.appendChild(zeroLine);
+                            }
+
+                            let textDiv = document.createElement("div");
+                            textDiv.style.zIndex = "2";
+                            textDiv.textContent = grandFormattedValue;
+                            if (gtLabelsOutside) {
+                                textDiv.style.position = "absolute";
+                                textDiv.style.top = "50%";
+                                textDiv.style.transform = "translateY(-50%)";
+                                textDiv.style.whiteSpace = "nowrap";
+                                if (numValue >= 0) {
+                                    textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                } else {
+                                    textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                }
+                            } else {
+                                textDiv.style.position = "relative";
+                            }
+                            grandCell.appendChild(textDiv);
+                        } else {
+                            grandCell.textContent = grandFormattedValue;
+                        }
                     } else {
                         grandCell.textContent = "";
                     }
@@ -2330,6 +2797,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let efTotalFontSize = specSettings.applyToTotal && specSettings.fontSize !== undefined ? specSettings.fontSize : totalRowFontSize;
                     let efTotalWordWrap = specSettings.applyToTotal && specSettings.textWrap !== undefined ? specSettings.textWrap : totalRowWordWrap;
                     let efTotalBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+
+                    // Apply background CF to grand total cell if applyTo includes totals
+                    const grandBgApplyToRaw = dataViewObjects.getValue<any>(
+                        values[mIdx].source.objects || {},
+                        { objectName: "valueBackgroundConditionalFormatting", propertyName: "applyTo" },
+                        "valuesOnly"
+                    );
+                    const grandBgApplyTo = typeof grandBgApplyToRaw === "string" ? grandBgApplyToRaw : (grandBgApplyToRaw?.value || "valuesOnly");
+                    if (grandBgApplyTo === "valuesAndTotals" || grandBgApplyTo === "totalsOnly") {
+                        if (measureBgCFPairs[mIdx]?.length > 0 && grandVal !== null && grandVal !== undefined) {
+                            const interpolated = interpolateCFColor(Number(grandVal), measureBgCFPairs[mIdx]);
+                            if (interpolated) efTotalBg = interpolated;
+                        } else {
+                            const staticBg = dataViewObjects.getFillColor(values[mIdx].source.objects || {}, { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" });
+                            if (staticBg) efTotalBg = staticBg;
+                        }
+                    }
+
                     let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
                     let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
 
@@ -2481,6 +2966,29 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 }
             }
 
+            // Pre-scan: build sorted (value, bgColor) pairs per measure for CF interpolation on total columns
+            const measureBgCFPairs: {value: number, color: string}[][] = [];
+            for (let m = 0; m < values.length; m++) {
+                const vc = values[m];
+                const pairs: {value: number, color: string}[] = [];
+                if (vc.objects) {
+                    for (let r = 0; r < rowCount; r++) {
+                        if (vc.objects[r]) {
+                            const color = dataViewObjects.getFillColor(
+                                vc.objects[r],
+                                { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" }
+                            );
+                            const val = vc.values[r];
+                            if (color && val !== null && val !== undefined) {
+                                pairs.push({ value: Number(val), color });
+                            }
+                        }
+                    }
+                }
+                pairs.sort((a, b) => a.value - b.value);
+                measureBgCFPairs.push(pairs);
+            }
+
             // Create Rows (each row is a Measure)
             values.forEach((valueColumn, measureIndex) => {
                 let row = this.table.insertRow();
@@ -2576,12 +3084,34 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     }
 
                     let cellBackgroundColor = defaultMeasureBgColor;
-                    if (valueColumn.objects && valueColumn.objects[i]) {
-                        const cfBgColor = dataViewObjects.getFillColor(
-                            valueColumn.objects[i],
-                            { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" }
-                        );
-                        if (cfBgColor) cellBackgroundColor = cfBgColor;
+                    // Read per-measure applyTo from source.objects (measure-level, not per-row)
+                    const bgApplyToRaw = dataViewObjects.getValue<any>(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueBackgroundConditionalFormatting", propertyName: "applyTo" },
+                        "valuesOnly"
+                    );
+                    const measureBgApplyTo = typeof bgApplyToRaw === "string" ? bgApplyToRaw : (bgApplyToRaw?.value || "valuesOnly");
+                    // When applyTo is "totalsOnly", regular value columns should not get the static bg color
+                    if (measureBgApplyTo === "totalsOnly" && !transposedIsSubtotal) {
+                        cellBackgroundColor = (typeof isEvenRow !== 'undefined') ? (isEvenRow ? backgroundColor : alternateBackgroundColor) : backgroundColor;
+                    }
+                    const shouldApplyBgCF = (measureBgApplyTo === "valuesAndTotals") ||
+                        (measureBgApplyTo === "valuesOnly" && !transposedIsSubtotal) ||
+                        (measureBgApplyTo === "totalsOnly" && transposedIsSubtotal);
+                    if (shouldApplyBgCF) {
+                        if (valueColumn.objects && valueColumn.objects[i]) {
+                            const cfBgColor = dataViewObjects.getFillColor(
+                                valueColumn.objects[i],
+                                { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" }
+                            );
+                            if (cfBgColor) cellBackgroundColor = cfBgColor;
+                        } else if (transposedIsSubtotal && measureBgCFPairs[measureIndex]?.length > 0) {
+                            const totalVal = valueColumn.values[i];
+                            if (totalVal !== null && totalVal !== undefined) {
+                                const interpolated = interpolateCFColor(Number(totalVal), measureBgCFPairs[measureIndex]);
+                                if (interpolated) cellBackgroundColor = interpolated;
+                            }
+                        }
                     }
 
                     let value = valueColumn.values[i];
@@ -2594,8 +3124,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                         const objects = valueColumn.source.objects || {};
                         const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+                        const showOnRowTotals = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showOnRowTotals" }, true);
                         
-                        if (showDataBars) {
+                        if (showDataBars && (!transposedIsSubtotal || showOnRowTotals)) {
                             let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
                             const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
                             const showZeroLine = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
@@ -2877,6 +3408,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 // Add the Total column cell for this measure if enabled
                 if (showTotalRow) {
                     let totalCell = row.insertCell();
+                    totalCell.style.position = "relative";
                     let totalVal = totals[measureIndex];
                     let specSettings = measureSettingsList[measureIndex];
                     if (totalVal === null || totalVal === undefined) {
@@ -2892,7 +3424,108 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             }
                         }
                         const totalFormat = firstRowDynamicFormat || measureFormats[measureIndex];
-                        totalCell.textContent = formatValue(totalVal, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces);
+                        const formattedTotal = formatValue(totalVal, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces);
+
+                        // Check if data bars should be rendered on the row total in transposed mode
+                        const totalObjects = valueColumn.source.objects || {};
+                        const totalShowDataBars = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+                        const totalShowOnRowTotals = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "showOnRowTotals" }, true);
+
+                        if (totalShowDataBars && totalShowOnRowTotals) {
+                            let totalDataBarColor = dataViewObjects.getFillColor(totalObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                            const totalMatchColor = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
+                            const totalShowZeroLine = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
+                            const totalZeroLineColor = dataViewObjects.getFillColor(totalObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
+                            const totalZeroLineTransparency = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
+                            const totalDbHeight = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+                            const totalDbTransparency = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "transparency" }, 20);
+                            const totalBorderOn = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "borderOn" }, true);
+                            const totalBorderThickness = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "borderThickness" }, 1);
+                            const totalBorderColor = dataViewObjects.getFillColor(totalObjects, { objectName: "dataBarsFormatting", propertyName: "borderColor" }, "#000000");
+                            const totalAxisTypeRaw = dataViewObjects.getValue<any>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "axisType" }, "Amount");
+                            const totalAxisType = typeof totalAxisTypeRaw === "string" ? totalAxisTypeRaw : (totalAxisTypeRaw.value || "Amount");
+                            const totalMinValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
+                            const totalMaxValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                            const totalLabelsOutside = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+
+                            let numValue = Number(totalVal);
+                            let min_raw = measureMins[measureIndex];
+                            let max_raw = measureMaxs[measureIndex];
+                            let min = min_raw;
+                            let max = max_raw;
+                            let domainRange = max_raw - min_raw;
+                            if (domainRange <= 0) domainRange = 1;
+                            if (totalMinValueObj !== null && totalMinValueObj !== undefined) {
+                                min = totalAxisType === "Percentage" ? min_raw - domainRange * (totalMinValueObj / 100) : totalMinValueObj;
+                            }
+                            if (totalMaxValueObj !== null && totalMaxValueObj !== undefined) {
+                                max = totalAxisType === "Percentage" ? max_raw + domainRange * (totalMaxValueObj / 100) : totalMaxValueObj;
+                            }
+                            let range = max - min;
+                            if (range <= 0) range = 1;
+
+                            let clampedValue = Math.max(min, Math.min(max, numValue));
+                            let zeroPoint = Math.max(min, Math.min(max, 0));
+                            let leftMarginPct = (totalLabelsOutside && min < 0) ? 25 : 0;
+                            let rightMarginPct = (totalLabelsOutside && max > 0) ? 25 : 0;
+                            let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
+                            let widthPct = 0, leftPct = 0;
+                            if (clampedValue >= zeroPoint) {
+                                widthPct = ((clampedValue - zeroPoint) / range) * 100 * scaleMultiplier;
+                                leftPct = leftMarginPct + ((zeroPoint - min) / range) * 100 * scaleMultiplier;
+                            } else {
+                                widthPct = ((zeroPoint - clampedValue) / range) * 100 * scaleMultiplier;
+                                leftPct = leftMarginPct + ((clampedValue - min) / range) * 100 * scaleMultiplier;
+                            }
+
+                            let dataBar = document.createElement("div");
+                            dataBar.style.position = "absolute";
+                            dataBar.style.top = `${(100 - totalDbHeight) / 2}%`;
+                            dataBar.style.height = `${totalDbHeight}%`;
+                            dataBar.style.left = `${leftPct}%`;
+                            dataBar.style.width = `${widthPct}%`;
+                            dataBar.style.backgroundColor = applyTransparency(totalDataBarColor, totalDbTransparency);
+                            dataBar.style.zIndex = "1";
+                            if (totalBorderOn) {
+                                let finalBorderColor = totalMatchColor ? totalDataBarColor : totalBorderColor;
+                                dataBar.style.border = `${totalBorderThickness}px solid ${finalBorderColor}`;
+                                dataBar.style.boxSizing = "border-box";
+                            }
+                            totalCell.appendChild(dataBar);
+
+                            if (totalShowZeroLine) {
+                                let zeroLine = document.createElement("div");
+                                zeroLine.style.position = "absolute";
+                                zeroLine.style.top = "0";
+                                zeroLine.style.bottom = "0";
+                                zeroLine.style.width = "2px";
+                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                                zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                zeroLine.style.backgroundColor = applyTransparency(totalZeroLineColor, totalZeroLineTransparency);
+                                zeroLine.style.zIndex = "1";
+                                totalCell.appendChild(zeroLine);
+                            }
+
+                            let textDiv = document.createElement("div");
+                            textDiv.style.zIndex = "2";
+                            textDiv.textContent = formattedTotal;
+                            if (totalLabelsOutside) {
+                                textDiv.style.position = "absolute";
+                                textDiv.style.top = "50%";
+                                textDiv.style.transform = "translateY(-50%)";
+                                textDiv.style.whiteSpace = "nowrap";
+                                if (numValue >= 0) {
+                                    textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                } else {
+                                    textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                }
+                            } else {
+                                textDiv.style.position = "relative";
+                            }
+                            totalCell.appendChild(textDiv);
+                        } else {
+                            totalCell.textContent = formattedTotal;
+                        }
                     }
                     totalCell.className = 'table-data-cell';
                     totalCell.style.width = `${valueColumnWidths[measureIndex]}px`;
@@ -2905,6 +3538,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let efTotalFontSize = specSettings.applyToTotal && specSettings.fontSize !== undefined ? specSettings.fontSize : totalRowFontSize;
                     let efTotalWordWrap = specSettings.applyToTotal && specSettings.textWrap !== undefined ? specSettings.textWrap : totalRowWordWrap;
                     let efTotalBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+
+                    // Apply background CF to transposed total cell if applyTo includes totals
+                    const trTotalBgApplyToRaw = dataViewObjects.getValue<any>(
+                        valueColumn.source.objects || {},
+                        { objectName: "valueBackgroundConditionalFormatting", propertyName: "applyTo" },
+                        "valuesOnly"
+                    );
+                    const trTotalBgApplyTo = typeof trTotalBgApplyToRaw === "string" ? trTotalBgApplyToRaw : (trTotalBgApplyToRaw?.value || "valuesOnly");
+                    if (trTotalBgApplyTo === "valuesAndTotals" || trTotalBgApplyTo === "totalsOnly") {
+                        if (measureBgCFPairs[measureIndex]?.length > 0 && totalVal !== null && totalVal !== undefined) {
+                            const interpolated = interpolateCFColor(Number(totalVal), measureBgCFPairs[measureIndex]);
+                            if (interpolated) efTotalBg = interpolated;
+                        } else {
+                            const staticBg = dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" });
+                            if (staticBg) efTotalBg = staticBg;
+                        }
+                    }
+
                     let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
                     let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
                     applyRowSquash(totalCell, rowHeight, efTotalFontSize, efTotalWordWrap);
@@ -2969,6 +3620,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     // For each category column, use precomputed column totals for this measure
                     for (let i = 0; i < rowCount; i++) {
                         let cell = colTotalRow.insertCell();
+                        cell.style.position = "relative";
                         const colTotalVal = colTotalsPerMeasure[mIdx][i];
                         if (colTotalVal !== null && colTotalVal !== undefined) {
                             // Use dynamic format string from semantic model
@@ -2982,7 +3634,108 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const ctFormat = ctDynamicFormat || baseMeasureFormats[mIdx] || "";
                             const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
                             const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
-                            cell.textContent = formatValue(colTotalVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
+                            const ctFormattedValue = formatValue(colTotalVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
+
+                            // Check if data bars should be rendered on column total cells in transposed mode
+                            const ctObjects = baseValues[mIdx].source.objects || {};
+                            const ctShowDataBars = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
+                            const ctShowOnColumnTotals = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "showOnColumnTotals" }, true);
+
+                            if (ctShowDataBars && ctShowOnColumnTotals) {
+                                let ctDataBarColor = dataViewObjects.getFillColor(ctObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
+                                const ctMatchColor = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
+                                const ctShowZeroLine = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
+                                const ctZeroLineColor = dataViewObjects.getFillColor(ctObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
+                                const ctZeroLineTransparency = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
+                                const ctDbHeight = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
+                                const ctDbTransparency = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "transparency" }, 20);
+                                const ctBorderOn = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "borderOn" }, true);
+                                const ctBorderThickness = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "borderThickness" }, 1);
+                                const ctBorderColor = dataViewObjects.getFillColor(ctObjects, { objectName: "dataBarsFormatting", propertyName: "borderColor" }, "#000000");
+                                const ctAxisTypeRaw = dataViewObjects.getValue<any>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "axisType" }, "Amount");
+                                const ctAxisType = typeof ctAxisTypeRaw === "string" ? ctAxisTypeRaw : (ctAxisTypeRaw.value || "Amount");
+                                const ctMinValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
+                                const ctMaxValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                                const ctLabelsOutside = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+
+                                let numValue = Number(colTotalVal);
+                                let min_raw = measureMins[mIdx];
+                                let max_raw = measureMaxs[mIdx];
+                                let min = min_raw;
+                                let max = max_raw;
+                                let domainRange = max_raw - min_raw;
+                                if (domainRange <= 0) domainRange = 1;
+                                if (ctMinValueObj !== null && ctMinValueObj !== undefined) {
+                                    min = ctAxisType === "Percentage" ? min_raw - domainRange * (ctMinValueObj / 100) : ctMinValueObj;
+                                }
+                                if (ctMaxValueObj !== null && ctMaxValueObj !== undefined) {
+                                    max = ctAxisType === "Percentage" ? max_raw + domainRange * (ctMaxValueObj / 100) : ctMaxValueObj;
+                                }
+                                let range = max - min;
+                                if (range <= 0) range = 1;
+
+                                let clampedValue = Math.max(min, Math.min(max, numValue));
+                                let zeroPoint = Math.max(min, Math.min(max, 0));
+                                let leftMarginPct = (ctLabelsOutside && min < 0) ? 25 : 0;
+                                let rightMarginPct = (ctLabelsOutside && max > 0) ? 25 : 0;
+                                let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
+                                let widthPct = 0, leftPct = 0;
+                                if (clampedValue >= zeroPoint) {
+                                    widthPct = ((clampedValue - zeroPoint) / range) * 100 * scaleMultiplier;
+                                    leftPct = leftMarginPct + ((zeroPoint - min) / range) * 100 * scaleMultiplier;
+                                } else {
+                                    widthPct = ((zeroPoint - clampedValue) / range) * 100 * scaleMultiplier;
+                                    leftPct = leftMarginPct + ((clampedValue - min) / range) * 100 * scaleMultiplier;
+                                }
+
+                                let dataBar = document.createElement("div");
+                                dataBar.style.position = "absolute";
+                                dataBar.style.top = `${(100 - ctDbHeight) / 2}%`;
+                                dataBar.style.height = `${ctDbHeight}%`;
+                                dataBar.style.left = `${leftPct}%`;
+                                dataBar.style.width = `${widthPct}%`;
+                                dataBar.style.backgroundColor = applyTransparency(ctDataBarColor, ctDbTransparency);
+                                dataBar.style.zIndex = "1";
+                                if (ctBorderOn) {
+                                    let finalBorderColor = ctMatchColor ? ctDataBarColor : ctBorderColor;
+                                    dataBar.style.border = `${ctBorderThickness}px solid ${finalBorderColor}`;
+                                    dataBar.style.boxSizing = "border-box";
+                                }
+                                cell.appendChild(dataBar);
+
+                                if (ctShowZeroLine) {
+                                    let zeroLine = document.createElement("div");
+                                    zeroLine.style.position = "absolute";
+                                    zeroLine.style.top = "0";
+                                    zeroLine.style.bottom = "0";
+                                    zeroLine.style.width = "2px";
+                                    let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                                    zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                    zeroLine.style.backgroundColor = applyTransparency(ctZeroLineColor, ctZeroLineTransparency);
+                                    zeroLine.style.zIndex = "1";
+                                    cell.appendChild(zeroLine);
+                                }
+
+                                let textDiv = document.createElement("div");
+                                textDiv.style.zIndex = "2";
+                                textDiv.textContent = ctFormattedValue;
+                                if (ctLabelsOutside) {
+                                    textDiv.style.position = "absolute";
+                                    textDiv.style.top = "50%";
+                                    textDiv.style.transform = "translateY(-50%)";
+                                    textDiv.style.whiteSpace = "nowrap";
+                                    if (numValue >= 0) {
+                                        textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                    } else {
+                                        textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                    }
+                                } else {
+                                    textDiv.style.position = "relative";
+                                }
+                                cell.appendChild(textDiv);
+                            } else {
+                                cell.textContent = ctFormattedValue;
+                            }
                         } else {
                             cell.textContent = "";
                         }
@@ -3007,7 +3760,29 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         cell.style.textDecoration = efUnderline ? "underline" : "none";
                         cell.style.fontFamily = efFontFamily;
                         cell.style.borderRight = vertBorderValue;
-                        cell.style.backgroundColor = backgroundColor;
+
+                        // Apply background CF to transposed column total cells if applyTo includes totals
+                        let trCtBg = backgroundColor;
+                        const trCtBgApplyToRaw = dataViewObjects.getValue<any>(
+                            baseValues[mIdx].source.objects || {},
+                            { objectName: "valueBackgroundConditionalFormatting", propertyName: "applyTo" },
+                            "valuesOnly"
+                        );
+                        const trCtBgApplyTo = typeof trCtBgApplyToRaw === "string" ? trCtBgApplyToRaw : (trCtBgApplyToRaw?.value || "valuesOnly");
+                        if (trCtBgApplyTo === "valuesAndTotals" || trCtBgApplyTo === "totalsOnly") {
+                            if (measureBgCFPairs[mIdx]?.length > 0) {
+                                const ctVal = colTotalsPerMeasure[mIdx][i];
+                                if (ctVal !== null && ctVal !== undefined) {
+                                    const interpolated = interpolateCFColor(Number(ctVal), measureBgCFPairs[mIdx]);
+                                    if (interpolated) trCtBg = interpolated;
+                                }
+                            } else {
+                                const staticBg = dataViewObjects.getFillColor(baseValues[mIdx].source.objects || {}, { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" });
+                                if (staticBg) trCtBg = staticBg;
+                            }
+                        }
+
+                        cell.style.backgroundColor = trCtBg;
                         cell.style.color = textColor;
                         cell.style.overflow = "hidden";
                         cell.style.textOverflow = "ellipsis";
@@ -3052,6 +3827,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         let efTotalFontSize = specSettings.applyToTotal && specSettings.fontSize !== undefined ? specSettings.fontSize : totalRowFontSize;
                         let efTotalWordWrap = specSettings.applyToTotal && specSettings.textWrap !== undefined ? specSettings.textWrap : totalRowWordWrap;
                         let efTotalBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+
+                        // Apply background CF to transposed grand total cell if applyTo includes totals
+                        const trGrandBgApplyToRaw = dataViewObjects.getValue<any>(
+                            baseValues[mIdx].source.objects || {},
+                            { objectName: "valueBackgroundConditionalFormatting", propertyName: "applyTo" },
+                            "valuesOnly"
+                        );
+                        const trGrandBgApplyTo = typeof trGrandBgApplyToRaw === "string" ? trGrandBgApplyToRaw : (trGrandBgApplyToRaw?.value || "valuesOnly");
+                        if (trGrandBgApplyTo === "valuesAndTotals" || trGrandBgApplyTo === "totalsOnly") {
+                            if (measureBgCFPairs[mIdx]?.length > 0 && grandVal !== null && grandVal !== undefined) {
+                                const interpolated = interpolateCFColor(Number(grandVal), measureBgCFPairs[mIdx]);
+                                if (interpolated) efTotalBg = interpolated;
+                            } else {
+                                const staticBg = dataViewObjects.getFillColor(baseValues[mIdx].source.objects || {}, { objectName: "valueBackgroundConditionalFormatting", propertyName: "backgroundColor" });
+                                if (staticBg) efTotalBg = staticBg;
+                            }
+                        }
+
                         let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
                         let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
 

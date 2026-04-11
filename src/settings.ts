@@ -138,7 +138,7 @@ export class ValueConditionalFormattingSettings extends FormattingSettingsCard {
 
 export class ValueBackgroundConditionalFormattingSettings extends FormattingSettingsCard {
     name: string = "valueBackgroundConditionalFormatting";
-    displayName: string = "Value background conditional formatting";
+    displayName: string = "Background conditional formatting";
     visible: boolean = true;
     public slices: FormattingSettingsSlice[] = [];
 }
@@ -269,6 +269,20 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
         visible: true
     });
 
+    public showOnRowTotals = new formattingSettings.ToggleSwitch({
+        name: "showOnRowTotals",
+        displayName: "Show on Row Totals",
+        value: true,
+        visible: true
+    });
+
+    public showOnColumnTotals = new formattingSettings.ToggleSwitch({
+        name: "showOnColumnTotals",
+        displayName: "Show on Column Totals",
+        value: true,
+        visible: true
+    });
+
     public showZeroLine = new formattingSettings.ToggleSwitch({
         name: "showZeroLine",
         displayName: "Show Zero Line",
@@ -305,7 +319,7 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
     public dataBarsGroup = new formattingSettings.Group({
         displayName: "Data Bars Settings",
         name: "dataBarsGroup",
-        slices: [this.showDataBars, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.labelsOutside, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
+        slices: [this.showDataBars, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.labelsOutside, this.showOnRowTotals, this.showOnColumnTotals, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
     });
 
     public groups: formattingSettings.Group[] = [this.selectSeriesGroup, this.dataBarsGroup, this.yAxisGroup];

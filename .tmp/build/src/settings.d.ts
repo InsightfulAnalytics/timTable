@@ -66,6 +66,8 @@ export declare class DataBarsFormattingSettings extends formattingSettings.Compo
     maxValue: formattingSettings.NumUpDown;
     minValue: formattingSettings.NumUpDown;
     labelsOutside: formattingSettings.ToggleSwitch;
+    showOnRowTotals: formattingSettings.ToggleSwitch;
+    showOnColumnTotals: formattingSettings.ToggleSwitch;
     showZeroLine: formattingSettings.ToggleSwitch;
     zeroLineColor: formattingSettings.ColorPicker;
     zeroLineTransparency: formattingSettings.NumUpDown;

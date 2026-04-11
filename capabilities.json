@@ -91,6 +91,15 @@
         },
         "valueBackgroundConditionalFormatting": {
             "properties": {
+                "applyTo": {
+                    "type": {
+                        "enumeration": [
+                            { "value": "valuesOnly", "displayName": "Values only" },
+                            { "value": "valuesAndTotals", "displayName": "Values and totals" },
+                            { "value": "totalsOnly", "displayName": "Totals only" }
+                        ]
+                    }
+                },
                 "backgroundColor": {
                     "type": {
                         "fill": {
@@ -205,6 +214,16 @@
                 "zeroLineTransparency": {
                     "type": {
                         "numeric": true
+                    }
+                },
+                "showOnRowTotals": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "showOnColumnTotals": {
+                    "type": {
+                        "bool": true
                     }
                 }
             }
