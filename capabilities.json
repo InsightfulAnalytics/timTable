@@ -454,6 +454,95 @@
                     "type": {
                         "numeric": true
                     }
+                },
+                "borderSection": {
+                    "type": {
+                        "text": true
+                    }
+                },
+                "borderAllTop": {
+                    "type": { "bool": true }
+                },
+                "borderAllBottom": {
+                    "type": { "bool": true }
+                },
+                "borderAllLeft": {
+                    "type": { "bool": true }
+                },
+                "borderAllRight": {
+                    "type": { "bool": true }
+                },
+                "borderAllColor": {
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "borderAllWidth": {
+                    "type": { "numeric": true }
+                },
+                "borderAllTransparency": {
+                    "type": { "numeric": true }
+                },
+                "borderColHeaderTop": {
+                    "type": { "bool": true }
+                },
+                "borderColHeaderBottom": {
+                    "type": { "bool": true }
+                },
+                "borderColHeaderLeft": {
+                    "type": { "bool": true }
+                },
+                "borderColHeaderRight": {
+                    "type": { "bool": true }
+                },
+                "borderColHeaderColor": {
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "borderColHeaderWidth": {
+                    "type": { "numeric": true }
+                },
+                "borderColHeaderTransparency": {
+                    "type": { "numeric": true }
+                },
+                "borderRowHeaderTop": {
+                    "type": { "bool": true }
+                },
+                "borderRowHeaderBottom": {
+                    "type": { "bool": true }
+                },
+                "borderRowHeaderLeft": {
+                    "type": { "bool": true }
+                },
+                "borderRowHeaderRight": {
+                    "type": { "bool": true }
+                },
+                "borderRowHeaderColor": {
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "borderRowHeaderWidth": {
+                    "type": { "numeric": true }
+                },
+                "borderRowHeaderTransparency": {
+                    "type": { "numeric": true }
+                },
+                "borderValuesTop": {
+                    "type": { "bool": true }
+                },
+                "borderValuesBottom": {
+                    "type": { "bool": true }
+                },
+                "borderValuesLeft": {
+                    "type": { "bool": true }
+                },
+                "borderValuesRight": {
+                    "type": { "bool": true }
+                },
+                "borderValuesColor": {
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "borderValuesWidth": {
+                    "type": { "numeric": true }
+                },
+                "borderValuesTransparency": {
+                    "type": { "numeric": true }
                 }
             }
         },

@@ -186,6 +186,66 @@ export class Visual implements IVisual {
 
         const gridSettings = this.visualSettings.gridMenu;
         const gridBorderColor = gridSettings.horizontalGridColor.value.value;
+
+        // ── Border section visibility logic ──
+        const persistedBorderSection = (this.dataView?.metadata?.objects as any)?.grid?.borderSection;
+        const borderSectionVal = typeof persistedBorderSection === "string"
+            ? persistedBorderSection
+            : (persistedBorderSection?.value || (gridSettings.borderSection.value as any)?.value || "all");
+        // Match dropdown item
+        const borderSectionItem = gridSettings.borderSection.items.find(i => (i as any).value === borderSectionVal);
+        if (borderSectionItem) gridSettings.borderSection.value = borderSectionItem as any;
+
+        const showAll = borderSectionVal === "all";
+        const showColHeader = borderSectionVal === "columnHeaders";
+        const showRowHeader = borderSectionVal === "rowHeaders";
+        const showValues = borderSectionVal === "values";
+
+        gridSettings.borderAllTop.visible = showAll;
+        gridSettings.borderAllBottom.visible = showAll;
+        gridSettings.borderAllLeft.visible = showAll;
+        gridSettings.borderAllRight.visible = showAll;
+        gridSettings.borderAllColor.visible = showAll;
+        gridSettings.borderAllWidth.visible = showAll;
+        gridSettings.borderAllTransparency.visible = showAll;
+
+        gridSettings.borderColHeaderTop.visible = showColHeader;
+        gridSettings.borderColHeaderBottom.visible = showColHeader;
+        gridSettings.borderColHeaderLeft.visible = showColHeader;
+        gridSettings.borderColHeaderRight.visible = showColHeader;
+        gridSettings.borderColHeaderColor.visible = showColHeader;
+        gridSettings.borderColHeaderWidth.visible = showColHeader;
+        gridSettings.borderColHeaderTransparency.visible = showColHeader;
+
+        gridSettings.borderRowHeaderTop.visible = showRowHeader;
+        gridSettings.borderRowHeaderBottom.visible = showRowHeader;
+        gridSettings.borderRowHeaderLeft.visible = showRowHeader;
+        gridSettings.borderRowHeaderRight.visible = showRowHeader;
+        gridSettings.borderRowHeaderColor.visible = showRowHeader;
+        gridSettings.borderRowHeaderWidth.visible = showRowHeader;
+        gridSettings.borderRowHeaderTransparency.visible = showRowHeader;
+
+        gridSettings.borderValuesTop.visible = showValues;
+        gridSettings.borderValuesBottom.visible = showValues;
+        gridSettings.borderValuesLeft.visible = showValues;
+        gridSettings.borderValuesRight.visible = showValues;
+        gridSettings.borderValuesColor.visible = showValues;
+        gridSettings.borderValuesWidth.visible = showValues;
+        gridSettings.borderValuesTransparency.visible = showValues;
+
+        // Rebuild border group slices to reflect visibility
+        gridSettings.borderGroup.slices = [
+            gridSettings.borderSection,
+            gridSettings.borderAllTop, gridSettings.borderAllBottom, gridSettings.borderAllLeft, gridSettings.borderAllRight,
+            gridSettings.borderAllColor, gridSettings.borderAllWidth, gridSettings.borderAllTransparency,
+            gridSettings.borderColHeaderTop, gridSettings.borderColHeaderBottom, gridSettings.borderColHeaderLeft, gridSettings.borderColHeaderRight,
+            gridSettings.borderColHeaderColor, gridSettings.borderColHeaderWidth, gridSettings.borderColHeaderTransparency,
+            gridSettings.borderRowHeaderTop, gridSettings.borderRowHeaderBottom, gridSettings.borderRowHeaderLeft, gridSettings.borderRowHeaderRight,
+            gridSettings.borderRowHeaderColor, gridSettings.borderRowHeaderWidth, gridSettings.borderRowHeaderTransparency,
+            gridSettings.borderValuesTop, gridSettings.borderValuesBottom, gridSettings.borderValuesLeft, gridSettings.borderValuesRight,
+            gridSettings.borderValuesColor, gridSettings.borderValuesWidth, gridSettings.borderValuesTransparency
+        ];
+        gridSettings.groups = [gridSettings.gridlinesGroup, gridSettings.borderGroup];
         const categoryCFSettings = this.visualSettings.categoryConditionalFormatting;
         const defaultCategoryTextColor = categoryCFSettings.textColor.value.value;
         // Read category CF applyTo — stored in metadata.objects since it has no selector
@@ -365,6 +425,51 @@ export class Visual implements IVisual {
         const vertColor = applyTransparency(gridSettings.verticalGridColor.value.value, gridSettings.verticalGridTransparency.value);
         const vertWidth = gridSettings.verticalGridWidth.value;
         const vertBorderValue = vertLines ? `${vertWidth}px solid ${vertColor}` : 'none';
+
+        // ── Border settings per section ──
+        // Helper to build a CSS border string from border settings
+        const buildBorder = (on: boolean, width: number, color: string, transparency: number): string => {
+            if (!on) return '';
+            return `${width}px solid ${applyTransparency(color, transparency)}`;
+        };
+
+        // Read "All" border settings
+        const bAllTop = gridSettings.borderAllTop.value;
+        const bAllBottom = gridSettings.borderAllBottom.value;
+        const bAllLeft = gridSettings.borderAllLeft.value;
+        const bAllRight = gridSettings.borderAllRight.value;
+        const bAllColor = gridSettings.borderAllColor.value.value;
+        const bAllWidth = gridSettings.borderAllWidth.value;
+        const bAllTransparency = gridSettings.borderAllTransparency.value;
+
+        // Read section-specific settings, falling back to "All" via OR
+        const borderFor = (sectionTop: boolean, sectionBottom: boolean, sectionLeft: boolean, sectionRight: boolean,
+            sectionColor: string, sectionWidth: number, sectionTransparency: number) => {
+            // If any section-specific toggle is on, use section-specific colour/width/transparency
+            const anySection = sectionTop || sectionBottom || sectionLeft || sectionRight;
+            return {
+                top: buildBorder(sectionTop || bAllTop, anySection ? sectionWidth : bAllWidth, anySection && sectionTop ? sectionColor : bAllColor, anySection && sectionTop ? sectionTransparency : bAllTransparency),
+                bottom: buildBorder(sectionBottom || bAllBottom, anySection ? sectionWidth : bAllWidth, anySection && sectionBottom ? sectionColor : bAllColor, anySection && sectionBottom ? sectionTransparency : bAllTransparency),
+                left: buildBorder(sectionLeft || bAllLeft, anySection ? sectionWidth : bAllWidth, anySection && sectionLeft ? sectionColor : bAllColor, anySection && sectionLeft ? sectionTransparency : bAllTransparency),
+                right: buildBorder(sectionRight || bAllRight, anySection ? sectionWidth : bAllWidth, anySection && sectionRight ? sectionColor : bAllColor, anySection && sectionRight ? sectionTransparency : bAllTransparency),
+            };
+        };
+
+        const colHeaderBorders = borderFor(
+            gridSettings.borderColHeaderTop.value, gridSettings.borderColHeaderBottom.value,
+            gridSettings.borderColHeaderLeft.value, gridSettings.borderColHeaderRight.value,
+            gridSettings.borderColHeaderColor.value.value, gridSettings.borderColHeaderWidth.value, gridSettings.borderColHeaderTransparency.value
+        );
+        const rowHeaderBorders = borderFor(
+            gridSettings.borderRowHeaderTop.value, gridSettings.borderRowHeaderBottom.value,
+            gridSettings.borderRowHeaderLeft.value, gridSettings.borderRowHeaderRight.value,
+            gridSettings.borderRowHeaderColor.value.value, gridSettings.borderRowHeaderWidth.value, gridSettings.borderRowHeaderTransparency.value
+        );
+        const valuesBorders = borderFor(
+            gridSettings.borderValuesTop.value, gridSettings.borderValuesBottom.value,
+            gridSettings.borderValuesLeft.value, gridSettings.borderValuesRight.value,
+            gridSettings.borderValuesColor.value.value, gridSettings.borderValuesWidth.value, gridSettings.borderValuesTransparency.value
+        );
 
         // Canvas-based text measurement for dynamic data bar label margins
         let _measureCanvas: HTMLCanvasElement | null = null;
@@ -4398,6 +4503,79 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
                 }
+            }
+        }
+
+        // ── Apply section borders (Border sub-menu) ──
+        // These are applied as outer-edge borders for each section of the table.
+        const rows = this.table.rows;
+        if (rows.length > 0) {
+            // Identify header rows and data rows
+            const headerRows: HTMLTableRowElement[] = [];
+            const dataRows: HTMLTableRowElement[] = [];
+            for (let r = 0; r < rows.length; r++) {
+                if (rows[r].className.indexOf('table-header-row') >= 0) {
+                    headerRows.push(rows[r]);
+                } else if (rows[r].className.indexOf('table-data-row') >= 0 || rows[r].className.indexOf('table-total-row') >= 0) {
+                    dataRows.push(rows[r]);
+                }
+            }
+
+            // Helper: apply edge borders to an area of cells
+            const applyAreaBorder = (
+                areaRows: HTMLTableRowElement[],
+                borders: { top: string; bottom: string; left: string; right: string },
+                cellFilter?: (cell: HTMLTableCellElement) => boolean
+            ) => {
+                if (areaRows.length === 0) return;
+                for (let r = 0; r < areaRows.length; r++) {
+                    const row = areaRows[r];
+                    const cells: HTMLTableCellElement[] = [];
+                    for (let c = 0; c < row.cells.length; c++) {
+                        const cell = row.cells[c];
+                        if (!cellFilter || cellFilter(cell)) {
+                            cells.push(cell);
+                        }
+                    }
+                    if (cells.length === 0) continue;
+
+                    // Top border: first row of area
+                    if (r === 0 && borders.top) {
+                        cells.forEach(cell => cell.style.borderTop = borders.top);
+                    }
+                    // Bottom border: last row of area
+                    if (r === areaRows.length - 1 && borders.bottom) {
+                        cells.forEach(cell => cell.style.borderBottom = borders.bottom);
+                    }
+                    // Left border: first cell in each row
+                    if (borders.left && cells.length > 0) {
+                        cells[0].style.borderLeft = borders.left;
+                    }
+                    // Right border: last cell in each row
+                    if (borders.right && cells.length > 0) {
+                        cells[cells.length - 1].style.borderRight = borders.right;
+                    }
+                }
+            };
+
+            // Apply column header borders to header rows
+            applyAreaBorder(headerRows, colHeaderBorders);
+
+            // For data rows, split cells into row headers (category) and values
+            if (!switchValuesToRows) {
+                // Normal layout: category cells are class 'table-category-cell', values are the rest
+                applyAreaBorder(dataRows, rowHeaderBorders, (cell) => cell.className.indexOf('table-category-cell') >= 0);
+                applyAreaBorder(dataRows, valuesBorders, (cell) => cell.className.indexOf('table-category-cell') < 0);
+            } else {
+                // Transposed layout: first cell of each row is the row header (measure name)
+                applyAreaBorder(dataRows, rowHeaderBorders, (cell) => {
+                    const row = cell.parentElement as HTMLTableRowElement;
+                    return row ? row.cells[0] === cell : false;
+                });
+                applyAreaBorder(dataRows, valuesBorders, (cell) => {
+                    const row = cell.parentElement as HTMLTableRowElement;
+                    return row ? row.cells[0] !== cell : false;
+                });
             }
         }
     }

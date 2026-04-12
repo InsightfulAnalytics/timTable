@@ -111,7 +111,7 @@ export declare class ColumnTotalsSettings extends formattingSettings.CompositeCa
     columnTotalsFormattingGroup: formattingSettings.Group;
     groups: formattingSettings.Group[];
 }
-export declare class GridSettings extends FormattingSettingsCard {
+export declare class GridSettings extends formattingSettings.CompositeCard {
     horizontalGridlines: formattingSettings.ToggleSwitch;
     horizontalGridColor: formattingSettings.ColorPicker;
     horizontalGridWidth: formattingSettings.NumUpDown;
@@ -120,10 +120,41 @@ export declare class GridSettings extends FormattingSettingsCard {
     verticalGridColor: formattingSettings.ColorPicker;
     verticalGridWidth: formattingSettings.NumUpDown;
     verticalGridTransparency: formattingSettings.NumUpDown;
+    borderSection: formattingSettings.ItemDropdown;
+    borderAllTop: formattingSettings.ToggleSwitch;
+    borderAllBottom: formattingSettings.ToggleSwitch;
+    borderAllLeft: formattingSettings.ToggleSwitch;
+    borderAllRight: formattingSettings.ToggleSwitch;
+    borderAllColor: formattingSettings.ColorPicker;
+    borderAllWidth: formattingSettings.NumUpDown;
+    borderAllTransparency: formattingSettings.NumUpDown;
+    borderColHeaderTop: formattingSettings.ToggleSwitch;
+    borderColHeaderBottom: formattingSettings.ToggleSwitch;
+    borderColHeaderLeft: formattingSettings.ToggleSwitch;
+    borderColHeaderRight: formattingSettings.ToggleSwitch;
+    borderColHeaderColor: formattingSettings.ColorPicker;
+    borderColHeaderWidth: formattingSettings.NumUpDown;
+    borderColHeaderTransparency: formattingSettings.NumUpDown;
+    borderRowHeaderTop: formattingSettings.ToggleSwitch;
+    borderRowHeaderBottom: formattingSettings.ToggleSwitch;
+    borderRowHeaderLeft: formattingSettings.ToggleSwitch;
+    borderRowHeaderRight: formattingSettings.ToggleSwitch;
+    borderRowHeaderColor: formattingSettings.ColorPicker;
+    borderRowHeaderWidth: formattingSettings.NumUpDown;
+    borderRowHeaderTransparency: formattingSettings.NumUpDown;
+    borderValuesTop: formattingSettings.ToggleSwitch;
+    borderValuesBottom: formattingSettings.ToggleSwitch;
+    borderValuesLeft: formattingSettings.ToggleSwitch;
+    borderValuesRight: formattingSettings.ToggleSwitch;
+    borderValuesColor: formattingSettings.ColorPicker;
+    borderValuesWidth: formattingSettings.NumUpDown;
+    borderValuesTransparency: formattingSettings.NumUpDown;
+    gridlinesGroup: formattingSettings.Group;
+    borderGroup: formattingSettings.Group;
     name: string;
     displayName: string;
     visible: boolean;
-    slices: FormattingSettingsSlice[];
+    groups: formattingSettings.Group[];
 }
 export declare class ColumnHeadersSettings extends formattingSettings.CompositeCard {
     font: formattingSettings.FontControl;

@@ -518,7 +518,14 @@ export class ColumnTotalsSettings extends formattingSettings.CompositeCard {
 }
 
 
-export class GridSettings extends FormattingSettingsCard {
+const borderSectionItems = [
+    { value: "all", displayName: "All" },
+    { value: "columnHeaders", displayName: "Column headers" },
+    { value: "rowHeaders", displayName: "Row headers" },
+    { value: "values", displayName: "Values section" }
+];
+
+export class GridSettings extends formattingSettings.CompositeCard {
     public horizontalGridlines = new formattingSettings.ToggleSwitch({
         name: "horizontalGridlines",
         displayName: "Horizontal gridlines",
@@ -575,19 +582,86 @@ export class GridSettings extends FormattingSettingsCard {
         visible: true
     });
 
+    // ── Border section ──
+    public borderSection = new formattingSettings.ItemDropdown({
+        name: "borderSection",
+        displayName: "Section",
+        value: { value: "all", displayName: "All" },
+        items: borderSectionItems,
+        visible: true
+    });
+
+    // All
+    public borderAllTop = new formattingSettings.ToggleSwitch({ name: "borderAllTop", displayName: "Top", value: false, visible: true });
+    public borderAllBottom = new formattingSettings.ToggleSwitch({ name: "borderAllBottom", displayName: "Bottom", value: false, visible: true });
+    public borderAllLeft = new formattingSettings.ToggleSwitch({ name: "borderAllLeft", displayName: "Left", value: false, visible: true });
+    public borderAllRight = new formattingSettings.ToggleSwitch({ name: "borderAllRight", displayName: "Right", value: false, visible: true });
+    public borderAllColor = new formattingSettings.ColorPicker({ name: "borderAllColor", displayName: "Colour", value: { value: "#000000" }, visible: true });
+    public borderAllWidth = new formattingSettings.NumUpDown({ name: "borderAllWidth", displayName: "Width", value: 1, visible: true });
+    public borderAllTransparency = new formattingSettings.NumUpDown({ name: "borderAllTransparency", displayName: "Transparency (%)", value: 0, visible: true });
+
+    // Column headers
+    public borderColHeaderTop = new formattingSettings.ToggleSwitch({ name: "borderColHeaderTop", displayName: "Top", value: false, visible: false });
+    public borderColHeaderBottom = new formattingSettings.ToggleSwitch({ name: "borderColHeaderBottom", displayName: "Bottom", value: false, visible: false });
+    public borderColHeaderLeft = new formattingSettings.ToggleSwitch({ name: "borderColHeaderLeft", displayName: "Left", value: false, visible: false });
+    public borderColHeaderRight = new formattingSettings.ToggleSwitch({ name: "borderColHeaderRight", displayName: "Right", value: false, visible: false });
+    public borderColHeaderColor = new formattingSettings.ColorPicker({ name: "borderColHeaderColor", displayName: "Colour", value: { value: "#000000" }, visible: false });
+    public borderColHeaderWidth = new formattingSettings.NumUpDown({ name: "borderColHeaderWidth", displayName: "Width", value: 1, visible: false });
+    public borderColHeaderTransparency = new formattingSettings.NumUpDown({ name: "borderColHeaderTransparency", displayName: "Transparency (%)", value: 0, visible: false });
+
+    // Row headers
+    public borderRowHeaderTop = new formattingSettings.ToggleSwitch({ name: "borderRowHeaderTop", displayName: "Top", value: false, visible: false });
+    public borderRowHeaderBottom = new formattingSettings.ToggleSwitch({ name: "borderRowHeaderBottom", displayName: "Bottom", value: false, visible: false });
+    public borderRowHeaderLeft = new formattingSettings.ToggleSwitch({ name: "borderRowHeaderLeft", displayName: "Left", value: false, visible: false });
+    public borderRowHeaderRight = new formattingSettings.ToggleSwitch({ name: "borderRowHeaderRight", displayName: "Right", value: false, visible: false });
+    public borderRowHeaderColor = new formattingSettings.ColorPicker({ name: "borderRowHeaderColor", displayName: "Colour", value: { value: "#000000" }, visible: false });
+    public borderRowHeaderWidth = new formattingSettings.NumUpDown({ name: "borderRowHeaderWidth", displayName: "Width", value: 1, visible: false });
+    public borderRowHeaderTransparency = new formattingSettings.NumUpDown({ name: "borderRowHeaderTransparency", displayName: "Transparency (%)", value: 0, visible: false });
+
+    // Values section
+    public borderValuesTop = new formattingSettings.ToggleSwitch({ name: "borderValuesTop", displayName: "Top", value: false, visible: false });
+    public borderValuesBottom = new formattingSettings.ToggleSwitch({ name: "borderValuesBottom", displayName: "Bottom", value: false, visible: false });
+    public borderValuesLeft = new formattingSettings.ToggleSwitch({ name: "borderValuesLeft", displayName: "Left", value: false, visible: false });
+    public borderValuesRight = new formattingSettings.ToggleSwitch({ name: "borderValuesRight", displayName: "Right", value: false, visible: false });
+    public borderValuesColor = new formattingSettings.ColorPicker({ name: "borderValuesColor", displayName: "Colour", value: { value: "#000000" }, visible: false });
+    public borderValuesWidth = new formattingSettings.NumUpDown({ name: "borderValuesWidth", displayName: "Width", value: 1, visible: false });
+    public borderValuesTransparency = new formattingSettings.NumUpDown({ name: "borderValuesTransparency", displayName: "Transparency (%)", value: 0, visible: false });
+
+    public gridlinesGroup = new formattingSettings.Group({
+        displayName: "Gridlines",
+        name: "gridlinesGroup",
+        slices: [
+            this.horizontalGridlines,
+            this.horizontalGridColor,
+            this.horizontalGridWidth,
+            this.horizontalGridTransparency,
+            this.verticalGridlines,
+            this.verticalGridColor,
+            this.verticalGridWidth,
+            this.verticalGridTransparency
+        ]
+    });
+
+    public borderGroup = new formattingSettings.Group({
+        displayName: "Border",
+        name: "borderGroup",
+        slices: [
+            this.borderSection,
+            this.borderAllTop, this.borderAllBottom, this.borderAllLeft, this.borderAllRight,
+            this.borderAllColor, this.borderAllWidth, this.borderAllTransparency,
+            this.borderColHeaderTop, this.borderColHeaderBottom, this.borderColHeaderLeft, this.borderColHeaderRight,
+            this.borderColHeaderColor, this.borderColHeaderWidth, this.borderColHeaderTransparency,
+            this.borderRowHeaderTop, this.borderRowHeaderBottom, this.borderRowHeaderLeft, this.borderRowHeaderRight,
+            this.borderRowHeaderColor, this.borderRowHeaderWidth, this.borderRowHeaderTransparency,
+            this.borderValuesTop, this.borderValuesBottom, this.borderValuesLeft, this.borderValuesRight,
+            this.borderValuesColor, this.borderValuesWidth, this.borderValuesTransparency
+        ]
+    });
+
     public name: string = "grid";
     public displayName: string = "Grid";
     public visible: boolean = true;
-    public slices: FormattingSettingsSlice[] = [
-        this.horizontalGridlines,
-        this.horizontalGridColor,
-        this.horizontalGridWidth,
-        this.horizontalGridTransparency,
-        this.verticalGridlines,
-        this.verticalGridColor,
-        this.verticalGridWidth,
-        this.verticalGridTransparency
-    ];
+    public groups: formattingSettings.Group[] = [this.gridlinesGroup, this.borderGroup];
 }
 
 
