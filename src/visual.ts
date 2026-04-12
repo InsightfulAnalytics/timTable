@@ -1,4 +1,4 @@
-﻿/*
+/*
 *  Power BI Visual CLI
 *
 *  Copyright (c) Microsoft Corporation
@@ -365,6 +365,19 @@ export class Visual implements IVisual {
         const vertColor = applyTransparency(gridSettings.verticalGridColor.value.value, gridSettings.verticalGridTransparency.value);
         const vertWidth = gridSettings.verticalGridWidth.value;
         const vertBorderValue = vertLines ? `${vertWidth}px solid ${vertColor}` : 'none';
+
+        // Canvas-based text measurement for dynamic data bar label margins
+        let _measureCanvas: HTMLCanvasElement | null = null;
+        const measureTextWidth = (text: string, font: string): number => {
+            if (!_measureCanvas) _measureCanvas = document.createElement("canvas");
+            const ctx = _measureCanvas.getContext("2d");
+            if (ctx) { ctx.font = font; return ctx.measureText(text).width; }
+            return text.length * 7;
+        };
+        const computeLabelMarginPct = (text: string, cellWidthPx: number, font: string): number => {
+            const textW = measureTextWidth(text, font);
+            return Math.min(50, Math.max(5, ((textW + 8) / cellWidthPx) * 100));
+        };
 
         // Helper function to get text color for a category row, supporting conditional formatting
 
@@ -2232,8 +2245,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let clampedValue = Math.max(min, Math.min(max, numValue));
                             let zeroPoint = Math.max(min, Math.min(max, 0));
 
-                            let leftMarginPct = (labelsOutside && min < 0) ? 25 : 0;
-                              let rightMarginPct = (labelsOutside && max > 0) ? 25 : 0;
+                            let leftMarginPct = 0;
+                            let rightMarginPct = 0;
+                            if (labelsOutside) {
+                                const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                const dbCellW = valueColumnWidths[measureIndex];
+                                if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
+                                if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
+                            }
                               let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
 
                               if (clampedValue >= zeroPoint) {
@@ -2524,8 +2543,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                                 let clampedValue = Math.max(min, Math.min(max, numValue));
                                 let zeroPoint = Math.max(min, Math.min(max, 0));
-                                let leftMarginPct = (ctLabelsOutside && min < 0) ? 25 : 0;
-                                let rightMarginPct = (ctLabelsOutside && max > 0) ? 25 : 0;
+                                let leftMarginPct = 0;
+                                let rightMarginPct = 0;
+                                if (ctLabelsOutside) {
+                                    const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                    const dbCellW = colTotalColumnWidths[mIdx];
+                                    if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
+                                    if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
+                                }
                                 let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
                                 let widthPct = 0, leftPct = 0;
                                 if (clampedValue >= zeroPoint) {
@@ -2846,8 +2871,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                         let clampedValue = Math.max(min, Math.min(max, numValue));
                         let zeroPoint = Math.max(min, Math.min(max, 0));
-                        let leftMarginPct = (totalLabelsOutside && min < 0) ? 25 : 0;
-                        let rightMarginPct = (totalLabelsOutside && max > 0) ? 25 : 0;
+                        let leftMarginPct = 0;
+                        let rightMarginPct = 0;
+                        if (totalLabelsOutside) {
+                            const dbFont = `${efFontSize}px ${efFontFamily}`;
+                            const dbCellW = valueColumnWidths[i];
+                            if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
+                            if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
+                        }
                         let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
                         let widthPct = 0, leftPct = 0;
                         if (clampedValue >= zeroPoint) {
@@ -3013,8 +3044,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                             let clampedValue = Math.max(min, Math.min(max, numValue));
                             let zeroPoint = Math.max(min, Math.min(max, 0));
-                            let leftMarginPct = (gtLabelsOutside && min < 0) ? 25 : 0;
-                            let rightMarginPct = (gtLabelsOutside && max > 0) ? 25 : 0;
+                            let leftMarginPct = 0;
+                            let rightMarginPct = 0;
+                            if (gtLabelsOutside) {
+                                const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                const dbCellW = colTotalColumnWidths[mIdx];
+                                if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
+                                if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
+                            }
                             let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
                             let widthPct = 0, leftPct = 0;
                             if (clampedValue >= zeroPoint) {
@@ -3581,8 +3618,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let clampedValue = Math.max(min, Math.min(max, numValue));
                             let zeroPoint = Math.max(min, Math.min(max, 0));
 
-                            let leftMarginPct = (labelsOutside && min < 0) ? 25 : 0;
-                              let rightMarginPct = (labelsOutside && max > 0) ? 25 : 0;
+                            let leftMarginPct = 0;
+                            let rightMarginPct = 0;
+                            if (labelsOutside) {
+                                const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                const dbCellW = valueColumnWidths[measureIndex];
+                                if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
+                                if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
+                            }
                               let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
 
                               if (clampedValue >= zeroPoint) {
@@ -3873,8 +3916,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                             let clampedValue = Math.max(min, Math.min(max, numValue));
                             let zeroPoint = Math.max(min, Math.min(max, 0));
-                            let leftMarginPct = (totalLabelsOutside && min < 0) ? 25 : 0;
-                            let rightMarginPct = (totalLabelsOutside && max > 0) ? 25 : 0;
+                            let leftMarginPct = 0;
+                            let rightMarginPct = 0;
+                            if (totalLabelsOutside) {
+                                const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                const dbCellW = valueColumnWidths[measureIndex];
+                                if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
+                                if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
+                            }
                             let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
                             let widthPct = 0, leftPct = 0;
                             if (clampedValue >= zeroPoint) {
@@ -4114,8 +4163,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                                 let clampedValue = Math.max(min, Math.min(max, numValue));
                                 let zeroPoint = Math.max(min, Math.min(max, 0));
-                                let leftMarginPct = (ctLabelsOutside && min < 0) ? 25 : 0;
-                                let rightMarginPct = (ctLabelsOutside && max > 0) ? 25 : 0;
+                                let leftMarginPct = 0;
+                                let rightMarginPct = 0;
+                                if (ctLabelsOutside) {
+                                    const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                    const dbCellW = valueColumnWidths[0] || colTotalColumnWidths[mIdx];
+                                    if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
+                                    if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
+                                }
                                 let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
                                 let widthPct = 0, leftPct = 0;
                                 if (clampedValue >= zeroPoint) {
