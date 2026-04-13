@@ -38,6 +38,8 @@ import { VisualSettings } from "./settings";
 import { FormattingSettingsService, formattingSettings } from "powerbi-visuals-utils-formattingmodel";
 import { dataViewObjects, dataViewWildcard } from "powerbi-visuals-utils-dataviewutils";
 import { valueFormatter } from "powerbi-visuals-utils-formattingutils";
+import ITooltipService = powerbi.extensibility.ITooltipService;
+import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
 
 export class Visual implements IVisual {
     private tableContainer: HTMLDivElement;
@@ -46,9 +48,11 @@ export class Visual implements IVisual {
     private visualSettings: VisualSettings;
     private dataView: DataView;
     private host: powerbi.extensibility.visual.IVisualHost;
+    private tooltipService: ITooltipService;
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
+        this.tooltipService = this.host.tooltipService;
         this.tableContainer = document.createElement("div");
         this.tableContainer.className = "table-container";
         options.element.appendChild(this.tableContainer);
@@ -63,6 +67,33 @@ export class Visual implements IVisual {
 
     public getFormattingModel(): any {
         return this.formattingSettingsService.buildFormattingModel(this.visualSettings);
+    }
+
+    private addTooltip(cell: HTMLTableCellElement, tooltipItems: VisualTooltipDataItem[]): void {
+        cell.addEventListener("mouseover", (event: MouseEvent) => {
+            const coordinates = [event.clientX, event.clientY];
+            this.tooltipService.show({
+                dataItems: tooltipItems,
+                identities: [],
+                coordinates: coordinates,
+                isTouchEvent: false
+            });
+        });
+        cell.addEventListener("mousemove", (event: MouseEvent) => {
+            const coordinates = [event.clientX, event.clientY];
+            this.tooltipService.move({
+                dataItems: tooltipItems,
+                identities: [],
+                coordinates: coordinates,
+                isTouchEvent: false
+            });
+        });
+        cell.addEventListener("mouseout", () => {
+            this.tooltipService.hide({
+                immediately: true,
+                isTouchEvent: false
+            });
+        });
     }
 
     public enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject {
@@ -2704,6 +2735,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (efWordWrap) {
                         cell.style.wordBreak = "break-word";
                     }
+
+                    // Tooltip for measure value cell
+                    const tooltipItems: VisualTooltipDataItem[] = [];
+                    if (hasCategories) {
+                        const rowPaths = categories.paths[i] || [categories.values[i]];
+                        rowPaths.forEach((seg: any, lvlIdx: number) => {
+                            if (seg !== "Total" && seg !== "" && seg !== undefined) {
+                                const catName = categories.sources[lvlIdx]?.displayName || "Category";
+                                tooltipItems.push({ displayName: catName, value: String(seg) });
+                            }
+                        });
+                    }
+                    tooltipItems.push({
+                        displayName: valueColumn.source.displayName || "Value",
+                        value: cell.textContent || "-"
+                    });
+                    this.addTooltip(cell, tooltipItems);
                 });
 
                 // Add column total cells for this row — one per enabled base measure
@@ -2937,6 +2985,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (efWordWrap) {
                             colTotalCell.style.wordBreak = "break-word";
                         }
+
+                        // Tooltip for column total cell
+                        const ctTooltipItems: VisualTooltipDataItem[] = [];
+                        if (hasCategories) {
+                            const rowPaths = categories.paths[i] || [categories.values[i]];
+                            rowPaths.forEach((seg: any, lvlIdx: number) => {
+                                if (seg !== "Total" && seg !== "" && seg !== undefined) {
+                                    const catName = categories.sources[lvlIdx]?.displayName || "Category";
+                                    ctTooltipItems.push({ displayName: catName, value: String(seg) });
+                                }
+                            });
+                        }
+                        ctTooltipItems.push({
+                            displayName: (baseValues[mIdx].source.displayName || "Total") + " (Total)",
+                            value: colTotalCell.textContent || "-"
+                        });
+                        this.addTooltip(colTotalCell, ctTooltipItems);
                     }
                 }
             }
@@ -3206,6 +3271,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 if (efWordWrap) {
                     cell.style.wordBreak = "break-word";
                 }
+
+                // Tooltip for total row cell
+                const totalTooltipItems: VisualTooltipDataItem[] = [{
+                    displayName: values[i].source.displayName || "Total",
+                    value: cell.textContent || "-"
+                }];
+                this.addTooltip(cell, totalTooltipItems);
             });
 
             // Add column total grand total cells — one per enabled base measure
@@ -3419,6 +3491,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (efTotalWordWrap) {
                         grandCell.style.wordBreak = "break-word";
                     }
+
+                    // Tooltip for grand total cell
+                    const grandTooltipItems: VisualTooltipDataItem[] = [{
+                        displayName: (baseValues[mIdx].source.displayName || "Total") + " (Grand Total)",
+                        value: grandCell.textContent || "-"
+                    }];
+                    this.addTooltip(grandCell, grandTooltipItems);
                 }
             }
             }
@@ -4078,6 +4157,25 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (efWordWrap) {
                         cell.style.wordBreak = "break-word";
                     }
+
+                    // Tooltip for transposed data cell
+                    const trTooltipItems: VisualTooltipDataItem[] = [];
+                    if (hasCategories) {
+                        const colPaths = categories.paths ? categories.paths[i] : [categories.values[i]];
+                        if (colPaths) {
+                            colPaths.forEach((seg: any, lvlIdx: number) => {
+                                if (seg !== "Total" && seg !== "" && seg !== undefined) {
+                                    const catName = categories.sources[lvlIdx]?.displayName || "Category";
+                                    trTooltipItems.push({ displayName: catName, value: String(seg) });
+                                }
+                            });
+                        }
+                    }
+                    trTooltipItems.push({
+                        displayName: valueColumn.source.displayName || "Value",
+                        value: cell.textContent || "-"
+                    });
+                    this.addTooltip(cell, trTooltipItems);
                 }
                 
                 // Add the Total column cell for this measure if enabled
@@ -4293,6 +4391,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (efTotalWordWrap) {
                         totalCell.style.wordBreak = "break-word";
                     }
+
+                    // Tooltip for transposed total cell
+                    const trTotalTooltipItems: VisualTooltipDataItem[] = [{
+                        displayName: valueColumn.source.displayName || "Total",
+                        value: totalCell.textContent || "-"
+                    }];
+                    this.addTooltip(totalCell, trTotalTooltipItems);
                 }
             });
 
@@ -4544,6 +4649,25 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (efWordWrap) {
                             cell.style.wordBreak = "break-word";
                         }
+
+                        // Tooltip for transposed column total cell
+                        const trCtTooltipItems: VisualTooltipDataItem[] = [];
+                        if (hasCategories) {
+                            const colPaths = categories.paths ? categories.paths[i] : [categories.values[i]];
+                            if (colPaths) {
+                                colPaths.forEach((seg: any, lvlIdx: number) => {
+                                    if (seg !== "Total" && seg !== "" && seg !== undefined) {
+                                        const catName = categories.sources[lvlIdx]?.displayName || "Category";
+                                        trCtTooltipItems.push({ displayName: catName, value: String(seg) });
+                                    }
+                                });
+                            }
+                        }
+                        trCtTooltipItems.push({
+                            displayName: (baseValues[mIdx].source.displayName || "Total") + " (Total)",
+                            value: cell.textContent || "-"
+                        });
+                        this.addTooltip(cell, trCtTooltipItems);
                     }
 
                     // Grand total cell (intersection) if row totals also shown
@@ -4634,6 +4758,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (efTotalWordWrap) {
                             grandCell.style.wordBreak = "break-word";
                         }
+
+                        // Tooltip for transposed grand total cell
+                        const trGrandTooltipItems: VisualTooltipDataItem[] = [{
+                            displayName: (baseValues[mIdx].source.displayName || "Total") + " (Grand Total)",
+                            value: grandCell.textContent || "-"
+                        }];
+                        this.addTooltip(grandCell, trGrandTooltipItems);
                     }
                 }
             }

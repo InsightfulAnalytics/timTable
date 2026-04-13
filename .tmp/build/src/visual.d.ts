@@ -13,8 +13,10 @@ export declare class Visual implements IVisual {
     private visualSettings;
     private dataView;
     private host;
+    private tooltipService;
     constructor(options: VisualConstructorOptions);
     getFormattingModel(): any;
+    private addTooltip;
     enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject;
     update(options: VisualUpdateOptions): void;
 }
