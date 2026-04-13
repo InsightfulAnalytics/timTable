@@ -640,21 +640,6 @@
                         "text": true
                     }
                 },
-                "applyToHeader": {
-                    "type": {
-                        "bool": true
-                    }
-                },
-                "applyToTotal": {
-                    "type": {
-                        "bool": true
-                    }
-                },
-                "applyToValues": {
-                    "type": {
-                        "bool": true
-                    }
-                },
                 "transparency": {
                     "type": {
                         "numeric": true
@@ -762,6 +747,90 @@
                     "type": {
                         "bool": true
                     }
+                },
+                "headerTextColor": {
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "headerBackgroundColor": {
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "headerAlignment": {
+                    "type": {
+                        "enumeration": [
+                            { "value": "left", "displayName": "Left" },
+                            { "value": "center", "displayName": "Center" },
+                            { "value": "right", "displayName": "Right" }
+                        ]
+                    }
+                },
+                "headerFontFamily": {
+                    "type": { "formatting": { "fontFamily": true } }
+                },
+                "headerFontSize": {
+                    "type": { "numeric": true }
+                },
+                "headerBold": {
+                    "type": { "bool": true }
+                },
+                "headerItalic": {
+                    "type": { "bool": true }
+                },
+                "headerUnderline": {
+                    "type": { "bool": true }
+                },
+                "headerTextWrap": {
+                    "type": { "bool": true }
+                },
+                "headerTransparency": {
+                    "type": { "numeric": true }
+                },
+                "headerHorizontalGrid": {
+                    "type": { "bool": true }
+                },
+                "totalTextColor": {
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "totalBackgroundColor": {
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "totalAlignment": {
+                    "type": {
+                        "enumeration": [
+                            { "value": "left", "displayName": "Left" },
+                            { "value": "center", "displayName": "Center" },
+                            { "value": "right", "displayName": "Right" }
+                        ]
+                    }
+                },
+                "totalDisplayUnits": {
+                    "type": { "formatting": { "labelDisplayUnits": true } }
+                },
+                "totalDecimalPlaces": {
+                    "type": { "numeric": true }
+                },
+                "totalFontFamily": {
+                    "type": { "formatting": { "fontFamily": true } }
+                },
+                "totalFontSize": {
+                    "type": { "numeric": true }
+                },
+                "totalBold": {
+                    "type": { "bool": true }
+                },
+                "totalItalic": {
+                    "type": { "bool": true }
+                },
+                "totalUnderline": {
+                    "type": { "bool": true }
+                },
+                "totalTextWrap": {
+                    "type": { "bool": true }
+                },
+                "totalTransparency": {
+                    "type": { "numeric": true }
+                },
+                "totalHorizontalGrid": {
+                    "type": { "bool": true }
                 }
             }
         },

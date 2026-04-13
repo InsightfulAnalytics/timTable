@@ -782,31 +782,37 @@ export class SpecificColumnSettings extends formattingSettings.CompositeCard {
         items: [],
         visible: true
     });
-    public applyToHeader = new formattingSettings.ToggleSwitch({
-        name: "applyToHeader",
-        displayName: "Apply to header",
-        value: true,
-        visible: true
-    });
-    public applyToTotal = new formattingSettings.ToggleSwitch({
-        name: "applyToTotal",
-        displayName: "Apply to total",
-        value: true,
-        visible: true
-    });
-    public applyToValues = new formattingSettings.ToggleSwitch({
-        name: "applyToValues",
-        displayName: "Apply to values",
-        value: true,
-        visible: true
+
+    public selectSeriesGroup = new formattingSettings.Group({
+        displayName: "Select Series",
+        name: "scSelectSeriesGroup",
+        slices: [this.series]
     });
 
-    public applySettingsGroup = new formattingSettings.Group({
-        displayName: "Apply settings to",
-        name: "applySettingsTo",
-        slices: [this.series, this.applyToHeader, this.applyToTotal, this.applyToValues]
+    // ── Header group properties ──
+    public headerFont = new formattingSettings.FontControl({
+        name: "headerFont",
+        displayName: "Font",
+        fontFamily: new formattingSettings.FontPicker({ name: "headerFontFamily", displayName: "Font Family", value: "Arial, sans-serif" }),
+        fontSize: new formattingSettings.NumUpDown({ name: "headerFontSize", displayName: "Font Size", value: 12 }),
+        bold: new formattingSettings.ToggleSwitch({ name: "headerBold", displayName: "Bold", value: false }),
+        italic: new formattingSettings.ToggleSwitch({ name: "headerItalic", displayName: "Italic", value: false }),
+        underline: new formattingSettings.ToggleSwitch({ name: "headerUnderline", displayName: "Underline", value: false })
+    });
+    public headerTextColor = new formattingSettings.ColorPicker({ name: "headerTextColor", displayName: "Text color", value: { value: "#00b8d4" }, visible: true });
+    public headerBackgroundColor = new formattingSettings.ColorPicker({ name: "headerBackgroundColor", displayName: "Background color", value: { value: "#ffffff" }, visible: true });
+    public headerAlignment = new formattingSettings.AlignmentGroup({ name: "headerAlignment", displayName: "Alignment", value: "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true });
+    public headerTextWrap = new formattingSettings.ToggleSwitch({ name: "headerTextWrap", displayName: "Text wrap", value: false, visible: true });
+    public headerTransparency = new formattingSettings.NumUpDown({ name: "headerTransparency", displayName: "Transparency (%)", value: 0, visible: true });
+    public headerHorizontalGrid = new formattingSettings.ToggleSwitch({ name: "headerHorizontalGrid", displayName: "Horizontal grid", value: true, visible: true });
+
+    public headerGroup = new formattingSettings.Group({
+        displayName: "Header",
+        name: "specificHeader",
+        slices: [this.headerFont, this.headerTextColor, this.headerBackgroundColor, this.headerAlignment, this.headerTextWrap, this.headerTransparency, this.headerHorizontalGrid]
     });
 
+    // ── Values group properties (existing) ──
     public font = new formattingSettings.FontControl({
         name: "font",
         displayName: "Font",
@@ -913,14 +919,39 @@ export class SpecificColumnSettings extends formattingSettings.CompositeCard {
 
     public valuesGroup = new formattingSettings.Group({
         displayName: "Values",
-        name: "specificValues", // NOTE: renamed to specificValues to avoid clash with global 'values' object
+        name: "specificValues",
         slices: [this.font, this.textColor, this.backgroundColor, this.alternateTextColor, this.alternateBackgroundColor, this.alignment, this.displayUnits, this.decimalPlaces, this.textWrap, this.transparency, this.horizontalGrid]
+    });
+
+    // ── Total group properties ──
+    public totalFont = new formattingSettings.FontControl({
+        name: "totalFont",
+        displayName: "Font",
+        fontFamily: new formattingSettings.FontPicker({ name: "totalFontFamily", displayName: "Font Family", value: "Arial, sans-serif" }),
+        fontSize: new formattingSettings.NumUpDown({ name: "totalFontSize", displayName: "Font Size", value: 12 }),
+        bold: new formattingSettings.ToggleSwitch({ name: "totalBold", displayName: "Bold", value: false }),
+        italic: new formattingSettings.ToggleSwitch({ name: "totalItalic", displayName: "Italic", value: false }),
+        underline: new formattingSettings.ToggleSwitch({ name: "totalUnderline", displayName: "Underline", value: false })
+    });
+    public totalTextColor = new formattingSettings.ColorPicker({ name: "totalTextColor", displayName: "Text color", value: { value: "#00b8d4" }, visible: true });
+    public totalBackgroundColor = new formattingSettings.ColorPicker({ name: "totalBackgroundColor", displayName: "Background color", value: { value: "#ffffff" }, visible: true });
+    public totalAlignment = new formattingSettings.AlignmentGroup({ name: "totalAlignment", displayName: "Alignment", value: "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true });
+    public totalDisplayUnits = new formattingSettings.AutoDropdown({ name: "totalDisplayUnits", displayName: "Display units", value: 0, visible: true });
+    public totalDecimalPlaces = new formattingSettings.NumUpDown({ name: "totalDecimalPlaces", displayName: "Value decimal places", value: null, visible: true, options: { placeholderText: "Auto" } as any });
+    public totalTextWrap = new formattingSettings.ToggleSwitch({ name: "totalTextWrap", displayName: "Text wrap", value: false, visible: true });
+    public totalTransparency = new formattingSettings.NumUpDown({ name: "totalTransparency", displayName: "Transparency (%)", value: 0, visible: true });
+    public totalHorizontalGrid = new formattingSettings.ToggleSwitch({ name: "totalHorizontalGrid", displayName: "Horizontal grid", value: true, visible: true });
+
+    public totalGroup = new formattingSettings.Group({
+        displayName: "Total",
+        name: "specificTotal",
+        slices: [this.totalFont, this.totalTextColor, this.totalBackgroundColor, this.totalAlignment, this.totalDisplayUnits, this.totalDecimalPlaces, this.totalTextWrap, this.totalTransparency, this.totalHorizontalGrid]
     });
 
     public name: string = "specificColumn";
     public displayName: string = "Specific column";
     public visible: boolean = true;
-    public groups: formattingSettings.Group[] = [this.applySettingsGroup, this.valuesGroup];
+    public groups: formattingSettings.Group[] = [this.selectSeriesGroup, this.headerGroup, this.valuesGroup, this.totalGroup];
 }
 
 export class ColumnWidthSettings extends FormattingSettingsCard {

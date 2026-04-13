@@ -45,8 +45,10 @@ export class Visual implements IVisual {
     private formattingSettingsService: FormattingSettingsService;
     private visualSettings: VisualSettings;
     private dataView: DataView;
+    private host: powerbi.extensibility.visual.IVisualHost;
 
     constructor(options: VisualConstructorOptions) {
+        this.host = options.host;
         this.tableContainer = document.createElement("div");
         this.tableContainer.className = "table-container";
         options.element.appendChild(this.tableContainer);
@@ -120,6 +122,7 @@ export class Visual implements IVisual {
 
             return { instances };
         }
+
         return [];
     }
 
@@ -906,14 +909,12 @@ export class Visual implements IVisual {
         let measureHeaderOverrides: string[] = [];
         
 interface MeasureSpecificSettings {
+    // Values properties
     textColor: string | undefined;
     backgroundColor: string | undefined;
     alternateTextColor: string | undefined;
     alternateBackgroundColor: string | undefined;
     alignment: string | undefined;
-    applyToHeader: boolean;
-    applyToValues: boolean;
-    applyToTotal: boolean;
     displayUnits: number;
     decimalPlaces: number;
     fontFamily: string | undefined;
@@ -924,6 +925,32 @@ interface MeasureSpecificSettings {
     textWrap: boolean | undefined;
     horizontalGrid: boolean;
     transparency: number;
+    // Header properties
+    headerTextColor: string | undefined;
+    headerBackgroundColor: string | undefined;
+    headerAlignment: string | undefined;
+    headerFontFamily: string | undefined;
+    headerFontSize: number | undefined;
+    headerBold: boolean | undefined;
+    headerItalic: boolean | undefined;
+    headerUnderline: boolean | undefined;
+    headerTextWrap: boolean | undefined;
+    headerHorizontalGrid: boolean;
+    headerTransparency: number;
+    // Total properties
+    totalTextColor: string | undefined;
+    totalBackgroundColor: string | undefined;
+    totalAlignment: string | undefined;
+    totalDisplayUnits: number;
+    totalDecimalPlaces: number;
+    totalFontFamily: string | undefined;
+    totalFontSize: number | undefined;
+    totalBold: boolean | undefined;
+    totalItalic: boolean | undefined;
+    totalUnderline: boolean | undefined;
+    totalTextWrap: boolean | undefined;
+    totalHorizontalGrid: boolean;
+    totalTransparency: number;
 }
 
           let measureSettingsList: MeasureSpecificSettings[] = [];
@@ -938,9 +965,6 @@ interface MeasureSpecificSettings {
                   alternateTextColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "alternateTextColor" }, undefined),
                   alternateBackgroundColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "alternateBackgroundColor" }, undefined),
                   alignment: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "alignment" }, undefined) as string | undefined,
-                  applyToHeader: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "applyToHeader" }, true),
-                  applyToValues: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "applyToValues" }, true),
-                  applyToTotal: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "applyToTotal" }, true),
                   displayUnits: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "displayUnits" }, 0),
                   decimalPlaces: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "decimalPlaces" }, null),
                   fontFamily: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "fontFamily" }, undefined) as string | undefined,
@@ -950,7 +974,33 @@ interface MeasureSpecificSettings {
                   underline: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "underline" }, undefined) as boolean | undefined,
                   textWrap: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "textWrap" }, undefined) as boolean | undefined,
                   horizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true),
-                  transparency: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "transparency" }, 0)
+                  transparency: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "transparency" }, 0),
+                  // Header properties
+                  headerTextColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerTextColor" }, undefined),
+                  headerBackgroundColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerBackgroundColor" }, undefined),
+                  headerAlignment: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerAlignment" }, undefined) as string | undefined,
+                  headerFontFamily: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerFontFamily" }, undefined) as string | undefined,
+                  headerFontSize: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerFontSize" }, undefined) as number | undefined,
+                  headerBold: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerBold" }, undefined) as boolean | undefined,
+                  headerItalic: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerItalic" }, undefined) as boolean | undefined,
+                  headerUnderline: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerUnderline" }, undefined) as boolean | undefined,
+                  headerTextWrap: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerTextWrap" }, undefined) as boolean | undefined,
+                  headerHorizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerHorizontalGrid" }, true),
+                  headerTransparency: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerTransparency" }, 0),
+                  // Total properties
+                  totalTextColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalTextColor" }, undefined),
+                  totalBackgroundColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalBackgroundColor" }, undefined),
+                  totalAlignment: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalAlignment" }, undefined) as string | undefined,
+                  totalDisplayUnits: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalDisplayUnits" }, 0),
+                  totalDecimalPlaces: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalDecimalPlaces" }, null),
+                  totalFontFamily: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalFontFamily" }, undefined) as string | undefined,
+                  totalFontSize: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalFontSize" }, undefined) as number | undefined,
+                  totalBold: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalBold" }, undefined) as boolean | undefined,
+                  totalItalic: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalItalic" }, undefined) as boolean | undefined,
+                  totalUnderline: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalUnderline" }, undefined) as boolean | undefined,
+                  totalTextWrap: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalTextWrap" }, undefined) as boolean | undefined,
+                  totalHorizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalHorizontalGrid" }, true),
+                  totalTransparency: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalTransparency" }, 0)
               };
               measureSettingsList.push(settings);
               measureFormats.push(valueColumn.source.format || "");
@@ -1336,11 +1386,14 @@ interface MeasureSpecificSettings {
           const specificColumnSettings = this.visualSettings.specificColumn;
           specificColumnSettings.series.items = measureHeaders.map(name => ({ value: name, displayName: name }));
           // Read persisted series value from dataView metadata objects
-          const persistedSeries = dataViewObjects.getValue<string>(
+          const rawPersistedSeries = dataViewObjects.getValue<any>(
               this.dataView.metadata.objects || {},
               { objectName: "specificColumn", propertyName: "series" },
               undefined
           );
+          const persistedSeries = typeof rawPersistedSeries === 'string'
+              ? rawPersistedSeries
+              : rawPersistedSeries?.value;
           const matchedItem = persistedSeries
               ? specificColumnSettings.series.items.find(i => i.value === persistedSeries)
               : null;
@@ -1354,14 +1407,25 @@ interface MeasureSpecificSettings {
           const selectedObjects = selectedValueColumn?.source?.objects || {};
           const selector = selectedQueryName ? { metadata: selectedQueryName } : undefined;
 
+          // Bootstrap metadata-level persistence: if specificColumn.series doesn't exist in
+          // metadata.objects yet, persist the default so the framework has an existing entry
+          // to merge future dropdown changes into.
+          const metaScSeries = (this.dataView.metadata.objects as any)?.specificColumn?.series;
+          if (metaScSeries === undefined && selectedSeriesName) {
+              this.host.persistProperties({
+                  merge: [{
+                      objectName: "specificColumn",
+                      selector: null,
+                      properties: { series: selectedSeriesName }
+                  }]
+              });
+          }
+
           // Read current per-measure values for the selected column
           const scTextColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "textColor" }, undefined);
           const scBgColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "backgroundColor" }, undefined);
           const scAltTextColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "alternateTextColor" }, undefined);
           const scAltBgColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "alternateBackgroundColor" }, undefined);
-          const scApplyToHeader = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "applyToHeader" }, true);
-          const scApplyToValues = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "applyToValues" }, true);
-          const scApplyToTotal = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "applyToTotal" }, true);
           const scFontFamily = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "fontFamily" }, undefined);
           const scFontSize = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "fontSize" }, undefined);
           const scBold = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "bold" }, undefined);
@@ -1374,14 +1438,45 @@ interface MeasureSpecificSettings {
           const scHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true);
           const scTransparency = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "transparency" }, 0);
 
+          // Read current per-measure header values
+          const scHeaderTextColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "headerTextColor" }, undefined);
+          const scHeaderBgColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "headerBackgroundColor" }, undefined);
+          const scHeaderFontFamily = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "headerFontFamily" }, undefined);
+          const scHeaderFontSize = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "headerFontSize" }, undefined);
+          const scHeaderBold = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "headerBold" }, undefined);
+          const scHeaderItalic = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "headerItalic" }, undefined);
+          const scHeaderUnderline = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "headerUnderline" }, undefined);
+          const scHeaderAlignment = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "headerAlignment" }, undefined);
+          const scHeaderTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "headerTextWrap" }, undefined);
+          const scHeaderHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "headerHorizontalGrid" }, true);
+          const scHeaderTransparency = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "headerTransparency" }, 0);
+
+          // Read current per-measure total values
+          const scTotalTextColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "totalTextColor" }, undefined);
+          const scTotalBgColor = dataViewObjects.getFillColor(selectedObjects, { objectName: "specificColumn", propertyName: "totalBackgroundColor" }, undefined);
+          const scTotalFontFamily = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "totalFontFamily" }, undefined);
+          const scTotalFontSize = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "totalFontSize" }, undefined);
+          const scTotalBold = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalBold" }, undefined);
+          const scTotalItalic = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalItalic" }, undefined);
+          const scTotalUnderline = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalUnderline" }, undefined);
+          const scTotalAlignment = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "totalAlignment" }, undefined);
+          const scTotalDisplayUnits = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "totalDisplayUnits" }, 0);
+          const scTotalDecimalPlaces = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "totalDecimalPlaces" }, null);
+          const scTotalTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalTextWrap" }, undefined);
+          const scTotalHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalHorizontalGrid" }, true);
+          const scTotalTransparency = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "totalTransparency" }, 0);
+
           // Populate columnHeaders nameSeries dropdown and rebuild names group with per-measure selector
           columnHeadersSettings.nameSeries.items = measureHeaders.map(name => ({ value: name, displayName: name }));
           
-          const persistedNameSeries = dataViewObjects.getValue<string>(
+          const rawPersistedNameSeries = dataViewObjects.getValue<any>(
               this.dataView.metadata.objects || {},
               { objectName: "columnHeaders", propertyName: "nameSeries" },
               undefined
           );
+          const persistedNameSeries = typeof rawPersistedNameSeries === 'string'
+              ? rawPersistedNameSeries
+              : rawPersistedNameSeries?.value;
           const matchedNameItem = persistedNameSeries
               ? columnHeadersSettings.nameSeries.items.find(i => i.value === persistedNameSeries)
               : null;
@@ -1410,12 +1505,28 @@ interface MeasureSpecificSettings {
               })
           ];
 
-          // Rebuild the applySettingsGroup slices with selectors
-          specificColumnSettings.applySettingsGroup.slices = [
-              specificColumnSettings.series,
-              new formattingSettings.ToggleSwitch({ name: "applyToHeader", displayName: "Apply to header", value: scApplyToHeader, visible: true, selector }),
-              new formattingSettings.ToggleSwitch({ name: "applyToTotal", displayName: "Apply to total", value: scApplyToTotal, visible: true, selector }),
-              new formattingSettings.ToggleSwitch({ name: "applyToValues", displayName: "Apply to values", value: scApplyToValues, visible: true, selector })
+          // Rebuild the selectSeriesGroup slices (no selector = persists to metadata.objects)
+          specificColumnSettings.selectSeriesGroup.slices = [
+              specificColumnSettings.series
+          ];
+
+          // Rebuild the headerGroup slices with per-measure selectors
+          specificColumnSettings.headerGroup.slices = [
+              new formattingSettings.FontControl({
+                  name: "headerFont",
+                  displayName: "Font",
+                  fontFamily: new formattingSettings.FontPicker({ name: "headerFontFamily", displayName: "Font Family", value: scHeaderFontFamily || "Arial, sans-serif", selector }),
+                  fontSize: new formattingSettings.NumUpDown({ name: "headerFontSize", displayName: "Font Size", value: scHeaderFontSize ?? 12, selector }),
+                  bold: new formattingSettings.ToggleSwitch({ name: "headerBold", displayName: "Bold", value: scHeaderBold ?? false, selector }),
+                  italic: new formattingSettings.ToggleSwitch({ name: "headerItalic", displayName: "Italic", value: scHeaderItalic ?? false, selector }),
+                  underline: new formattingSettings.ToggleSwitch({ name: "headerUnderline", displayName: "Underline", value: scHeaderUnderline ?? false, selector })
+              }),
+              new formattingSettings.ColorPicker({ name: "headerTextColor", displayName: "Text color", value: { value: scHeaderTextColor || "#00b8d4" }, visible: true, selector }),
+              new formattingSettings.ColorPicker({ name: "headerBackgroundColor", displayName: "Background color", value: { value: scHeaderBgColor || "#ffffff" }, visible: true, selector }),
+              new formattingSettings.AlignmentGroup({ name: "headerAlignment", displayName: "Alignment", value: scHeaderAlignment || "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true, selector }),
+              new formattingSettings.ToggleSwitch({ name: "headerTextWrap", displayName: "Text wrap", value: scHeaderTextWrap ?? false, visible: true, selector }),
+              new formattingSettings.NumUpDown({ name: "headerTransparency", displayName: "Transparency (%)", value: scHeaderTransparency, visible: true, selector }),
+              new formattingSettings.ToggleSwitch({ name: "headerHorizontalGrid", displayName: "Horizontal grid", value: scHeaderHorizontalGrid, visible: true, selector })
           ];
 
           // Rebuild the valuesGroup slices with per-measure selectors
@@ -1439,6 +1550,27 @@ interface MeasureSpecificSettings {
               new formattingSettings.ToggleSwitch({ name: "textWrap", displayName: "Text wrap", value: scTextWrap ?? false, visible: true, selector }),
               new formattingSettings.NumUpDown({ name: "transparency", displayName: "Value Transparency (%)", value: scTransparency, visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "horizontalGrid", displayName: "Horizontal grid", value: scHorizontalGrid, visible: true, selector })
+          ];
+
+          // Rebuild the totalGroup slices with per-measure selectors
+          specificColumnSettings.totalGroup.slices = [
+              new formattingSettings.FontControl({
+                  name: "totalFont",
+                  displayName: "Font",
+                  fontFamily: new formattingSettings.FontPicker({ name: "totalFontFamily", displayName: "Font Family", value: scTotalFontFamily || "Arial, sans-serif", selector }),
+                  fontSize: new formattingSettings.NumUpDown({ name: "totalFontSize", displayName: "Font Size", value: scTotalFontSize ?? 12, selector }),
+                  bold: new formattingSettings.ToggleSwitch({ name: "totalBold", displayName: "Bold", value: scTotalBold ?? false, selector }),
+                  italic: new formattingSettings.ToggleSwitch({ name: "totalItalic", displayName: "Italic", value: scTotalItalic ?? false, selector }),
+                  underline: new formattingSettings.ToggleSwitch({ name: "totalUnderline", displayName: "Underline", value: scTotalUnderline ?? false, selector })
+              }),
+              new formattingSettings.ColorPicker({ name: "totalTextColor", displayName: "Text color", value: { value: scTotalTextColor || "#00b8d4" }, visible: true, selector }),
+              new formattingSettings.ColorPicker({ name: "totalBackgroundColor", displayName: "Background color", value: { value: scTotalBgColor || "#ffffff" }, visible: true, selector }),
+              new formattingSettings.AlignmentGroup({ name: "totalAlignment", displayName: "Alignment", value: scTotalAlignment || "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true, selector }),
+              new formattingSettings.AutoDropdown({ name: "totalDisplayUnits", displayName: "Display units", value: scTotalDisplayUnits, visible: true, selector }),
+              new formattingSettings.NumUpDown({ name: "totalDecimalPlaces", displayName: "Value decimal places", value: scTotalDecimalPlaces, visible: true, selector, options: { placeholderText: "Auto" } as any }),
+              new formattingSettings.ToggleSwitch({ name: "totalTextWrap", displayName: "Text wrap", value: scTotalTextWrap ?? false, visible: true, selector }),
+              new formattingSettings.NumUpDown({ name: "totalTransparency", displayName: "Transparency (%)", value: scTotalTransparency, visible: true, selector }),
+              new formattingSettings.ToggleSwitch({ name: "totalHorizontalGrid", displayName: "Horizontal grid", value: scTotalHorizontalGrid, visible: true, selector })
           ];
 
           // Populate dataBarsSettings series dropdown and rebuild value slices with per-measure selector
@@ -1892,18 +2024,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 }
                 const effectiveDisplayName = headerText;
                 let specSettings = measureSettingsList[idx];
-                let effectiveBg = specSettings.applyToHeader && specSettings.backgroundColor ? specSettings.backgroundColor : headerBgColor;
-                let efBold = specSettings.applyToHeader && specSettings.bold !== undefined ? specSettings.bold : headerBold;
-                let efItalic = specSettings.applyToHeader && specSettings.italic !== undefined ? specSettings.italic : headerItalic;
-                let efUnderline = specSettings.applyToHeader && specSettings.underline !== undefined ? specSettings.underline : headerUnderline;
-                let efFontFamily = specSettings.applyToHeader && specSettings.fontFamily !== undefined ? specSettings.fontFamily : headerFontFamily;
-                let efFontSize = specSettings.applyToHeader && specSettings.fontSize !== undefined ? specSettings.fontSize : headerFontSize;
-                let efWordWrap = specSettings.applyToHeader && specSettings.textWrap !== undefined ? specSettings.textWrap : headerWordWrap;
-                let effectiveColor = specSettings.applyToHeader && specSettings.textColor ? specSettings.textColor : headerTextColor;
-                if (specSettings.applyToHeader && specSettings.transparency > 0) {
-                    effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
+                let effectiveBg = specSettings.headerBackgroundColor ? specSettings.headerBackgroundColor : headerBgColor;
+                let efBold = specSettings.headerBold !== undefined ? specSettings.headerBold : headerBold;
+                let efItalic = specSettings.headerItalic !== undefined ? specSettings.headerItalic : headerItalic;
+                let efUnderline = specSettings.headerUnderline !== undefined ? specSettings.headerUnderline : headerUnderline;
+                let efFontFamily = specSettings.headerFontFamily !== undefined ? specSettings.headerFontFamily : headerFontFamily;
+                let efFontSize = specSettings.headerFontSize !== undefined ? specSettings.headerFontSize : headerFontSize;
+                let efWordWrap = specSettings.headerTextWrap !== undefined ? specSettings.headerTextWrap : headerWordWrap;
+                let effectiveColor = specSettings.headerTextColor ? specSettings.headerTextColor : headerTextColor;
+                if (specSettings.headerTransparency > 0) {
+                    effectiveColor = applyTransparency(effectiveColor, specSettings.headerTransparency);
                 }
-                let effectiveAlign = specSettings.applyToHeader && specSettings.alignment ? specSettings.alignment : headerAlignment;
+                let effectiveAlign = specSettings.headerAlignment ? specSettings.headerAlignment : headerAlignment;
                 let header = headerRow.insertCell();
                 header.textContent = effectiveDisplayName;
                 header.className = 'table-header-cell';
@@ -1919,8 +2051,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 header.style.textAlign = effectiveAlign;
                 header.style.borderRight = vertBorderValue;
 
-                if (specSettings.applyToHeader && specSettings.horizontalGrid !== undefined) {
-                    if (specSettings.horizontalGrid) {
+                if (specSettings.headerHorizontalGrid !== undefined) {
+                    if (specSettings.headerHorizontalGrid) {
                         header.style.borderBottom = horizBorder2xValueOn;
                     } else {
                         header.style.borderBottom = 'hidden';
@@ -2526,21 +2658,21 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) : 
                         (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor);
 
-                    let effectiveBg = specSettings.applyToValues ? specRowBgColor : cellBackgroundColor;
-                    let effectiveColor = specSettings.applyToValues ? specCellTextColor : cellTextColor;
-                    if (specSettings.applyToValues && specSettings.transparency > 0) {
+                    let effectiveBg = specRowBgColor;
+                    let effectiveColor = specCellTextColor;
+                    if (specSettings.transparency > 0) {
                         effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
                     }
 
-                    let efBold = specSettings.applyToValues && specSettings.bold !== undefined ? specSettings.bold : valueBold;
-                    let efItalic = specSettings.applyToValues && specSettings.italic !== undefined ? specSettings.italic : cellItalic;
-                    let efUnderline = specSettings.applyToValues && specSettings.underline !== undefined ? specSettings.underline : cellUnderline;
-                    let efFontFamily = specSettings.applyToValues && specSettings.fontFamily !== undefined ? specSettings.fontFamily : cellFontFamily;
-                    let efFontSize = specSettings.applyToValues && specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
-                    let efWordWrap = specSettings.applyToValues && specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
-                    let effectiveAlign = specSettings.applyToValues && specSettings.alignment ? specSettings.alignment : "right";
+                    let efBold = specSettings.bold !== undefined ? specSettings.bold : valueBold;
+                    let efItalic = specSettings.italic !== undefined ? specSettings.italic : cellItalic;
+                    let efUnderline = specSettings.underline !== undefined ? specSettings.underline : cellUnderline;
+                    let efFontFamily = specSettings.fontFamily !== undefined ? specSettings.fontFamily : cellFontFamily;
+                    let efFontSize = specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
+                    let efWordWrap = specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
+                    let effectiveAlign = specSettings.alignment ? specSettings.alignment : "right";
 
-                    if (specSettings.applyToValues && specSettings.horizontalGrid !== undefined) {
+                    if (specSettings.horizontalGrid !== undefined) {
                         if (specSettings.horizontalGrid) {
                             cell.style.borderBottom = horizBorderValueOn;
                         } else {
@@ -2754,8 +2886,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) :
                             (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor);
 
-                        let effectiveBg = specSettings.applyToValues ? specRowBgColor : cellBackgroundColor;
-                        let effectiveColor = specSettings.applyToValues ? specCellTextColor : cellTextColor;
+                        let effectiveBg = specRowBgColor;
+                        let effectiveColor = specCellTextColor;
 
                         // Apply text CF to column total cells if applyTo includes totals
                         const ctTxtApplyToRaw = dataViewObjects.getValue<any>(
@@ -2777,17 +2909,17 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             }
                         }
 
-                        if (specSettings.applyToValues && specSettings.transparency > 0) {
+                        if (specSettings.transparency > 0) {
                             effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
                         }
 
-                        let efBold = specSettings.applyToValues && specSettings.bold !== undefined ? specSettings.bold : valueBold;
-                        let efItalic = specSettings.applyToValues && specSettings.italic !== undefined ? specSettings.italic : cellItalic;
-                        let efUnderline = specSettings.applyToValues && specSettings.underline !== undefined ? specSettings.underline : cellUnderline;
-                        let efFontFamily = specSettings.applyToValues && specSettings.fontFamily !== undefined ? specSettings.fontFamily : cellFontFamily;
-                        let efFontSize = specSettings.applyToValues && specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
-                        let efWordWrap = specSettings.applyToValues && specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
-                        let effectiveAlign = specSettings.applyToValues && specSettings.alignment ? specSettings.alignment : "right";
+                        let efBold = specSettings.bold !== undefined ? specSettings.bold : valueBold;
+                        let efItalic = specSettings.italic !== undefined ? specSettings.italic : cellItalic;
+                        let efUnderline = specSettings.underline !== undefined ? specSettings.underline : cellUnderline;
+                        let efFontFamily = specSettings.fontFamily !== undefined ? specSettings.fontFamily : cellFontFamily;
+                        let efFontSize = specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
+                        let efWordWrap = specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
+                        let effectiveAlign = specSettings.alignment ? specSettings.alignment : "right";
 
                         applyRowSquash(colTotalCell, rowHeight, efFontSize, efWordWrap);
                         colTotalCell.style.fontWeight = efBold ? "bold" : "normal";
@@ -2855,7 +2987,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
             totals.forEach((total, i) => {
                 let specSettings = measureSettingsList[i];
-                let baseBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+                let baseBg = specSettings.totalBackgroundColor ? specSettings.totalBackgroundColor : backgroundColor;
 
                 // Apply background CF to total row if applyTo includes totals
                 const totalBgApplyToRaw = dataViewObjects.getValue<any>(
@@ -2875,7 +3007,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 }
 
                 let effectiveBg = baseBg;
-                let effectiveColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
+                let effectiveColor = specSettings.totalTextColor ? specSettings.totalTextColor : textColor;
 
                 // Apply text CF to total row if applyTo includes totals
                 const totalTxtApplyToRaw = dataViewObjects.getValue<any>(
@@ -2894,17 +3026,17 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     }
                 }
 
-                if (specSettings.applyToTotal && specSettings.transparency > 0) {
-                    effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
+                if (specSettings.totalTransparency > 0) {
+                    effectiveColor = applyTransparency(effectiveColor, specSettings.totalTransparency);
                 }
                 
-                let efBold = specSettings.applyToTotal && specSettings.bold !== undefined ? specSettings.bold : totalRowBold;
-                let efItalic = specSettings.applyToTotal && specSettings.italic !== undefined ? specSettings.italic : totalRowItalic;
-                let efUnderline = specSettings.applyToTotal && specSettings.underline !== undefined ? specSettings.underline : totalRowUnderline;
-                let efFontFamily = specSettings.applyToTotal && specSettings.fontFamily !== undefined ? specSettings.fontFamily : totalRowFontFamily;
-                let efFontSize = specSettings.applyToTotal && specSettings.fontSize !== undefined ? specSettings.fontSize : totalRowFontSize;
-                let efWordWrap = specSettings.applyToTotal && specSettings.textWrap !== undefined ? specSettings.textWrap : totalRowWordWrap;
-                let effectiveAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
+                let efBold = specSettings.totalBold !== undefined ? specSettings.totalBold : totalRowBold;
+                let efItalic = specSettings.totalItalic !== undefined ? specSettings.totalItalic : totalRowItalic;
+                let efUnderline = specSettings.totalUnderline !== undefined ? specSettings.totalUnderline : totalRowUnderline;
+                let efFontFamily = specSettings.totalFontFamily !== undefined ? specSettings.totalFontFamily : totalRowFontFamily;
+                let efFontSize = specSettings.totalFontSize !== undefined ? specSettings.totalFontSize : totalRowFontSize;
+                let efWordWrap = specSettings.totalTextWrap !== undefined ? specSettings.totalTextWrap : totalRowWordWrap;
+                let effectiveAlign = specSettings.totalAlignment ? specSettings.totalAlignment : "right";
                 
                 let cell = totalRow.insertCell();
                 cell.style.position = "relative";
@@ -2921,7 +3053,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
                     const totalFormat = firstRowDynamicFormat || measureFormats[i];
-                    const formattedTotal = formatValue(total, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces);
+                    const formattedTotal = formatValue(total, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces);
 
                     // Check if data bars should be rendered on the row total
                     const totalObjects = values[i].source.objects || {};
@@ -2981,8 +3113,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (totalLabelsOutside) {
                             const dbFont = `${efFontSize}px ${efFontFamily}`;
                             const dbCellW = valueColumnWidths[i];
-                            if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
-                            if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
+                            if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces), dbCellW, dbFont);
+                            if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces), dbCellW, dbFont);
                         }
                         let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
                         let widthPct = 0, leftPct = 0;
@@ -3054,8 +3186,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 cell.style.fontStyle = efItalic ? "italic" : "normal";
                 cell.style.borderRight = vertBorderValue;
 
-                if (specSettings.applyToTotal && specSettings.horizontalGrid !== undefined) {
-                    if (specSettings.horizontalGrid) {
+                if (specSettings.totalHorizontalGrid !== undefined) {
+                    if (specSettings.totalHorizontalGrid) {
                         cell.style.borderBottom = horizBorder2xValueOn;
                         cell.style.borderTop = horizBorder2xValueOn;
                     } else {
@@ -3225,13 +3357,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                     // Use Row Totals formatting (same as other total row cells)
                     let specSettings = baseMeasureSettings[mIdx];
-                    let efTotalBold = specSettings.applyToTotal && specSettings.bold !== undefined ? specSettings.bold : totalRowBold;
-                    let efTotalItalic = specSettings.applyToTotal && specSettings.italic !== undefined ? specSettings.italic : totalRowItalic;
-                    let efTotalUnderline = specSettings.applyToTotal && specSettings.underline !== undefined ? specSettings.underline : totalRowUnderline;
-                    let efTotalFontFamily = specSettings.applyToTotal && specSettings.fontFamily !== undefined ? specSettings.fontFamily : totalRowFontFamily;
-                    let efTotalFontSize = specSettings.applyToTotal && specSettings.fontSize !== undefined ? specSettings.fontSize : totalRowFontSize;
-                    let efTotalWordWrap = specSettings.applyToTotal && specSettings.textWrap !== undefined ? specSettings.textWrap : totalRowWordWrap;
-                    let efTotalBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+                    let efTotalBold = specSettings.totalBold !== undefined ? specSettings.totalBold : totalRowBold;
+                    let efTotalItalic = specSettings.totalItalic !== undefined ? specSettings.totalItalic : totalRowItalic;
+                    let efTotalUnderline = specSettings.totalUnderline !== undefined ? specSettings.totalUnderline : totalRowUnderline;
+                    let efTotalFontFamily = specSettings.totalFontFamily !== undefined ? specSettings.totalFontFamily : totalRowFontFamily;
+                    let efTotalFontSize = specSettings.totalFontSize !== undefined ? specSettings.totalFontSize : totalRowFontSize;
+                    let efTotalWordWrap = specSettings.totalTextWrap !== undefined ? specSettings.totalTextWrap : totalRowWordWrap;
+                    let efTotalBg = specSettings.totalBackgroundColor ? specSettings.totalBackgroundColor : backgroundColor;
 
                     // Apply background CF to grand total cell if applyTo includes totals
                     const grandBgApplyToRaw = dataViewObjects.getValue<any>(
@@ -3250,7 +3382,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
 
-                    let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
+                    let efTotalColor = specSettings.totalTextColor ? specSettings.totalTextColor : textColor;
 
                     // Apply text CF to grand total cell if applyTo includes totals
                     const grandTxtApplyToRaw = dataViewObjects.getValue<any>(
@@ -3269,7 +3401,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
 
-                    let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
+                    let efTotalAlign = specSettings.totalAlignment ? specSettings.totalAlignment : "right";
 
                     applyRowSquash(grandCell, totalRowHeight, efTotalFontSize, efTotalWordWrap);
                     grandCell.style.fontWeight = efTotalBold ? "bold" : "normal";
@@ -3494,7 +3626,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 row.className = 'table-data-row';
                 
                 let mObj = measureSettingsList[measureIndex];
-                if (mObj && mObj.horizontalGrid !== undefined && mObj.applyToValues) {
+                if (mObj && mObj.horizontalGrid !== undefined) {
                     row.style.borderBottom = mObj.horizontalGrid ? horizBorderValueOn : 'hidden';
                 } else {
                     row.style.borderBottom = horizBorderValue;
@@ -3899,21 +4031,21 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) : 
                         (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor);
 
-                    let effectiveBg = specSettings.applyToValues ? specRowBgColor : cellBackgroundColor;
-                    let effectiveColor = specSettings.applyToValues ? specCellTextColor : cellTextColor;
-                    if (specSettings.applyToValues && specSettings.transparency > 0) {
+                    let effectiveBg = specRowBgColor;
+                    let effectiveColor = specCellTextColor;
+                    if (specSettings.transparency > 0) {
                         effectiveColor = applyTransparency(effectiveColor, specSettings.transparency);
                     }
 
-                    let efBold = specSettings.applyToValues && specSettings.bold !== undefined ? specSettings.bold : valueBold;
-                    let efItalic = specSettings.applyToValues && specSettings.italic !== undefined ? specSettings.italic : cellItalic;
-                    let efUnderline = specSettings.applyToValues && specSettings.underline !== undefined ? specSettings.underline : cellUnderline;
-                    let efFontFamily = specSettings.applyToValues && specSettings.fontFamily !== undefined ? specSettings.fontFamily : cellFontFamily;
-                    let efFontSize = specSettings.applyToValues && specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
-                    let efWordWrap = specSettings.applyToValues && specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
-                    let effectiveAlign = specSettings.applyToValues && specSettings.alignment ? specSettings.alignment : "right";
+                    let efBold = specSettings.bold !== undefined ? specSettings.bold : valueBold;
+                    let efItalic = specSettings.italic !== undefined ? specSettings.italic : cellItalic;
+                    let efUnderline = specSettings.underline !== undefined ? specSettings.underline : cellUnderline;
+                    let efFontFamily = specSettings.fontFamily !== undefined ? specSettings.fontFamily : cellFontFamily;
+                    let efFontSize = specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
+                    let efWordWrap = specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
+                    let effectiveAlign = specSettings.alignment ? specSettings.alignment : "right";
 
-                    if (specSettings.applyToValues && specSettings.horizontalGrid !== undefined) {
+                    if (specSettings.horizontalGrid !== undefined) {
                         if (specSettings.horizontalGrid) {
                             cell.style.borderBottom = horizBorderValueOn;
                         } else {
@@ -3966,7 +4098,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             }
                         }
                         const totalFormat = firstRowDynamicFormat || measureFormats[measureIndex];
-                        const formattedTotal = formatValue(totalVal, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces);
+                        const formattedTotal = formatValue(totalVal, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces);
 
                         // Check if data bars should be rendered on the row total in transposed mode
                         const totalObjects = valueColumn.source.objects || {};
@@ -4026,8 +4158,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             if (totalLabelsOutside) {
                                 const dbFont = `${cellFontSize}px ${cellFontFamily}`;
                                 const dbCellW = valueColumnWidths[measureIndex];
-                                if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
-                                if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, totalFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
+                                if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces), dbCellW, dbFont);
+                                if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces), dbCellW, dbFont);
                             }
                             let scaleMultiplier = (100 - leftMarginPct - rightMarginPct) / 100;
                             let widthPct = 0, leftPct = 0;
@@ -4092,13 +4224,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     totalCell.style.width = `${valueColumnWidths[measureIndex]}px`;
                     totalCell.style.minWidth = `${valueColumnWidths[measureIndex]}px`;
                     totalCell.style.maxWidth = `${valueColumnWidths[measureIndex]}px`;
-                    let efTotalBold = specSettings.applyToTotal && specSettings.bold !== undefined ? specSettings.bold : totalRowBold;
-                    let efTotalItalic = specSettings.applyToTotal && specSettings.italic !== undefined ? specSettings.italic : totalRowItalic;
-                    let efTotalUnderline = specSettings.applyToTotal && specSettings.underline !== undefined ? specSettings.underline : totalRowUnderline;
-                    let efTotalFontFamily = specSettings.applyToTotal && specSettings.fontFamily !== undefined ? specSettings.fontFamily : totalRowFontFamily;
-                    let efTotalFontSize = specSettings.applyToTotal && specSettings.fontSize !== undefined ? specSettings.fontSize : totalRowFontSize;
-                    let efTotalWordWrap = specSettings.applyToTotal && specSettings.textWrap !== undefined ? specSettings.textWrap : totalRowWordWrap;
-                    let efTotalBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+                    let efTotalBold = specSettings.totalBold !== undefined ? specSettings.totalBold : totalRowBold;
+                    let efTotalItalic = specSettings.totalItalic !== undefined ? specSettings.totalItalic : totalRowItalic;
+                    let efTotalUnderline = specSettings.totalUnderline !== undefined ? specSettings.totalUnderline : totalRowUnderline;
+                    let efTotalFontFamily = specSettings.totalFontFamily !== undefined ? specSettings.totalFontFamily : totalRowFontFamily;
+                    let efTotalFontSize = specSettings.totalFontSize !== undefined ? specSettings.totalFontSize : totalRowFontSize;
+                    let efTotalWordWrap = specSettings.totalTextWrap !== undefined ? specSettings.totalTextWrap : totalRowWordWrap;
+                    let efTotalBg = specSettings.totalBackgroundColor ? specSettings.totalBackgroundColor : backgroundColor;
 
                     // Apply background CF to transposed total cell if applyTo includes totals
                     const trTotalBgApplyToRaw = dataViewObjects.getValue<any>(
@@ -4117,7 +4249,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
 
-                    let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
+                    let efTotalColor = specSettings.totalTextColor ? specSettings.totalTextColor : textColor;
 
                     // Apply text CF to transposed total cell if applyTo includes totals
                     const trTotalTxtApplyToRaw = dataViewObjects.getValue<any>(
@@ -4136,7 +4268,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
 
-                    let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
+                    let efTotalAlign = specSettings.totalAlignment ? specSettings.totalAlignment : "right";
                     applyRowSquash(totalCell, rowHeight, efTotalFontSize, efTotalWordWrap);
                     totalCell.style.fontWeight = efTotalBold ? "bold" : "normal";
                     totalCell.style.fontFamily = efTotalFontFamily;
@@ -4147,8 +4279,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     totalCell.style.color = efTotalColor;
                     totalCell.style.textAlign = efTotalAlign;
 
-                    if (specSettings.applyToTotal && specSettings.horizontalGrid !== undefined) {
-                        if (specSettings.horizontalGrid) {
+                    if (specSettings.totalHorizontalGrid !== undefined) {
+                        if (specSettings.totalHorizontalGrid) {
                             totalCell.style.borderBottom = horizBorderValueOn;
                         } else {
                             totalCell.style.borderBottom = 'hidden';
@@ -4344,13 +4476,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                         // Use Values menu formatting
                         let specSettings = baseMeasureSettings[mIdx];
-                        let efBold = specSettings.applyToValues && specSettings.bold !== undefined ? specSettings.bold : valueBold;
-                        let efItalic = specSettings.applyToValues && specSettings.italic !== undefined ? specSettings.italic : cellItalic;
-                        let efUnderline = specSettings.applyToValues && specSettings.underline !== undefined ? specSettings.underline : cellUnderline;
-                        let efFontFamily = specSettings.applyToValues && specSettings.fontFamily !== undefined ? specSettings.fontFamily : cellFontFamily;
-                        let efFontSize = specSettings.applyToValues && specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
-                        let efWordWrap = specSettings.applyToValues && specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
-                        let effectiveAlign = specSettings.applyToValues && specSettings.alignment ? specSettings.alignment : "right";
+                        let efBold = specSettings.bold !== undefined ? specSettings.bold : valueBold;
+                        let efItalic = specSettings.italic !== undefined ? specSettings.italic : cellItalic;
+                        let efUnderline = specSettings.underline !== undefined ? specSettings.underline : cellUnderline;
+                        let efFontFamily = specSettings.fontFamily !== undefined ? specSettings.fontFamily : cellFontFamily;
+                        let efFontSize = specSettings.fontSize !== undefined ? specSettings.fontSize : cellFontSize;
+                        let efWordWrap = specSettings.textWrap !== undefined ? specSettings.textWrap : valueWordWrap;
+                        let effectiveAlign = specSettings.alignment ? specSettings.alignment : "right";
 
                         applyRowSquash(cell, valueRowHeight, efFontSize, efWordWrap);
                         cell.style.fontWeight = efBold ? "bold" : "normal";
@@ -4440,13 +4572,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                         // Use Row Totals formatting for the intersection
                         let specSettings = baseMeasureSettings[mIdx];
-                        let efTotalBold = specSettings.applyToTotal && specSettings.bold !== undefined ? specSettings.bold : totalRowBold;
-                        let efTotalItalic = specSettings.applyToTotal && specSettings.italic !== undefined ? specSettings.italic : totalRowItalic;
-                        let efTotalUnderline = specSettings.applyToTotal && specSettings.underline !== undefined ? specSettings.underline : totalRowUnderline;
-                        let efTotalFontFamily = specSettings.applyToTotal && specSettings.fontFamily !== undefined ? specSettings.fontFamily : totalRowFontFamily;
-                        let efTotalFontSize = specSettings.applyToTotal && specSettings.fontSize !== undefined ? specSettings.fontSize : totalRowFontSize;
-                        let efTotalWordWrap = specSettings.applyToTotal && specSettings.textWrap !== undefined ? specSettings.textWrap : totalRowWordWrap;
-                        let efTotalBg = specSettings.applyToTotal && specSettings.backgroundColor ? specSettings.backgroundColor : backgroundColor;
+                        let efTotalBold = specSettings.totalBold !== undefined ? specSettings.totalBold : totalRowBold;
+                        let efTotalItalic = specSettings.totalItalic !== undefined ? specSettings.totalItalic : totalRowItalic;
+                        let efTotalUnderline = specSettings.totalUnderline !== undefined ? specSettings.totalUnderline : totalRowUnderline;
+                        let efTotalFontFamily = specSettings.totalFontFamily !== undefined ? specSettings.totalFontFamily : totalRowFontFamily;
+                        let efTotalFontSize = specSettings.totalFontSize !== undefined ? specSettings.totalFontSize : totalRowFontSize;
+                        let efTotalWordWrap = specSettings.totalTextWrap !== undefined ? specSettings.totalTextWrap : totalRowWordWrap;
+                        let efTotalBg = specSettings.totalBackgroundColor ? specSettings.totalBackgroundColor : backgroundColor;
 
                         // Apply background CF to transposed grand total cell if applyTo includes totals
                         const trGrandBgApplyToRaw = dataViewObjects.getValue<any>(
@@ -4465,7 +4597,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             }
                         }
 
-                        let efTotalColor = specSettings.applyToTotal && specSettings.textColor ? specSettings.textColor : textColor;
+                        let efTotalColor = specSettings.totalTextColor ? specSettings.totalTextColor : textColor;
 
                         // Apply text CF to transposed grand total cell if applyTo includes totals
                         const trGrandTxtApplyToRaw = dataViewObjects.getValue<any>(
@@ -4484,7 +4616,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             }
                         }
 
-                        let efTotalAlign = specSettings.applyToTotal && specSettings.alignment ? specSettings.alignment : "right";
+                        let efTotalAlign = specSettings.totalAlignment ? specSettings.totalAlignment : "right";
 
                         applyRowSquash(grandCell, totalRowHeight, efTotalFontSize, efTotalWordWrap);
                         grandCell.style.fontWeight = efTotalBold ? "bold" : "normal";

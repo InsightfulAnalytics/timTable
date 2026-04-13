@@ -175,10 +175,15 @@ export declare class ColumnHeadersSettings extends formattingSettings.CompositeC
 }
 export declare class SpecificColumnSettings extends formattingSettings.CompositeCard {
     series: formattingSettings.ItemDropdown;
-    applyToHeader: formattingSettings.ToggleSwitch;
-    applyToTotal: formattingSettings.ToggleSwitch;
-    applyToValues: formattingSettings.ToggleSwitch;
-    applySettingsGroup: formattingSettings.Group;
+    selectSeriesGroup: formattingSettings.Group;
+    headerFont: formattingSettings.FontControl;
+    headerTextColor: formattingSettings.ColorPicker;
+    headerBackgroundColor: formattingSettings.ColorPicker;
+    headerAlignment: formattingSettings.AlignmentGroup;
+    headerTextWrap: formattingSettings.ToggleSwitch;
+    headerTransparency: formattingSettings.NumUpDown;
+    headerHorizontalGrid: formattingSettings.ToggleSwitch;
+    headerGroup: formattingSettings.Group;
     font: formattingSettings.FontControl;
     textColor: formattingSettings.ColorPicker;
     backgroundColor: formattingSettings.ColorPicker;
@@ -192,6 +197,16 @@ export declare class SpecificColumnSettings extends formattingSettings.Composite
     transparency: formattingSettings.NumUpDown;
     horizontalGrid: formattingSettings.ToggleSwitch;
     valuesGroup: formattingSettings.Group;
+    totalFont: formattingSettings.FontControl;
+    totalTextColor: formattingSettings.ColorPicker;
+    totalBackgroundColor: formattingSettings.ColorPicker;
+    totalAlignment: formattingSettings.AlignmentGroup;
+    totalDisplayUnits: formattingSettings.AutoDropdown;
+    totalDecimalPlaces: formattingSettings.NumUpDown;
+    totalTextWrap: formattingSettings.ToggleSwitch;
+    totalTransparency: formattingSettings.NumUpDown;
+    totalHorizontalGrid: formattingSettings.ToggleSwitch;
+    totalGroup: formattingSettings.Group;
     name: string;
     displayName: string;
     visible: boolean;

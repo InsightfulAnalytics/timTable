@@ -12,6 +12,7 @@ export declare class Visual implements IVisual {
     private formattingSettingsService;
     private visualSettings;
     private dataView;
+    private host;
     constructor(options: VisualConstructorOptions);
     getFormattingModel(): any;
     enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject;
