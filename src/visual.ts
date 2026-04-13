@@ -2948,7 +2948,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             totalRow.style.borderTop = horizBorder2xValue;
             totalRow.style.borderBottom = horizBorder2xValue;
             totalRow.style.height = `${totalRowHeight}px`;
-            const totalBgColor = backgroundColor;
+            const isTotalRowEven = rowCount % 2 === 0;
+            const totalBgColor = isTotalRowEven ? backgroundColor : alternateBackgroundColor;
 
             if (hasCategories) {
                 const numCatCols = categories.sources.length;
@@ -2987,7 +2988,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
             totals.forEach((total, i) => {
                 let specSettings = measureSettingsList[i];
-                let baseBg = specSettings.totalBackgroundColor ? specSettings.totalBackgroundColor : backgroundColor;
+                let baseBg = specSettings.totalBackgroundColor ? specSettings.totalBackgroundColor : totalBgColor;
 
                 // Apply background CF to total row if applyTo includes totals
                 const totalBgApplyToRaw = dataViewObjects.getValue<any>(
