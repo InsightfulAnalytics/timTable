@@ -1797,6 +1797,30 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         // For each base measure mIdx, sum values across all column leaves: values[colIdx*M + mIdx]
         const M = storedMeasureCount || baseMeasureHeaders.length;
         const numColumnLeaves = hasColumnGrouping ? columnLeaves.length : 1;
+
+        // When column grouping is active, unify data bar min/max across all column leaves
+        // for the same base measure so bars scale proportionally across columns
+        if (hasColumnGrouping && numColumnLeaves > 1 && M > 0) {
+            for (let mIdx = 0; mIdx < M; mIdx++) {
+                let unifiedMin = 0;
+                let unifiedMax = 0;
+                for (let colIdx = 0; colIdx < numColumnLeaves; colIdx++) {
+                    const valIdx = colIdx * M + mIdx;
+                    if (valIdx < values.length) {
+                        unifiedMin = Math.min(unifiedMin, measureMins[valIdx]);
+                        unifiedMax = Math.max(unifiedMax, measureMaxs[valIdx]);
+                    }
+                }
+                for (let colIdx = 0; colIdx < numColumnLeaves; colIdx++) {
+                    const valIdx = colIdx * M + mIdx;
+                    if (valIdx < values.length) {
+                        measureMins[valIdx] = unifiedMin;
+                        measureMaxs[valIdx] = unifiedMax;
+                    }
+                }
+            }
+        }
+
         // colTotalsPerMeasure[mIdx][rowIdx] = aggregated value across column leaves for that measure
         let colTotalsPerMeasure: (number | null)[][] = [];
         for (let mIdx = 0; mIdx < M; mIdx++) {
