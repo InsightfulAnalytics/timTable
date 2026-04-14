@@ -14,8 +14,14 @@ export declare class Visual implements IVisual {
     private dataView;
     private host;
     private tooltipService;
+    private manualColumnWidths;
+    private lastColumnWidthSnapshot;
     constructor(options: VisualConstructorOptions);
     getFormattingModel(): any;
+    private getCellsInLogicalColumn;
+    private applyManualWidths;
+    private attachResizeHandles;
+    private startColumnResize;
     private addTooltip;
     enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject;
     update(options: VisualUpdateOptions): void;

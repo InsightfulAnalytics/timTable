@@ -49,6 +49,8 @@ export class Visual implements IVisual {
     private dataView: DataView;
     private host: powerbi.extensibility.visual.IVisualHost;
     private tooltipService: ITooltipService;
+    private manualColumnWidths: Map<number, number> = new Map();
+    private lastColumnWidthSnapshot: string = "";
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
@@ -67,6 +69,100 @@ export class Visual implements IVisual {
 
     public getFormattingModel(): any {
         return this.formattingSettingsService.buildFormattingModel(this.visualSettings);
+    }
+
+    private getCellsInLogicalColumn(logicalColIdx: number): HTMLTableCellElement[] {
+        const cells: HTMLTableCellElement[] = [];
+        for (let r = 0; r < this.table.rows.length; r++) {
+            const row = this.table.rows[r];
+            let logicalIdx = 0;
+            for (let c = 0; c < row.cells.length; c++) {
+                const cell = row.cells[c];
+                const span = cell.colSpan || 1;
+                if (logicalColIdx >= logicalIdx && logicalColIdx < logicalIdx + span) {
+                    if (span === 1) {
+                        cells.push(cell);
+                    }
+                    break;
+                }
+                logicalIdx += span;
+            }
+        }
+        return cells;
+    }
+
+    private applyManualWidths(): void {
+        this.manualColumnWidths.forEach((width, colIdx) => {
+            const cells = this.getCellsInLogicalColumn(colIdx);
+            cells.forEach(cell => {
+                cell.style.width = `${width}px`;
+                cell.style.minWidth = `${width}px`;
+                cell.style.maxWidth = `${width}px`;
+            });
+        });
+    }
+
+    private attachResizeHandles(): void {
+        const headerRows = this.table.querySelectorAll('.table-header-row');
+        if (headerRows.length === 0) return;
+        const lastHeaderRow = headerRows[headerRows.length - 1] as HTMLTableRowElement;
+
+        for (let i = 0; i < lastHeaderRow.cells.length; i++) {
+            const cell = lastHeaderRow.cells[i] as HTMLTableCellElement;
+            cell.style.position = 'relative';
+
+            const handle = document.createElement('div');
+            handle.className = 'resize-handle';
+
+            let logicalIdx = 0;
+            for (let c = 0; c < i; c++) {
+                logicalIdx += lastHeaderRow.cells[c].colSpan || 1;
+            }
+
+            const capturedLogicalIdx = logicalIdx;
+            handle.addEventListener('mousedown', (e: MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.startColumnResize(e, capturedLogicalIdx);
+            });
+
+            cell.appendChild(handle);
+        }
+    }
+
+    private startColumnResize(e: MouseEvent, logicalColIdx: number): void {
+        const startX = e.clientX;
+        const cells = this.getCellsInLogicalColumn(logicalColIdx);
+        if (cells.length === 0) return;
+
+        const startWidth = cells[0].offsetWidth;
+
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            const delta = moveEvent.clientX - startX;
+            const newWidth = Math.max(30, startWidth + delta);
+            cells.forEach(cell => {
+                cell.style.width = `${newWidth}px`;
+                cell.style.minWidth = `${newWidth}px`;
+                cell.style.maxWidth = `${newWidth}px`;
+            });
+        };
+
+        const onMouseUp = (upEvent: MouseEvent) => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+
+            const delta = upEvent.clientX - startX;
+            const newWidth = Math.max(30, startWidth + delta);
+            this.manualColumnWidths.set(logicalColIdx, newWidth);
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
     }
 
     private addTooltip(cell: HTMLTableCellElement, tooltipItems: VisualTooltipDataItem[]): void {
@@ -1956,6 +2052,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
         // Determine column total column widths (per base measure)
         const colTotalColumnWidths = Array.from({ length: M }, (_, i) => valueColumnWidths[i]);
+
+        // Check if column width settings changed — if so, clear manual column resize overrides
+        const currentColumnWidthSnapshot = JSON.stringify([categoryColumnWidth, ...valueColumnWidths, ...colTotalColumnWidths]);
+        if (currentColumnWidthSnapshot !== this.lastColumnWidthSnapshot) {
+            this.manualColumnWidths.clear();
+        }
+        this.lastColumnWidthSnapshot = currentColumnWidthSnapshot;
 
         if (!switchValuesToRows) {
             // Normal horizontal table structure
@@ -5155,6 +5258,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 applyAreaBorder(dataRows, valuesBorders, (cell) => cell.className.indexOf('table-category-cell') < 0);
             }
         }
+
+        // Apply manual column width overrides and attach resize handles
+        this.applyManualWidths();
+        this.attachResizeHandles();
     }
 }
 

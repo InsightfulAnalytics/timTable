@@ -46,9 +46,22 @@
   border-right: 1px solid #d0d0d0;
   display: table-cell;
   vertical-align: middle;
+  position: relative;
 }
 .table-header-cell:last-child {
   border-right: none;
+}
+.resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 10;
+}
+.resize-handle:hover {
+  background-color: rgba(0, 120, 212, 0.3);
 }
 .table-data-row {
   border-bottom: 1px solid #e0e0e0;
