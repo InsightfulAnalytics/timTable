@@ -219,6 +219,11 @@
                         "bool": true
                     }
                 },
+                "verticalDataBars": {
+                    "type": {
+                        "bool": true
+                    }
+                },
                 "matchDataBarColor": {
                     "type": {
                         "bool": true

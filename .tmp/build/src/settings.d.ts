@@ -66,6 +66,7 @@ export declare class DataBarsFormattingSettings extends formattingSettings.Compo
     axisType: formattingSettings.ItemDropdown;
     maxValue: formattingSettings.NumUpDown;
     minValue: formattingSettings.NumUpDown;
+    verticalDataBars: formattingSettings.ToggleSwitch;
     labelsOutside: formattingSettings.ToggleSwitch;
     showOnRowTotals: formattingSettings.ToggleSwitch;
     showOnColumnTotals: formattingSettings.ToggleSwitch;

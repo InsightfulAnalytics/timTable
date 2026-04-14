@@ -1638,6 +1638,7 @@ interface MeasureSpecificSettings {
           const dbMinValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
           const dbMaxValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
           const dbLabelsOutside = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+          const dbVerticalDataBars = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
           const dbShowOnRowTotals = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "showOnRowTotals" }, true);
           const dbShowOnColumnTotals = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "showOnColumnTotals" }, true);
 
@@ -1647,6 +1648,7 @@ interface MeasureSpecificSettings {
 
 let dataBarsSlices: formattingSettings.Slice[] = [
                 new formattingSettings.ToggleSwitch({ name: "showDataBars", displayName: "Show Data Bars", value: dbShowDataBars, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.ToggleSwitch({ name: "verticalDataBars", displayName: "Vertical Data Bars", value: dbVerticalDataBars, visible: true, selector: dataBarsSelector }),
                                 new formattingSettings.NumUpDown({ name: "dataBarHeight", displayName: "Data Bar Height (%)", value: dbDataBarHeight, visible: true, selector: dataBarsSelector }),
                 new formattingSettings.NumUpDown({ name: "transparency", displayName: "Transparency (%)", value: dbTransparency, visible: true, selector: dataBarsSelector }),
                 new formattingSettings.ToggleSwitch({ name: "borderOn", displayName: "Border On", value: dbBorderOn, visible: true, selector: dataBarsSelector }),
@@ -2479,6 +2481,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const minValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                             const maxValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
                             const labelsOutside = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+                            const verticalDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
                             
                             // Check for conditional formatting on data bar color
                             const dbCFApplyToRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
@@ -2539,7 +2542,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                             let leftMarginPct = 0;
                             let rightMarginPct = 0;
-                            if (labelsOutside) {
+                            if (labelsOutside && !verticalDataBars) {
                                 const dbFont = `${cellFontSize}px ${cellFontFamily}`;
                                 const dbCellW = valueColumnWidths[measureIndex];
                                 if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
@@ -2558,14 +2561,22 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             // Create data bar div
                             let dataBar = document.createElement("div");
                             dataBar.style.position = "absolute";
-                            const topPct = (100 - dataBarHeight) / 2;
-                            dataBar.style.top = `${topPct}%`;
-                            dataBar.style.height = `${dataBarHeight}%`;
-                            dataBar.style.left = `${leftPct}%`;
-                            dataBar.style.width = `${widthPct}%`;
                             dataBar.style.backgroundColor = applyTransparency(cellDataBarColor, transparency);
-
                             dataBar.style.zIndex = "1";
+
+                            if (verticalDataBars) {
+                                const leftCenterPct = (100 - dataBarHeight) / 2;
+                                dataBar.style.left = `${leftCenterPct}%`;
+                                dataBar.style.width = `${dataBarHeight}%`;
+                                dataBar.style.bottom = `${leftPct}%`;
+                                dataBar.style.height = `${widthPct}%`;
+                            } else {
+                                const topPct = (100 - dataBarHeight) / 2;
+                                dataBar.style.top = `${topPct}%`;
+                                dataBar.style.height = `${dataBarHeight}%`;
+                                dataBar.style.left = `${leftPct}%`;
+                                dataBar.style.width = `${widthPct}%`;
+                            }
 
                             if (borderOn) {
                                 let finalBorderColor = matchDataBarColor ? cellDataBarColor : borderColor;
@@ -2578,11 +2589,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             if (showZeroLine) {
                                 let zeroLine = document.createElement("div");
                                 zeroLine.style.position = "absolute";
-                                zeroLine.style.top = "0";
-                                zeroLine.style.bottom = "0";
-                                zeroLine.style.width = "2px";
-                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
-                                zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                let zPosPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                                if (verticalDataBars) {
+                                    zeroLine.style.left = "0";
+                                    zeroLine.style.right = "0";
+                                    zeroLine.style.height = "2px";
+                                    zeroLine.style.bottom = `calc(${zPosPct}% - 1px)`;
+                                } else {
+                                    zeroLine.style.top = "0";
+                                    zeroLine.style.bottom = "0";
+                                    zeroLine.style.width = "2px";
+                                    zeroLine.style.left = `calc(${zPosPct}% - 1px)`;
+                                }
                                 zeroLine.style.backgroundColor = applyTransparency(zeroLineColor, zeroLineTransparency);
                                 zeroLine.style.zIndex = "1"; 
                                 cell.appendChild(zeroLine);
@@ -2609,12 +2627,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 let marker = document.createElement("div");
                                 marker.style.position = "absolute";
                                 marker.style.zIndex = "3";
-
-                                let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
-                                marker.style.top = `calc(50% - ${markerSize / 2}px)`;
                                 marker.style.width = `${markerSize}px`;
                                 marker.style.height = `${markerSize}px`;
+
+                                if (verticalDataBars) {
+                                    let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                    marker.style.left = `calc(50% - ${markerSize / 2}px)`;
+                                    marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
+                                } else {
+                                    let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                    marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
+                                    marker.style.top = `calc(50% - ${markerSize / 2}px)`;
+                                }
 
                                 if (markerShape === "circle") {
                                     marker.style.backgroundColor = cellMarkerColor;
@@ -2647,20 +2671,43 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 } else if (markerShape === "verticalLine") {
                                     marker.style.backgroundColor = cellMarkerColor;
                                     marker.style.width = "2px";
-                                    marker.style.left = `calc(${markerLeftPct}% - 1px)`;
+                                    if (verticalDataBars) {
+                                        let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                        marker.style.left = `calc(50% - 1px)`;
+                                        marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
+                                    } else {
+                                        let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                        marker.style.left = `calc(${markerLeftPct}% - 1px)`;
+                                    }
                                 } else if (markerShape === "semiCircle") {
                                     marker.style.backgroundColor = cellMarkerColor;
-                                    // Draw semi circle pointing outwards
-                                    if (numValue >= 0) {
-                                        marker.style.borderTopRightRadius = `${markerSize}px`;
-                                        marker.style.borderBottomRightRadius = `${markerSize}px`;
-                                        marker.style.width = `${markerSize / 2}px`;
-                                        marker.style.left = `calc(${markerLeftPct}%)`;
+                                    if (verticalDataBars) {
+                                        let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                        if (numValue >= 0) {
+                                            marker.style.borderTopLeftRadius = `${markerSize}px`;
+                                            marker.style.borderTopRightRadius = `${markerSize}px`;
+                                            marker.style.height = `${markerSize / 2}px`;
+                                            marker.style.bottom = `calc(${markerBottomPct}%)`;
+                                        } else {
+                                            marker.style.borderBottomLeftRadius = `${markerSize}px`;
+                                            marker.style.borderBottomRightRadius = `${markerSize}px`;
+                                            marker.style.height = `${markerSize / 2}px`;
+                                            marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
+                                        }
                                     } else {
-                                        marker.style.borderTopLeftRadius = `${markerSize}px`;
-                                        marker.style.borderBottomLeftRadius = `${markerSize}px`;
-                                        marker.style.width = `${markerSize / 2}px`;
-                                        marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
+                                        let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                        // Draw semi circle pointing outwards
+                                        if (numValue >= 0) {
+                                            marker.style.borderTopRightRadius = `${markerSize}px`;
+                                            marker.style.borderBottomRightRadius = `${markerSize}px`;
+                                            marker.style.width = `${markerSize / 2}px`;
+                                            marker.style.left = `calc(${markerLeftPct}%)`;
+                                        } else {
+                                            marker.style.borderTopLeftRadius = `${markerSize}px`;
+                                            marker.style.borderBottomLeftRadius = `${markerSize}px`;
+                                            marker.style.width = `${markerSize / 2}px`;
+                                            marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
+                                        }
                                     }
                                 }
 
@@ -2673,13 +2720,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             
                             if (labelsOutside) {
                                 textDiv.style.position = "absolute";
-                                textDiv.style.top = "50%";
-                                textDiv.style.transform = "translateY(-50%)";
                                 textDiv.style.whiteSpace = "nowrap";
-                                if (numValue >= 0) {
-                                    textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                if (verticalDataBars) {
+                                    textDiv.style.left = "50%";
+                                    textDiv.style.transform = "translateX(-50%)";
+                                    if (numValue >= 0) {
+                                        textDiv.style.bottom = `calc(${leftPct + widthPct}% + 4px)`;
+                                    } else {
+                                        textDiv.style.top = `calc(${100 - leftPct}% + 4px)`;
+                                    }
                                 } else {
-                                    textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                    textDiv.style.top = "50%";
+                                    textDiv.style.transform = "translateY(-50%)";
+                                    if (numValue >= 0) {
+                                        textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                    } else {
+                                        textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                    }
                                 }
                             } else {
                                 textDiv.style.position = "relative";
@@ -2833,6 +2890,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 const ctMinValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                                 const ctMaxValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
                                 const ctLabelsOutside = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+                                const ctVerticalDataBars = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
 
                                 let numValue = Number(colTotalVal);
                                 let min_raw = measureMins[mIdx];
@@ -2854,7 +2912,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 let zeroPoint = Math.max(min, Math.min(max, 0));
                                 let leftMarginPct = 0;
                                 let rightMarginPct = 0;
-                                if (ctLabelsOutside) {
+                                if (ctLabelsOutside && !ctVerticalDataBars) {
                                     const dbFont = `${cellFontSize}px ${cellFontFamily}`;
                                     const dbCellW = colTotalColumnWidths[mIdx];
                                     if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
@@ -2872,12 +2930,20 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                                 let dataBar = document.createElement("div");
                                 dataBar.style.position = "absolute";
-                                dataBar.style.top = `${(100 - ctDbHeight) / 2}%`;
-                                dataBar.style.height = `${ctDbHeight}%`;
-                                dataBar.style.left = `${leftPct}%`;
-                                dataBar.style.width = `${widthPct}%`;
                                 dataBar.style.backgroundColor = applyTransparency(ctDataBarColor, ctDbTransparency);
                                 dataBar.style.zIndex = "1";
+                                if (ctVerticalDataBars) {
+                                    const leftCenterPct = (100 - ctDbHeight) / 2;
+                                    dataBar.style.left = `${leftCenterPct}%`;
+                                    dataBar.style.width = `${ctDbHeight}%`;
+                                    dataBar.style.bottom = `${leftPct}%`;
+                                    dataBar.style.height = `${widthPct}%`;
+                                } else {
+                                    dataBar.style.top = `${(100 - ctDbHeight) / 2}%`;
+                                    dataBar.style.height = `${ctDbHeight}%`;
+                                    dataBar.style.left = `${leftPct}%`;
+                                    dataBar.style.width = `${widthPct}%`;
+                                }
                                 if (ctBorderOn) {
                                     let finalBorderColor = ctMatchColor ? ctDataBarColor : ctBorderColor;
                                     dataBar.style.border = `${ctBorderThickness}px solid ${finalBorderColor}`;
@@ -2888,11 +2954,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 if (ctShowZeroLine) {
                                     let zeroLine = document.createElement("div");
                                     zeroLine.style.position = "absolute";
-                                    zeroLine.style.top = "0";
-                                    zeroLine.style.bottom = "0";
-                                    zeroLine.style.width = "2px";
-                                    let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
-                                    zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                    let zPosPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                                    if (ctVerticalDataBars) {
+                                        zeroLine.style.left = "0";
+                                        zeroLine.style.right = "0";
+                                        zeroLine.style.height = "2px";
+                                        zeroLine.style.bottom = `calc(${zPosPct}% - 1px)`;
+                                    } else {
+                                        zeroLine.style.top = "0";
+                                        zeroLine.style.bottom = "0";
+                                        zeroLine.style.width = "2px";
+                                        zeroLine.style.left = `calc(${zPosPct}% - 1px)`;
+                                    }
                                     zeroLine.style.backgroundColor = applyTransparency(ctZeroLineColor, ctZeroLineTransparency);
                                     zeroLine.style.zIndex = "1";
                                     colTotalCell.appendChild(zeroLine);
@@ -2903,13 +2976,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 textDiv.textContent = ctFormattedValue;
                                 if (ctLabelsOutside) {
                                     textDiv.style.position = "absolute";
-                                    textDiv.style.top = "50%";
-                                    textDiv.style.transform = "translateY(-50%)";
                                     textDiv.style.whiteSpace = "nowrap";
-                                    if (numValue >= 0) {
-                                        textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                    if (ctVerticalDataBars) {
+                                        textDiv.style.left = "50%";
+                                        textDiv.style.transform = "translateX(-50%)";
+                                        if (numValue >= 0) {
+                                            textDiv.style.bottom = `calc(${leftPct + widthPct}% + 4px)`;
+                                        } else {
+                                            textDiv.style.top = `calc(${100 - leftPct}% + 4px)`;
+                                        }
                                     } else {
-                                        textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                        textDiv.style.top = "50%";
+                                        textDiv.style.transform = "translateY(-50%)";
+                                        if (numValue >= 0) {
+                                            textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                        } else {
+                                            textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                        }
                                     }
                                 } else {
                                     textDiv.style.position = "relative";
@@ -3179,6 +3262,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         const totalMinValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                         const totalMaxValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
                         const totalLabelsOutside = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+                        const totalVerticalDataBars = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
 
                         let numValue = Number(total);
                         let min_raw = measureMins[i];
@@ -3200,7 +3284,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         let zeroPoint = Math.max(min, Math.min(max, 0));
                         let leftMarginPct = 0;
                         let rightMarginPct = 0;
-                        if (totalLabelsOutside) {
+                        if (totalLabelsOutside && !totalVerticalDataBars) {
                             const dbFont = `${efFontSize}px ${efFontFamily}`;
                             const dbCellW = valueColumnWidths[i];
                             if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces), dbCellW, dbFont);
@@ -3218,12 +3302,20 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                         let dataBar = document.createElement("div");
                         dataBar.style.position = "absolute";
-                        dataBar.style.top = `${(100 - totalDbHeight) / 2}%`;
-                        dataBar.style.height = `${totalDbHeight}%`;
-                        dataBar.style.left = `${leftPct}%`;
-                        dataBar.style.width = `${widthPct}%`;
                         dataBar.style.backgroundColor = applyTransparency(totalDataBarColor, totalDbTransparency);
                         dataBar.style.zIndex = "1";
+                        if (totalVerticalDataBars) {
+                            const leftCenterPct = (100 - totalDbHeight) / 2;
+                            dataBar.style.left = `${leftCenterPct}%`;
+                            dataBar.style.width = `${totalDbHeight}%`;
+                            dataBar.style.bottom = `${leftPct}%`;
+                            dataBar.style.height = `${widthPct}%`;
+                        } else {
+                            dataBar.style.top = `${(100 - totalDbHeight) / 2}%`;
+                            dataBar.style.height = `${totalDbHeight}%`;
+                            dataBar.style.left = `${leftPct}%`;
+                            dataBar.style.width = `${widthPct}%`;
+                        }
                         if (totalBorderOn) {
                             let finalBorderColor = totalMatchColor ? totalDataBarColor : totalBorderColor;
                             dataBar.style.border = `${totalBorderThickness}px solid ${finalBorderColor}`;
@@ -3234,11 +3326,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (totalShowZeroLine) {
                             let zeroLine = document.createElement("div");
                             zeroLine.style.position = "absolute";
-                            zeroLine.style.top = "0";
-                            zeroLine.style.bottom = "0";
-                            zeroLine.style.width = "2px";
-                            let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
-                            zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                            let zPosPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                            if (totalVerticalDataBars) {
+                                zeroLine.style.left = "0";
+                                zeroLine.style.right = "0";
+                                zeroLine.style.height = "2px";
+                                zeroLine.style.bottom = `calc(${zPosPct}% - 1px)`;
+                            } else {
+                                zeroLine.style.top = "0";
+                                zeroLine.style.bottom = "0";
+                                zeroLine.style.width = "2px";
+                                zeroLine.style.left = `calc(${zPosPct}% - 1px)`;
+                            }
                             zeroLine.style.backgroundColor = applyTransparency(totalZeroLineColor, totalZeroLineTransparency);
                             zeroLine.style.zIndex = "1";
                             cell.appendChild(zeroLine);
@@ -3249,13 +3348,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         textDiv.textContent = formattedTotal;
                         if (totalLabelsOutside) {
                             textDiv.style.position = "absolute";
-                            textDiv.style.top = "50%";
-                            textDiv.style.transform = "translateY(-50%)";
                             textDiv.style.whiteSpace = "nowrap";
-                            if (numValue >= 0) {
-                                textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                            if (totalVerticalDataBars) {
+                                textDiv.style.left = "50%";
+                                textDiv.style.transform = "translateX(-50%)";
+                                if (numValue >= 0) {
+                                    textDiv.style.bottom = `calc(${leftPct + widthPct}% + 4px)`;
+                                } else {
+                                    textDiv.style.top = `calc(${100 - leftPct}% + 4px)`;
+                                }
                             } else {
-                                textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                textDiv.style.top = "50%";
+                                textDiv.style.transform = "translateY(-50%)";
+                                if (numValue >= 0) {
+                                    textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                } else {
+                                    textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                }
                             }
                         } else {
                             textDiv.style.position = "relative";
@@ -3359,6 +3468,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const gtMinValueObj = dataViewObjects.getValue<number>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                             const gtMaxValueObj = dataViewObjects.getValue<number>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
                             const gtLabelsOutside = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+                            const gtVerticalDataBars = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
 
                             let numValue = Number(grandVal);
                             let min_raw = measureMins[mIdx];
@@ -3380,7 +3490,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let zeroPoint = Math.max(min, Math.min(max, 0));
                             let leftMarginPct = 0;
                             let rightMarginPct = 0;
-                            if (gtLabelsOutside) {
+                            if (gtLabelsOutside && !gtVerticalDataBars) {
                                 const dbFont = `${cellFontSize}px ${cellFontFamily}`;
                                 const dbCellW = colTotalColumnWidths[mIdx];
                                 if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
@@ -3398,12 +3508,20 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                             let dataBar = document.createElement("div");
                             dataBar.style.position = "absolute";
-                            dataBar.style.top = `${(100 - gtDbHeight) / 2}%`;
-                            dataBar.style.height = `${gtDbHeight}%`;
-                            dataBar.style.left = `${leftPct}%`;
-                            dataBar.style.width = `${widthPct}%`;
                             dataBar.style.backgroundColor = applyTransparency(gtDataBarColor, gtDbTransparency);
                             dataBar.style.zIndex = "1";
+                            if (gtVerticalDataBars) {
+                                const leftCenterPct = (100 - gtDbHeight) / 2;
+                                dataBar.style.left = `${leftCenterPct}%`;
+                                dataBar.style.width = `${gtDbHeight}%`;
+                                dataBar.style.bottom = `${leftPct}%`;
+                                dataBar.style.height = `${widthPct}%`;
+                            } else {
+                                dataBar.style.top = `${(100 - gtDbHeight) / 2}%`;
+                                dataBar.style.height = `${gtDbHeight}%`;
+                                dataBar.style.left = `${leftPct}%`;
+                                dataBar.style.width = `${widthPct}%`;
+                            }
                             if (gtBorderOn) {
                                 let finalBorderColor = gtMatchColor ? gtDataBarColor : gtBorderColor;
                                 dataBar.style.border = `${gtBorderThickness}px solid ${finalBorderColor}`;
@@ -3414,11 +3532,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             if (gtShowZeroLine) {
                                 let zeroLine = document.createElement("div");
                                 zeroLine.style.position = "absolute";
-                                zeroLine.style.top = "0";
-                                zeroLine.style.bottom = "0";
-                                zeroLine.style.width = "2px";
-                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
-                                zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                let zPosPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                                if (gtVerticalDataBars) {
+                                    zeroLine.style.left = "0";
+                                    zeroLine.style.right = "0";
+                                    zeroLine.style.height = "2px";
+                                    zeroLine.style.bottom = `calc(${zPosPct}% - 1px)`;
+                                } else {
+                                    zeroLine.style.top = "0";
+                                    zeroLine.style.bottom = "0";
+                                    zeroLine.style.width = "2px";
+                                    zeroLine.style.left = `calc(${zPosPct}% - 1px)`;
+                                }
                                 zeroLine.style.backgroundColor = applyTransparency(gtZeroLineColor, gtZeroLineTransparency);
                                 zeroLine.style.zIndex = "1";
                                 grandCell.appendChild(zeroLine);
@@ -3429,13 +3554,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             textDiv.textContent = grandFormattedValue;
                             if (gtLabelsOutside) {
                                 textDiv.style.position = "absolute";
-                                textDiv.style.top = "50%";
-                                textDiv.style.transform = "translateY(-50%)";
                                 textDiv.style.whiteSpace = "nowrap";
-                                if (numValue >= 0) {
-                                    textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                if (gtVerticalDataBars) {
+                                    textDiv.style.left = "50%";
+                                    textDiv.style.transform = "translateX(-50%)";
+                                    if (numValue >= 0) {
+                                        textDiv.style.bottom = `calc(${leftPct + widthPct}% + 4px)`;
+                                    } else {
+                                        textDiv.style.top = `calc(${100 - leftPct}% + 4px)`;
+                                    }
                                 } else {
-                                    textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                    textDiv.style.top = "50%";
+                                    textDiv.style.transform = "translateY(-50%)";
+                                    if (numValue >= 0) {
+                                        textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                    } else {
+                                        textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                    }
                                 }
                             } else {
                                 textDiv.style.position = "relative";
@@ -3901,6 +4036,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const minValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                             const maxValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
                             const labelsOutside = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+                            const verticalDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
                             
                             // Check for conditional formatting on data bar color
                             const dbCFApplyToRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
@@ -3961,7 +4097,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                             let leftMarginPct = 0;
                             let rightMarginPct = 0;
-                            if (labelsOutside) {
+                            if (labelsOutside && !verticalDataBars) {
                                 const dbFont = `${cellFontSize}px ${cellFontFamily}`;
                                 const dbCellW = valueColumnWidths[measureIndex];
                                 if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
@@ -3980,14 +4116,22 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             // Create data bar div
                             let dataBar = document.createElement("div");
                             dataBar.style.position = "absolute";
-                            const topPct = (100 - dataBarHeight) / 2;
-                            dataBar.style.top = `${topPct}%`;
-                            dataBar.style.height = `${dataBarHeight}%`;
-                            dataBar.style.left = `${leftPct}%`;
-                            dataBar.style.width = `${widthPct}%`;
                             dataBar.style.backgroundColor = applyTransparency(cellDataBarColor, transparency);
-
                             dataBar.style.zIndex = "1";
+
+                            if (verticalDataBars) {
+                                const leftCenterPct = (100 - dataBarHeight) / 2;
+                                dataBar.style.left = `${leftCenterPct}%`;
+                                dataBar.style.width = `${dataBarHeight}%`;
+                                dataBar.style.bottom = `${leftPct}%`;
+                                dataBar.style.height = `${widthPct}%`;
+                            } else {
+                                const topPct = (100 - dataBarHeight) / 2;
+                                dataBar.style.top = `${topPct}%`;
+                                dataBar.style.height = `${dataBarHeight}%`;
+                                dataBar.style.left = `${leftPct}%`;
+                                dataBar.style.width = `${widthPct}%`;
+                            }
 
                             if (borderOn) {
                                 let finalBorderColor = matchDataBarColor ? cellDataBarColor : borderColor;
@@ -4000,11 +4144,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             if (showZeroLine) {
                                 let zeroLine = document.createElement("div");
                                 zeroLine.style.position = "absolute";
-                                zeroLine.style.top = "0";
-                                zeroLine.style.bottom = "0";
-                                zeroLine.style.width = "2px";
-                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
-                                zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                let zPosPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                                if (verticalDataBars) {
+                                    zeroLine.style.left = "0";
+                                    zeroLine.style.right = "0";
+                                    zeroLine.style.height = "2px";
+                                    zeroLine.style.bottom = `calc(${zPosPct}% - 1px)`;
+                                } else {
+                                    zeroLine.style.top = "0";
+                                    zeroLine.style.bottom = "0";
+                                    zeroLine.style.width = "2px";
+                                    zeroLine.style.left = `calc(${zPosPct}% - 1px)`;
+                                }
                                 zeroLine.style.backgroundColor = applyTransparency(zeroLineColor, zeroLineTransparency);
                                 zeroLine.style.zIndex = "1"; 
                                 cell.appendChild(zeroLine);
@@ -4031,12 +4182,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 let marker = document.createElement("div");
                                 marker.style.position = "absolute";
                                 marker.style.zIndex = "3";
-
-                                let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
-                                marker.style.top = `calc(50% - ${markerSize / 2}px)`;
                                 marker.style.width = `${markerSize}px`;
                                 marker.style.height = `${markerSize}px`;
+
+                                if (verticalDataBars) {
+                                    let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                    marker.style.left = `calc(50% - ${markerSize / 2}px)`;
+                                    marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
+                                } else {
+                                    let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                    marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
+                                    marker.style.top = `calc(50% - ${markerSize / 2}px)`;
+                                }
 
                                 if (markerShape === "circle") {
                                     marker.style.backgroundColor = cellMarkerColor;
@@ -4069,20 +4226,43 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 } else if (markerShape === "verticalLine") {
                                     marker.style.backgroundColor = cellMarkerColor;
                                     marker.style.width = "2px";
-                                    marker.style.left = `calc(${markerLeftPct}% - 1px)`;
+                                    if (verticalDataBars) {
+                                        let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                        marker.style.left = `calc(50% - 1px)`;
+                                        marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
+                                    } else {
+                                        let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                        marker.style.left = `calc(${markerLeftPct}% - 1px)`;
+                                    }
                                 } else if (markerShape === "semiCircle") {
                                     marker.style.backgroundColor = cellMarkerColor;
-                                    // Draw semi circle pointing outwards
-                                    if (numValue >= 0) {
-                                        marker.style.borderTopRightRadius = `${markerSize}px`;
-                                        marker.style.borderBottomRightRadius = `${markerSize}px`;
-                                        marker.style.width = `${markerSize / 2}px`;
-                                        marker.style.left = `calc(${markerLeftPct}%)`;
+                                    if (verticalDataBars) {
+                                        let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                        if (numValue >= 0) {
+                                            marker.style.borderTopLeftRadius = `${markerSize}px`;
+                                            marker.style.borderTopRightRadius = `${markerSize}px`;
+                                            marker.style.height = `${markerSize / 2}px`;
+                                            marker.style.bottom = `calc(${markerBottomPct}%)`;
+                                        } else {
+                                            marker.style.borderBottomLeftRadius = `${markerSize}px`;
+                                            marker.style.borderBottomRightRadius = `${markerSize}px`;
+                                            marker.style.height = `${markerSize / 2}px`;
+                                            marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
+                                        }
                                     } else {
-                                        marker.style.borderTopLeftRadius = `${markerSize}px`;
-                                        marker.style.borderBottomLeftRadius = `${markerSize}px`;
-                                        marker.style.width = `${markerSize / 2}px`;
-                                        marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
+                                        let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
+                                        // Draw semi circle pointing outwards
+                                        if (numValue >= 0) {
+                                            marker.style.borderTopRightRadius = `${markerSize}px`;
+                                            marker.style.borderBottomRightRadius = `${markerSize}px`;
+                                            marker.style.width = `${markerSize / 2}px`;
+                                            marker.style.left = `calc(${markerLeftPct}%)`;
+                                        } else {
+                                            marker.style.borderTopLeftRadius = `${markerSize}px`;
+                                            marker.style.borderBottomLeftRadius = `${markerSize}px`;
+                                            marker.style.width = `${markerSize / 2}px`;
+                                            marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
+                                        }
                                     }
                                 }
 
@@ -4095,13 +4275,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             
                             if (labelsOutside) {
                                 textDiv.style.position = "absolute";
-                                textDiv.style.top = "50%";
-                                textDiv.style.transform = "translateY(-50%)";
                                 textDiv.style.whiteSpace = "nowrap";
-                                if (numValue >= 0) {
-                                    textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                if (verticalDataBars) {
+                                    textDiv.style.left = "50%";
+                                    textDiv.style.transform = "translateX(-50%)";
+                                    if (numValue >= 0) {
+                                        textDiv.style.bottom = `calc(${leftPct + widthPct}% + 4px)`;
+                                    } else {
+                                        textDiv.style.top = `calc(${100 - leftPct}% + 4px)`;
+                                    }
                                 } else {
-                                    textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                    textDiv.style.top = "50%";
+                                    textDiv.style.transform = "translateY(-50%)";
+                                    if (numValue >= 0) {
+                                        textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                    } else {
+                                        textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                    }
                                 }
                             } else {
                                 textDiv.style.position = "relative";
@@ -4257,6 +4447,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const totalMinValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                             const totalMaxValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
                             const totalLabelsOutside = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+                            const totalVerticalDataBars = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
 
                             let numValue = Number(totalVal);
                             let min_raw = measureMins[measureIndex];
@@ -4278,7 +4469,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let zeroPoint = Math.max(min, Math.min(max, 0));
                             let leftMarginPct = 0;
                             let rightMarginPct = 0;
-                            if (totalLabelsOutside) {
+                            if (totalLabelsOutside && !totalVerticalDataBars) {
                                 const dbFont = `${cellFontSize}px ${cellFontFamily}`;
                                 const dbCellW = valueColumnWidths[measureIndex];
                                 if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces), dbCellW, dbFont);
@@ -4296,12 +4487,20 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                             let dataBar = document.createElement("div");
                             dataBar.style.position = "absolute";
-                            dataBar.style.top = `${(100 - totalDbHeight) / 2}%`;
-                            dataBar.style.height = `${totalDbHeight}%`;
-                            dataBar.style.left = `${leftPct}%`;
-                            dataBar.style.width = `${widthPct}%`;
                             dataBar.style.backgroundColor = applyTransparency(totalDataBarColor, totalDbTransparency);
                             dataBar.style.zIndex = "1";
+                            if (totalVerticalDataBars) {
+                                const leftCenterPct = (100 - totalDbHeight) / 2;
+                                dataBar.style.left = `${leftCenterPct}%`;
+                                dataBar.style.width = `${totalDbHeight}%`;
+                                dataBar.style.bottom = `${leftPct}%`;
+                                dataBar.style.height = `${widthPct}%`;
+                            } else {
+                                dataBar.style.top = `${(100 - totalDbHeight) / 2}%`;
+                                dataBar.style.height = `${totalDbHeight}%`;
+                                dataBar.style.left = `${leftPct}%`;
+                                dataBar.style.width = `${widthPct}%`;
+                            }
                             if (totalBorderOn) {
                                 let finalBorderColor = totalMatchColor ? totalDataBarColor : totalBorderColor;
                                 dataBar.style.border = `${totalBorderThickness}px solid ${finalBorderColor}`;
@@ -4312,11 +4511,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             if (totalShowZeroLine) {
                                 let zeroLine = document.createElement("div");
                                 zeroLine.style.position = "absolute";
-                                zeroLine.style.top = "0";
-                                zeroLine.style.bottom = "0";
-                                zeroLine.style.width = "2px";
-                                let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
-                                zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                let zPosPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                                if (totalVerticalDataBars) {
+                                    zeroLine.style.left = "0";
+                                    zeroLine.style.right = "0";
+                                    zeroLine.style.height = "2px";
+                                    zeroLine.style.bottom = `calc(${zPosPct}% - 1px)`;
+                                } else {
+                                    zeroLine.style.top = "0";
+                                    zeroLine.style.bottom = "0";
+                                    zeroLine.style.width = "2px";
+                                    zeroLine.style.left = `calc(${zPosPct}% - 1px)`;
+                                }
                                 zeroLine.style.backgroundColor = applyTransparency(totalZeroLineColor, totalZeroLineTransparency);
                                 zeroLine.style.zIndex = "1";
                                 totalCell.appendChild(zeroLine);
@@ -4327,13 +4533,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             textDiv.textContent = formattedTotal;
                             if (totalLabelsOutside) {
                                 textDiv.style.position = "absolute";
-                                textDiv.style.top = "50%";
-                                textDiv.style.transform = "translateY(-50%)";
                                 textDiv.style.whiteSpace = "nowrap";
-                                if (numValue >= 0) {
-                                    textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                if (totalVerticalDataBars) {
+                                    textDiv.style.left = "50%";
+                                    textDiv.style.transform = "translateX(-50%)";
+                                    if (numValue >= 0) {
+                                        textDiv.style.bottom = `calc(${leftPct + widthPct}% + 4px)`;
+                                    } else {
+                                        textDiv.style.top = `calc(${100 - leftPct}% + 4px)`;
+                                    }
                                 } else {
-                                    textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                    textDiv.style.top = "50%";
+                                    textDiv.style.transform = "translateY(-50%)";
+                                    if (numValue >= 0) {
+                                        textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                    } else {
+                                        textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                    }
                                 }
                             } else {
                                 textDiv.style.position = "relative";
@@ -4511,6 +4727,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 const ctMinValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                                 const ctMaxValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
                                 const ctLabelsOutside = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
+                                const ctVerticalDataBars = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
 
                                 let numValue = Number(colTotalVal);
                                 let min_raw = measureMins[mIdx];
@@ -4532,7 +4749,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 let zeroPoint = Math.max(min, Math.min(max, 0));
                                 let leftMarginPct = 0;
                                 let rightMarginPct = 0;
-                                if (ctLabelsOutside) {
+                                if (ctLabelsOutside && !ctVerticalDataBars) {
                                     const dbFont = `${cellFontSize}px ${cellFontFamily}`;
                                     const dbCellW = valueColumnWidths[0] || colTotalColumnWidths[mIdx];
                                     if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
@@ -4550,12 +4767,20 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                                 let dataBar = document.createElement("div");
                                 dataBar.style.position = "absolute";
-                                dataBar.style.top = `${(100 - ctDbHeight) / 2}%`;
-                                dataBar.style.height = `${ctDbHeight}%`;
-                                dataBar.style.left = `${leftPct}%`;
-                                dataBar.style.width = `${widthPct}%`;
                                 dataBar.style.backgroundColor = applyTransparency(ctDataBarColor, ctDbTransparency);
                                 dataBar.style.zIndex = "1";
+                                if (ctVerticalDataBars) {
+                                    const leftCenterPct = (100 - ctDbHeight) / 2;
+                                    dataBar.style.left = `${leftCenterPct}%`;
+                                    dataBar.style.width = `${ctDbHeight}%`;
+                                    dataBar.style.bottom = `${leftPct}%`;
+                                    dataBar.style.height = `${widthPct}%`;
+                                } else {
+                                    dataBar.style.top = `${(100 - ctDbHeight) / 2}%`;
+                                    dataBar.style.height = `${ctDbHeight}%`;
+                                    dataBar.style.left = `${leftPct}%`;
+                                    dataBar.style.width = `${widthPct}%`;
+                                }
                                 if (ctBorderOn) {
                                     let finalBorderColor = ctMatchColor ? ctDataBarColor : ctBorderColor;
                                     dataBar.style.border = `${ctBorderThickness}px solid ${finalBorderColor}`;
@@ -4566,11 +4791,18 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 if (ctShowZeroLine) {
                                     let zeroLine = document.createElement("div");
                                     zeroLine.style.position = "absolute";
-                                    zeroLine.style.top = "0";
-                                    zeroLine.style.bottom = "0";
-                                    zeroLine.style.width = "2px";
-                                    let zLeftPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
-                                    zeroLine.style.left = `calc(${zLeftPct}% - 1px)`;
+                                    let zPosPct = ((zeroPoint - min) / range) * 100 * scaleMultiplier + leftMarginPct;
+                                    if (ctVerticalDataBars) {
+                                        zeroLine.style.left = "0";
+                                        zeroLine.style.right = "0";
+                                        zeroLine.style.height = "2px";
+                                        zeroLine.style.bottom = `calc(${zPosPct}% - 1px)`;
+                                    } else {
+                                        zeroLine.style.top = "0";
+                                        zeroLine.style.bottom = "0";
+                                        zeroLine.style.width = "2px";
+                                        zeroLine.style.left = `calc(${zPosPct}% - 1px)`;
+                                    }
                                     zeroLine.style.backgroundColor = applyTransparency(ctZeroLineColor, ctZeroLineTransparency);
                                     zeroLine.style.zIndex = "1";
                                     cell.appendChild(zeroLine);
@@ -4581,13 +4813,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 textDiv.textContent = ctFormattedValue;
                                 if (ctLabelsOutside) {
                                     textDiv.style.position = "absolute";
-                                    textDiv.style.top = "50%";
-                                    textDiv.style.transform = "translateY(-50%)";
                                     textDiv.style.whiteSpace = "nowrap";
-                                    if (numValue >= 0) {
-                                        textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                    if (ctVerticalDataBars) {
+                                        textDiv.style.left = "50%";
+                                        textDiv.style.transform = "translateX(-50%)";
+                                        if (numValue >= 0) {
+                                            textDiv.style.bottom = `calc(${leftPct + widthPct}% + 4px)`;
+                                        } else {
+                                            textDiv.style.top = `calc(${100 - leftPct}% + 4px)`;
+                                        }
                                     } else {
-                                        textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                        textDiv.style.top = "50%";
+                                        textDiv.style.transform = "translateY(-50%)";
+                                        if (numValue >= 0) {
+                                            textDiv.style.left = `calc(${leftPct + widthPct}% + 4px)`;
+                                        } else {
+                                            textDiv.style.right = `calc(${100 - leftPct}% + 4px)`;
+                                        }
                                     }
                                 } else {
                                     textDiv.style.position = "relative";

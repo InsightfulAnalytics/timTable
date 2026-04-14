@@ -274,6 +274,13 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
         visible: true
     });
 
+    public verticalDataBars = new formattingSettings.ToggleSwitch({
+        name: "verticalDataBars",
+        displayName: "Vertical Data Bars",
+        value: false,
+        visible: true
+    });
+
     public labelsOutside = new formattingSettings.ToggleSwitch({
         name: "labelsOutside",
         displayName: "Labels Outside",
@@ -331,7 +338,7 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
     public dataBarsGroup = new formattingSettings.Group({
         displayName: "Data Bars Settings",
         name: "dataBarsGroup",
-        slices: [this.showDataBars, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.labelsOutside, this.showOnRowTotals, this.showOnColumnTotals, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
+        slices: [this.showDataBars, this.verticalDataBars, this.dataBarHeight, this.transparency, this.borderOn, this.matchDataBarColor, this.borderThickness, this.borderColor, this.labelsOutside, this.showOnRowTotals, this.showOnColumnTotals, this.showZeroLine, this.zeroLineColor, this.zeroLineTransparency]
     });
 
     public groups: formattingSettings.Group[] = [this.selectSeriesGroup, this.dataBarsGroup, this.yAxisGroup];
