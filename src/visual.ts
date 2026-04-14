@@ -3670,7 +3670,36 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             headerRow.style.height = `${headerRowHeight}px`;
             const headerBgColor = headerBackgroundColor;
 
-            // First header is "Measure"
+            // First header(s): Column group header (if column grouping) + "Measure"
+            if (hasColumnGrouping && columnLeaves.length > 0) {
+                // Derive the column group field name from the matrix columns levels
+                const colGroupName = dataView.matrix?.columns?.levels
+                    ?.filter(l => l.sources.length > 0 && !l.sources[0].isMeasure)
+                    .map(l => l.sources[0].displayName)
+                    .join(' \u203A ') || "Column";
+                let colGroupHeader = headerRow.insertCell();
+                colGroupHeader.textContent = colGroupName;
+                colGroupHeader.className = 'table-header-cell';
+                colGroupHeader.style.width = `${categoryColumnWidth}px`;
+                colGroupHeader.style.minWidth = `${categoryColumnWidth}px`;
+                colGroupHeader.style.maxWidth = `${categoryColumnWidth}px`;
+                applyRowSquash(colGroupHeader, headerRowHeight, headerFontSize, headerWordWrap);
+                colGroupHeader.style.fontWeight = headerBold ? "bold" : "normal";
+                colGroupHeader.style.fontStyle = headerItalic ? "italic" : "normal";
+                colGroupHeader.style.textDecoration = headerUnderline ? "underline" : "none";
+                colGroupHeader.style.fontFamily = headerFontFamily;
+                colGroupHeader.style.color = headerTextColor;
+                colGroupHeader.style.textAlign = headerAlignment;
+                colGroupHeader.style.borderRight = vertBorderValue;
+                colGroupHeader.style.backgroundColor = headerBgColor;
+                colGroupHeader.style.overflow = "hidden";
+                colGroupHeader.style.textOverflow = "ellipsis";
+                colGroupHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                if (headerWordWrap) {
+                    colGroupHeader.style.wordBreak = "break-word";
+                }
+            }
+
             let measureHeader = headerRow.insertCell();
             measureHeader.textContent = "Measure";
             measureHeader.className = 'table-header-cell';
@@ -3876,6 +3905,30 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 row.style.height = `${rowHeight}px`;
                 const rowBgColor = isEvenRow ? backgroundColor : alternateBackgroundColor;
                 row.style.backgroundColor = rowBgColor;
+
+                // Cell 0 (optional): Column group label when column grouping is active
+                if (hasColumnGrouping && (valueColumn as any).columnPath) {
+                    const colLabel = ((valueColumn as any).columnPath as any[]).join(' \u203A ');
+                    let colGroupCell = row.insertCell();
+                    colGroupCell.textContent = colLabel;
+                    colGroupCell.className = 'table-category-cell';
+                    colGroupCell.style.width = `${categoryColumnWidth}px`;
+                    colGroupCell.style.minWidth = `${categoryColumnWidth}px`;
+                    colGroupCell.style.maxWidth = `${categoryColumnWidth}px`;
+                    applyRowSquash(colGroupCell, rowHeight, cellFontSize, categoryWordWrap);
+                    colGroupCell.style.fontWeight = valueBold ? "bold" : "normal";
+                    colGroupCell.style.fontStyle = cellItalic ? "italic" : "normal";
+                    colGroupCell.style.textDecoration = cellUnderline ? "underline" : "none";
+                    colGroupCell.style.borderRight = vertBorderValue;
+                    colGroupCell.style.backgroundColor = rowBgColor;
+                    colGroupCell.style.color = defaultCategoryTextColor;
+                    colGroupCell.style.overflow = "hidden";
+                    colGroupCell.style.textOverflow = "ellipsis";
+                    colGroupCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
+                    if (categoryWordWrap) {
+                        colGroupCell.style.wordBreak = "break-word";
+                    }
+                }
 
                 // Cell 1: Measure Name
                 let measureNameCell = row.insertCell();
@@ -5097,15 +5150,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 applyAreaBorder(dataRows, rowHeaderBorders, (cell) => cell.className.indexOf('table-category-cell') >= 0);
                 applyAreaBorder(dataRows, valuesBorders, (cell) => cell.className.indexOf('table-category-cell') < 0);
             } else {
-                // Transposed layout: first cell of each row is the row header (measure name)
-                applyAreaBorder(dataRows, rowHeaderBorders, (cell) => {
-                    const row = cell.parentElement as HTMLTableRowElement;
-                    return row ? row.cells[0] === cell : false;
-                });
-                applyAreaBorder(dataRows, valuesBorders, (cell) => {
-                    const row = cell.parentElement as HTMLTableRowElement;
-                    return row ? row.cells[0] !== cell : false;
-                });
+                // Transposed layout: category cells (class 'table-category-cell') are row headers
+                applyAreaBorder(dataRows, rowHeaderBorders, (cell) => cell.className.indexOf('table-category-cell') >= 0);
+                applyAreaBorder(dataRows, valuesBorders, (cell) => cell.className.indexOf('table-category-cell') < 0);
             }
         }
     }
