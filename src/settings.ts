@@ -89,7 +89,8 @@ export class ValuesSettings extends FormattingSettingsCard {
         this.backgroundColor, 
         this.alternateTextColor, 
         this.alternateBackgroundColor, 
-        this.textWrap
+        this.textWrap,
+        this.switchValuesToRows
     ];
 }
 
