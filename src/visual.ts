@@ -3765,7 +3765,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             }
         } else {
             // switchValuesToRows IS TRUE (Transpose layout)
-            
+
+            // Update showTotalRow from per-category scoped value (mirrors non-transposed path)
+            const categoryShowTotalsT = (categories?.sources || []).map((catSource: any) => {
+                return dataViewObjects.getValue<boolean>(catSource.objects || {}, { objectName: "totals", propertyName: "showTotalRow" }, true);
+            });
+            showTotalRow = categoryShowTotalsT.length > 0 ? categoryShowTotalsT[0] : showTotalRow;
+
             // Create Header Row
             let headerRow = this.table.insertRow();
             headerRow.className = 'table-header-row';
@@ -3874,31 +3880,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 }
             }
 
-                        if (showTotalRow) {
-                let totalHeader = headerRow.insertCell();
-                totalHeader.textContent = "Total";
-                totalHeader.className = 'table-header-cell';
-                totalHeader.style.width = `${columnWidth}px`;
-                totalHeader.style.minWidth = `${columnWidth}px`;
-                totalHeader.style.maxWidth = `${columnWidth}px`;
-                applyRowSquash(totalHeader, headerRowHeight, headerFontSize, headerWordWrap);
-                totalHeader.style.fontWeight = headerBold ? "bold" : "normal";
-                totalHeader.style.fontStyle = headerItalic ? "italic" : "normal";
-                totalHeader.style.textDecoration = headerUnderline ? "underline" : "none";
-                totalHeader.style.fontFamily = headerFontFamily;
-                totalHeader.style.color = headerTextColor;
-                totalHeader.style.textAlign = headerAlignment;
-                totalHeader.style.borderRight = vertBorderValue;
-                totalHeader.style.backgroundColor = headerBgColor;
-                totalHeader.style.overflow = "hidden";
-                totalHeader.style.textOverflow = "ellipsis";
-                totalHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
-                if (headerWordWrap) {
-                    totalHeader.style.wordBreak = "break-word";
-                }
-            }
-
-                        if (showTotalRow) {
+            if (showTotalRow) {
                 let totalHeader = headerRow.insertCell();
                 totalHeader.textContent = "Total";
                 totalHeader.className = 'table-header-cell';
@@ -4807,6 +4789,19 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     colTotalRow.style.borderTop = horizBorder2xValue;
                     colTotalRow.style.borderBottom = horizBorder2xValue;
                     colTotalRow.style.height = `${valueRowHeight}px`;
+
+                    // Column group spacer cell when column grouping is active
+                    if (hasColumnGrouping && columnLeaves.length > 0) {
+                        let colGroupSpacer = colTotalRow.insertCell();
+                        colGroupSpacer.className = 'table-total-label-cell';
+                        colGroupSpacer.style.width = `${categoryColumnWidth}px`;
+                        colGroupSpacer.style.minWidth = `${categoryColumnWidth}px`;
+                        colGroupSpacer.style.maxWidth = `${categoryColumnWidth}px`;
+                        applyRowSquash(colGroupSpacer, valueRowHeight, cellFontSize, valueWordWrap);
+                        colGroupSpacer.style.borderRight = vertBorderValue;
+                        colGroupSpacer.style.backgroundColor = backgroundColor;
+                        colGroupSpacer.textContent = "";
+                    }
 
                     // Label cell — use Values menu formatting
                     let colTotalLabel = colTotalRow.insertCell();
