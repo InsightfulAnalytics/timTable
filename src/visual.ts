@@ -109,7 +109,11 @@ export class Visual implements IVisual {
 
         for (let i = 0; i < lastHeaderRow.cells.length; i++) {
             const cell = lastHeaderRow.cells[i] as HTMLTableCellElement;
-            cell.style.position = 'relative';
+            // position:sticky already creates a containing block for absolute children;
+            // only fall back to relative if not sticky
+            if (!cell.style.position || cell.style.position === 'static') {
+                cell.style.position = 'relative';
+            }
 
             const handle = document.createElement('div');
             handle.className = 'resize-handle';
@@ -5330,6 +5334,90 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 // Transposed layout: category cells (class 'table-category-cell') are row headers
                 applyAreaBorder(dataRows, rowHeaderBorders, (cell) => cell.className.indexOf('table-category-cell') >= 0);
                 applyAreaBorder(dataRows, valuesBorders, (cell) => cell.className.indexOf('table-category-cell') < 0);
+            }
+        }
+
+        // ── Sticky row & column headers ──
+        // Transfer row-level borders to cells (border-collapse: separate ignores <tr> borders)
+        for (let r = 0; r < this.table.rows.length; r++) {
+            const row = this.table.rows[r];
+            const rBorderBottom = row.style.borderBottom;
+            const rBorderTop = row.style.borderTop;
+            if (rBorderBottom || rBorderTop) {
+                for (let c = 0; c < row.cells.length; c++) {
+                    const cell = row.cells[c];
+                    if (rBorderBottom && !cell.style.borderBottom) {
+                        cell.style.borderBottom = rBorderBottom;
+                    }
+                    if (rBorderTop && !cell.style.borderTop) {
+                        cell.style.borderTop = rBorderTop;
+                    }
+                }
+            }
+        }
+
+        // Move header rows into <thead> so sticky top works in Chromium.
+        // <td> in implicit <tbody> ignores position:sticky for vertical axis.
+        const thead = document.createElement('thead');
+        const tbody = document.createElement('tbody');
+        while (this.table.rows.length > 0) {
+            const row = this.table.rows[0];
+            if (row.className.indexOf('table-header-row') >= 0) {
+                thead.appendChild(row);
+            } else {
+                tbody.appendChild(row);
+            }
+        }
+        // Remove leftover implicit tbody(s)
+        while (this.table.tBodies.length > 0) {
+            this.table.tBodies[0].remove();
+        }
+        if (this.table.tHead) { this.table.tHead.remove(); }
+        this.table.appendChild(thead);
+        this.table.appendChild(tbody);
+
+        // Apply sticky top to all header-row cells (now inside <thead>)
+        let cumulativeTop = 0;
+        for (let r = 0; r < thead.rows.length; r++) {
+            const row = thead.rows[r];
+            const rowH = parseInt(row.style.height) || headerRowHeight;
+            for (let c = 0; c < row.cells.length; c++) {
+                const cell = row.cells[c];
+                cell.style.position = 'sticky';
+                cell.style.top = `${cumulativeTop}px`;
+                cell.style.zIndex = '2';
+            }
+            cumulativeTop += rowH;
+        }
+
+        // Apply sticky left to category / total-label cells (row headers)
+        const allRows = Array.from(this.table.rows);
+        for (let r = 0; r < allRows.length; r++) {
+            const row = allRows[r];
+            const isHeaderRow = row.className.indexOf('table-header-row') >= 0;
+            let leftOffset = 0;
+            for (let c = 0; c < row.cells.length; c++) {
+                const cell = row.cells[c];
+                const isCat = cell.className.indexOf('table-category-cell') >= 0;
+                const isTotalLabel = cell.className.indexOf('table-total-label-cell') >= 0;
+                if (!isCat && !isTotalLabel) {
+                    // In header rows, the first N cells (matching category column count) are also row-header corners
+                    if (isHeaderRow && c < (hasCategories ? categories.sources.length : 0)) {
+                        cell.style.position = 'sticky';
+                        cell.style.left = `${leftOffset}px`;
+                        cell.style.zIndex = '3'; // corner: above both axes
+                        leftOffset += parseInt(cell.style.width) || categoryColumnWidth;
+                    }
+                    break; // done with row-header cells for this row
+                }
+                cell.style.position = 'sticky';
+                cell.style.left = `${leftOffset}px`;
+                if (isHeaderRow) {
+                    cell.style.zIndex = '3'; // corner cell: sticky top + left
+                } else {
+                    cell.style.zIndex = '1';
+                }
+                leftOffset += parseInt(cell.style.width) || categoryColumnWidth;
             }
         }
 

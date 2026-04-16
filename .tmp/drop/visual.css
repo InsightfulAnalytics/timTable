@@ -28,7 +28,8 @@
   background: transparent;
 }
 .pbi-table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-size: 14px;
@@ -36,7 +37,6 @@
 }
 .table-header-row {
   background-color: #f0f0f0;
-  border-bottom: 2px solid #d0d0d0;
 }
 .table-header-cell {
   padding: 0 12px;
