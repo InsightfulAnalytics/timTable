@@ -789,6 +789,7 @@ export class Visual implements IVisual {
         let hasColumnGrouping = false;
         let columnLeaves: { path: any[] }[] = [];
         let columnHeaderGroups: { label: string, span: number }[][] = [];
+        let columnLevelNames: string[] = [];
         let storedFlatRows: any[] = null;
         let storedMeasureCount = 0;
         let storedRoot: any = null;
@@ -883,7 +884,6 @@ export class Visual implements IVisual {
             // Detect column grouping from the matrix columns hierarchy
             if (dataView.matrix.columns) {
                 const matrixCols = dataView.matrix.columns;
-                let columnLevelNames: string[] = [];
                 // Find the depth at which the measure level appears (so we stop before it)
                 let measureLevelDepth = -1;
                 if (matrixCols.levels) {
@@ -2123,7 +2123,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (showTotalColumn) {
                         // One "Total" spanning cell covering all enabled column total columns
                         let emptyColTotal = colHeaderRow.insertCell();
-                        emptyColTotal.textContent = '';
+                        emptyColTotal.textContent = levelIdx === 0 ? 'Total' : '';
                         emptyColTotal.colSpan = colTotalCount;
                         emptyColTotal.className = 'table-header-cell';
                         emptyColTotal.style.backgroundColor = headerBgColor;
@@ -2137,6 +2137,59 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         emptyColTotal.style.textAlign = headerAlignment;
                     }
                 });
+            }
+
+            // Add a "Total" grouping row when column totals are shown but no column grouping header rows exist
+            if (showTotalColumn && !(hasColumnGrouping && columnHeaderGroups.length > 0 && storedMeasureCount > 1)) {
+                let colTotalGroupRow = this.table.insertRow();
+                colTotalGroupRow.className = 'table-header-row';
+                colTotalGroupRow.style.borderBottom = horizBorderValue;
+                colTotalGroupRow.style.height = `${headerRowHeight}px`;
+
+                // Empty cell(s) spanning category columns
+                if (hasCategories) {
+                    categories.sources.forEach(() => {
+                        let emptyCell = colTotalGroupRow.insertCell();
+                        emptyCell.textContent = '';
+                        emptyCell.className = 'table-header-cell';
+                        emptyCell.style.width = `${categoryColumnWidth}px`;
+                        emptyCell.style.minWidth = `${categoryColumnWidth}px`;
+                        emptyCell.style.maxWidth = `${categoryColumnWidth}px`;
+                        emptyCell.style.backgroundColor = headerBgColor;
+                        emptyCell.style.borderRight = vertBorderValue;
+                        applyRowSquash(emptyCell, headerRowHeight, headerFontSize, headerWordWrap);
+                    });
+                }
+
+                // Empty cell spanning all measure columns
+                let emptyMeasures = colTotalGroupRow.insertCell();
+                emptyMeasures.textContent = '';
+                emptyMeasures.colSpan = measureHeaders.length;
+                emptyMeasures.className = 'table-header-cell';
+                emptyMeasures.style.backgroundColor = headerBgColor;
+                emptyMeasures.style.borderRight = vertBorderValue;
+                applyRowSquash(emptyMeasures, headerRowHeight, headerFontSize, headerWordWrap);
+
+                // "Total" cell spanning all column total columns
+                let totalGroupCell = colTotalGroupRow.insertCell();
+                totalGroupCell.textContent = 'Total';
+                totalGroupCell.colSpan = colTotalCount;
+                totalGroupCell.className = 'table-header-cell';
+                totalGroupCell.style.backgroundColor = headerBgColor;
+                totalGroupCell.style.borderRight = vertBorderValue;
+                totalGroupCell.style.textAlign = 'center';
+                applyRowSquash(totalGroupCell, headerRowHeight, headerFontSize, headerWordWrap);
+                totalGroupCell.style.fontWeight = headerBold ? "bold" : "normal";
+                totalGroupCell.style.fontStyle = headerItalic ? "italic" : "normal";
+                totalGroupCell.style.textDecoration = headerUnderline ? "underline" : "none";
+                totalGroupCell.style.fontFamily = headerFontFamily;
+                totalGroupCell.style.color = headerTextColor;
+                totalGroupCell.style.overflow = "hidden";
+                totalGroupCell.style.textOverflow = "ellipsis";
+                totalGroupCell.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                if (headerWordWrap) {
+                    totalGroupCell.style.wordBreak = "break-word";
+                }
             }
 
             let headerRow = this.table.insertRow();
@@ -2233,7 +2286,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 for (let mIdx = 0; mIdx < M; mIdx++) {
                     if (!baseMeasureColTotalIncluded[mIdx]) continue;
                     let colTotalHeader = headerRow.insertCell();
-                    colTotalHeader.textContent = baseMeasureHeaders[mIdx] + " Total";
+                    colTotalHeader.textContent = baseMeasureHeaders[mIdx];
                     colTotalHeader.className = 'table-header-cell';
                     colTotalHeader.style.width = `${colTotalColumnWidths[mIdx]}px`;
                     colTotalHeader.style.minWidth = `${colTotalColumnWidths[mIdx]}px`;
@@ -3781,31 +3834,29 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
             // First header(s): Column group header (if column grouping) + "Measure"
             if (hasColumnGrouping && columnLeaves.length > 0) {
-                // Derive the column group field name from the matrix columns levels
-                const colGroupName = dataView.matrix?.columns?.levels
-                    ?.filter(l => l.sources.length > 0 && !l.sources[0].isMeasure)
-                    .map(l => l.sources[0].displayName)
-                    .join(' \u203A ') || "Column";
-                let colGroupHeader = headerRow.insertCell();
-                colGroupHeader.textContent = colGroupName;
-                colGroupHeader.className = 'table-header-cell';
-                colGroupHeader.style.width = `${categoryColumnWidth}px`;
-                colGroupHeader.style.minWidth = `${categoryColumnWidth}px`;
-                colGroupHeader.style.maxWidth = `${categoryColumnWidth}px`;
-                applyRowSquash(colGroupHeader, headerRowHeight, headerFontSize, headerWordWrap);
-                colGroupHeader.style.fontWeight = headerBold ? "bold" : "normal";
-                colGroupHeader.style.fontStyle = headerItalic ? "italic" : "normal";
-                colGroupHeader.style.textDecoration = headerUnderline ? "underline" : "none";
-                colGroupHeader.style.fontFamily = headerFontFamily;
-                colGroupHeader.style.color = headerTextColor;
-                colGroupHeader.style.textAlign = headerAlignment;
-                colGroupHeader.style.borderRight = vertBorderValue;
-                colGroupHeader.style.backgroundColor = headerBgColor;
-                colGroupHeader.style.overflow = "hidden";
-                colGroupHeader.style.textOverflow = "ellipsis";
-                colGroupHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
-                if (headerWordWrap) {
-                    colGroupHeader.style.wordBreak = "break-word";
+                // Create one header cell per column level
+                for (let lvl = 0; lvl < columnLevelNames.length; lvl++) {
+                    let colGroupHeader = headerRow.insertCell();
+                    colGroupHeader.textContent = columnLevelNames[lvl];
+                    colGroupHeader.className = 'table-header-cell';
+                    colGroupHeader.style.width = `${categoryColumnWidth}px`;
+                    colGroupHeader.style.minWidth = `${categoryColumnWidth}px`;
+                    colGroupHeader.style.maxWidth = `${categoryColumnWidth}px`;
+                    applyRowSquash(colGroupHeader, headerRowHeight, headerFontSize, headerWordWrap);
+                    colGroupHeader.style.fontWeight = headerBold ? "bold" : "normal";
+                    colGroupHeader.style.fontStyle = headerItalic ? "italic" : "normal";
+                    colGroupHeader.style.textDecoration = headerUnderline ? "underline" : "none";
+                    colGroupHeader.style.fontFamily = headerFontFamily;
+                    colGroupHeader.style.color = headerTextColor;
+                    colGroupHeader.style.textAlign = headerAlignment;
+                    colGroupHeader.style.borderRight = vertBorderValue;
+                    colGroupHeader.style.backgroundColor = headerBgColor;
+                    colGroupHeader.style.overflow = "hidden";
+                    colGroupHeader.style.textOverflow = "ellipsis";
+                    colGroupHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
+                    if (headerWordWrap) {
+                        colGroupHeader.style.wordBreak = "break-word";
+                    }
                 }
             }
 
@@ -3991,27 +4042,29 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 const rowBgColor = isEvenRow ? backgroundColor : alternateBackgroundColor;
                 row.style.backgroundColor = rowBgColor;
 
-                // Cell 0 (optional): Column group label when column grouping is active
+                // Cell 0 (optional): Column group labels when column grouping is active — one cell per level
                 if (hasColumnGrouping && (valueColumn as any).columnPath) {
-                    const colLabel = ((valueColumn as any).columnPath as any[]).join(' \u203A ');
-                    let colGroupCell = row.insertCell();
-                    colGroupCell.textContent = colLabel;
-                    colGroupCell.className = 'table-category-cell';
-                    colGroupCell.style.width = `${categoryColumnWidth}px`;
-                    colGroupCell.style.minWidth = `${categoryColumnWidth}px`;
-                    colGroupCell.style.maxWidth = `${categoryColumnWidth}px`;
-                    applyRowSquash(colGroupCell, rowHeight, cellFontSize, categoryWordWrap);
-                    colGroupCell.style.fontWeight = valueBold ? "bold" : "normal";
-                    colGroupCell.style.fontStyle = cellItalic ? "italic" : "normal";
-                    colGroupCell.style.textDecoration = cellUnderline ? "underline" : "none";
-                    colGroupCell.style.borderRight = vertBorderValue;
-                    colGroupCell.style.backgroundColor = rowBgColor;
-                    colGroupCell.style.color = defaultCategoryTextColor;
-                    colGroupCell.style.overflow = "hidden";
-                    colGroupCell.style.textOverflow = "ellipsis";
-                    colGroupCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
-                    if (categoryWordWrap) {
-                        colGroupCell.style.wordBreak = "break-word";
+                    const colPath = (valueColumn as any).columnPath as any[];
+                    for (let lvl = 0; lvl < columnLevelNames.length; lvl++) {
+                        let colGroupCell = row.insertCell();
+                        colGroupCell.textContent = lvl < colPath.length ? String(colPath[lvl]) : "";
+                        colGroupCell.className = 'table-category-cell';
+                        colGroupCell.style.width = `${categoryColumnWidth}px`;
+                        colGroupCell.style.minWidth = `${categoryColumnWidth}px`;
+                        colGroupCell.style.maxWidth = `${categoryColumnWidth}px`;
+                        applyRowSquash(colGroupCell, rowHeight, cellFontSize, categoryWordWrap);
+                        colGroupCell.style.fontWeight = valueBold ? "bold" : "normal";
+                        colGroupCell.style.fontStyle = cellItalic ? "italic" : "normal";
+                        colGroupCell.style.textDecoration = cellUnderline ? "underline" : "none";
+                        colGroupCell.style.borderRight = vertBorderValue;
+                        colGroupCell.style.backgroundColor = rowBgColor;
+                        colGroupCell.style.color = defaultCategoryTextColor;
+                        colGroupCell.style.overflow = "hidden";
+                        colGroupCell.style.textOverflow = "ellipsis";
+                        colGroupCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
+                        if (categoryWordWrap) {
+                            colGroupCell.style.wordBreak = "break-word";
+                        }
                     }
                 }
 
@@ -4781,31 +4834,56 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
             // Add column totals rows in transposed layout — one row per enabled base measure
             if (showTotalColumn) {
+                let isFirstColTotal = true;
+
+                // When no column grouping, add a "Total" section header row before column total rows
+                if (!hasColumnGrouping || columnLeaves.length === 0) {
+                    let totalSectionRow = this.table.insertRow();
+                    totalSectionRow.className = 'table-total-row';
+                    totalSectionRow.style.borderTop = horizBorder2xValue;
+                    totalSectionRow.style.borderBottom = horizBorderValue;
+                    totalSectionRow.style.height = `${valueRowHeight}px`;
+                    let totalSectionCell = totalSectionRow.insertCell();
+                    totalSectionCell.textContent = 'Total';
+                    // Span: 1 (measure) + rowCount (data) + (showTotalRow ? 1 : 0)
+                    totalSectionCell.colSpan = 1 + rowCount + (showTotalRow ? 1 : 0);
+                    totalSectionCell.className = 'table-total-label-cell';
+                    totalSectionCell.style.fontWeight = "bold";
+                    totalSectionCell.style.fontFamily = cellFontFamily;
+                    totalSectionCell.style.color = textColor;
+                    totalSectionCell.style.backgroundColor = backgroundColor;
+                    totalSectionCell.style.borderRight = vertBorderValue;
+                    applyRowSquash(totalSectionCell, valueRowHeight, cellFontSize, valueWordWrap);
+                    totalSectionCell.style.overflow = "hidden";
+                }
+
                 for (let mIdx = 0; mIdx < M; mIdx++) {
                     if (!baseMeasureColTotalIncluded[mIdx]) continue;
 
                     let colTotalRow = this.table.insertRow();
                     colTotalRow.className = 'table-total-row';
-                    colTotalRow.style.borderTop = horizBorder2xValue;
+                    colTotalRow.style.borderTop = isFirstColTotal ? horizBorder2xValue : horizBorderValue;
                     colTotalRow.style.borderBottom = horizBorder2xValue;
                     colTotalRow.style.height = `${valueRowHeight}px`;
 
-                    // Column group spacer cell when column grouping is active
+                    // Column group spacer cells when column grouping is active — one per level
                     if (hasColumnGrouping && columnLeaves.length > 0) {
-                        let colGroupSpacer = colTotalRow.insertCell();
-                        colGroupSpacer.className = 'table-total-label-cell';
-                        colGroupSpacer.style.width = `${categoryColumnWidth}px`;
-                        colGroupSpacer.style.minWidth = `${categoryColumnWidth}px`;
-                        colGroupSpacer.style.maxWidth = `${categoryColumnWidth}px`;
-                        applyRowSquash(colGroupSpacer, valueRowHeight, cellFontSize, valueWordWrap);
-                        colGroupSpacer.style.borderRight = vertBorderValue;
-                        colGroupSpacer.style.backgroundColor = backgroundColor;
-                        colGroupSpacer.textContent = "";
+                        for (let lvl = 0; lvl < columnLevelNames.length; lvl++) {
+                            let colGroupSpacer = colTotalRow.insertCell();
+                            colGroupSpacer.className = 'table-total-label-cell';
+                            colGroupSpacer.style.width = `${categoryColumnWidth}px`;
+                            colGroupSpacer.style.minWidth = `${categoryColumnWidth}px`;
+                            colGroupSpacer.style.maxWidth = `${categoryColumnWidth}px`;
+                            applyRowSquash(colGroupSpacer, valueRowHeight, cellFontSize, valueWordWrap);
+                            colGroupSpacer.style.borderRight = vertBorderValue;
+                            colGroupSpacer.style.backgroundColor = backgroundColor;
+                            colGroupSpacer.textContent = (isFirstColTotal && lvl === 0) ? "Total" : "";
+                        }
                     }
 
                     // Label cell — use Values menu formatting
                     let colTotalLabel = colTotalRow.insertCell();
-                    colTotalLabel.textContent = baseMeasureHeaders[mIdx] + " Total";
+                    colTotalLabel.textContent = baseMeasureHeaders[mIdx];
                     colTotalLabel.className = 'table-total-label-cell';
                     colTotalLabel.style.width = `${categoryColumnWidth}px`;
                     colTotalLabel.style.minWidth = `${categoryColumnWidth}px`;
@@ -5183,6 +5261,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }];
                         this.addTooltip(grandCell, trGrandTooltipItems);
                     }
+                    isFirstColTotal = false;
                 }
             }
         }
