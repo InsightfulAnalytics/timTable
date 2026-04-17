@@ -52,6 +52,7 @@ export class Visual implements IVisual {
     private manualColumnWidths: Map<number, number> = new Map();
     private lastColumnWidthSnapshot: string = "";
     private colElements: HTMLElement[] = [];
+    private numRowHeaderCols: number = 0;
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
@@ -115,36 +116,136 @@ export class Visual implements IVisual {
         }
     }
 
+    private refreshStickyLeft(): void {
+        const allRows = Array.from(this.table.rows);
+        for (let r = 0; r < allRows.length; r++) {
+            const row = allRows[r];
+            const isHeaderRow = row.className.indexOf('table-header-row') >= 0;
+            let leftOffset = 0;
+            for (let c = 0; c < row.cells.length; c++) {
+                const cell = row.cells[c];
+                if (cell.style.position === 'sticky' && cell.style.left !== undefined && cell.style.left !== '') {
+                    cell.style.left = `${leftOffset}px`;
+                    leftOffset += cell.offsetWidth || parseInt(cell.style.width) || 0;
+                } else if (isHeaderRow && c < this.numRowHeaderCols) {
+                    // Header corner cells that are sticky
+                    cell.style.left = `${leftOffset}px`;
+                    leftOffset += cell.offsetWidth || parseInt(cell.style.width) || 0;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
     private attachResizeHandles(): void {
         const headerRows = this.table.querySelectorAll('.table-header-row');
         if (headerRows.length === 0) return;
-        const lastHeaderRow = headerRows[headerRows.length - 1] as HTMLTableRowElement;
 
-        for (let i = 0; i < lastHeaderRow.cells.length; i++) {
-            const cell = lastHeaderRow.cells[i] as HTMLTableCellElement;
-            // position:sticky already creates a containing block for absolute children;
-            // only fall back to relative if not sticky
-            if (!cell.style.position || cell.style.position === 'static') {
-                cell.style.position = 'relative';
+        for (let rowIdx = 0; rowIdx < headerRows.length; rowIdx++) {
+            const headerRow = headerRows[rowIdx] as HTMLTableRowElement;
+
+            for (let i = 0; i < headerRow.cells.length; i++) {
+                const cell = headerRow.cells[i] as HTMLTableCellElement;
+                // position:sticky already creates a containing block for absolute children;
+                // only fall back to relative if not sticky
+                if (!cell.style.position || cell.style.position === 'static') {
+                    cell.style.position = 'relative';
+                }
+
+                const handle = document.createElement('div');
+                handle.className = 'resize-handle';
+
+                // Compute the logical column index of the RIGHT edge of this cell
+                // (i.e. the last logical column covered by this cell's colspan)
+                let logicalIdx = 0;
+                for (let c = 0; c < i; c++) {
+                    logicalIdx += headerRow.cells[c].colSpan || 1;
+                }
+                const span = cell.colSpan || 1;
+                const rightmostLogicalIdx = logicalIdx + span - 1;
+
+                handle.addEventListener('mousedown', (e: MouseEvent) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (span === 1) {
+                        // Single-column cell: resize just that column
+                        this.startColumnResize(e, rightmostLogicalIdx);
+                    } else {
+                        // Multi-span cell: resize all child columns proportionally
+                        this.startGroupResize(e, logicalIdx, span);
+                    }
+                });
+
+                cell.appendChild(handle);
             }
-
-            const handle = document.createElement('div');
-            handle.className = 'resize-handle';
-
-            let logicalIdx = 0;
-            for (let c = 0; c < i; c++) {
-                logicalIdx += lastHeaderRow.cells[c].colSpan || 1;
-            }
-
-            const capturedLogicalIdx = logicalIdx;
-            handle.addEventListener('mousedown', (e: MouseEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.startColumnResize(e, capturedLogicalIdx);
-            });
-
-            cell.appendChild(handle);
         }
+    }
+
+    private startGroupResize(e: MouseEvent, startLogicalIdx: number, span: number): void {
+        const startX = e.clientX;
+
+        // Collect starting widths for each logical column in the group
+        const startWidths: number[] = [];
+        let totalStartWidth = 0;
+        for (let s = 0; s < span; s++) {
+            const colIdx = startLogicalIdx + s;
+            const cells = this.getCellsInLogicalColumn(colIdx);
+            const w = cells.length > 0 ? cells[0].offsetWidth : (this.colElements[colIdx] ? parseInt(this.colElements[colIdx].style.width) || 100 : 100);
+            startWidths.push(w);
+            totalStartWidth += w;
+        }
+
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        const applyGroupWidth = (delta: number) => {
+            const newTotalWidth = Math.max(30 * span, totalStartWidth + delta);
+            const scale = newTotalWidth / totalStartWidth;
+            for (let s = 0; s < span; s++) {
+                const colIdx = startLogicalIdx + s;
+                const newW = Math.max(30, Math.round(startWidths[s] * scale));
+                const cells = this.getCellsInLogicalColumn(colIdx);
+                cells.forEach(cell => {
+                    cell.style.width = `${newW}px`;
+                    cell.style.minWidth = `${newW}px`;
+                    cell.style.maxWidth = `${newW}px`;
+                });
+                if (this.colElements[colIdx]) {
+                    this.colElements[colIdx].style.width = `${newW}px`;
+                }
+            }
+            this.syncTableWidth();
+            this.refreshStickyLeft();
+        };
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            applyGroupWidth(moveEvent.clientX - startX);
+        };
+
+        const onMouseUp = (upEvent: MouseEvent) => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+
+            const delta = upEvent.clientX - startX;
+            const newTotalWidth = Math.max(30 * span, totalStartWidth + delta);
+            const scale = newTotalWidth / totalStartWidth;
+            for (let s = 0; s < span; s++) {
+                const colIdx = startLogicalIdx + s;
+                const newW = Math.max(30, Math.round(startWidths[s] * scale));
+                this.manualColumnWidths.set(colIdx, newW);
+                if (this.colElements[colIdx]) {
+                    this.colElements[colIdx].style.width = `${newW}px`;
+                }
+            }
+            this.syncTableWidth();
+            this.refreshStickyLeft();
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
     }
 
     private startColumnResize(e: MouseEvent, logicalColIdx: number): void {
@@ -169,6 +270,7 @@ export class Visual implements IVisual {
                 this.colElements[logicalColIdx].style.width = `${newWidth}px`;
             }
             this.syncTableWidth();
+            this.refreshStickyLeft();
         };
 
         const onMouseUp = (upEvent: MouseEvent) => {
@@ -184,6 +286,7 @@ export class Visual implements IVisual {
                 this.colElements[logicalColIdx].style.width = `${newWidth}px`;
             }
             this.syncTableWidth();
+            this.refreshStickyLeft();
         };
 
         document.addEventListener('mousemove', onMouseMove);
@@ -5450,12 +5553,12 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         this.attachResizeHandles();
 
         // Count row-header columns from first data row (handles both transposed and normal layouts)
-        let numRowHeaderCols = 0;
+        this.numRowHeaderCols = 0;
         if (tbody.rows.length > 0) {
             for (let c = 0; c < tbody.rows[0].cells.length; c++) {
                 const cls = tbody.rows[0].cells[c].className;
                 if (cls.indexOf('table-category-cell') >= 0 || cls.indexOf('table-total-label-cell') >= 0) {
-                    numRowHeaderCols++;
+                    this.numRowHeaderCols++;
                 } else {
                     break;
                 }
@@ -5474,7 +5577,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 const isTotalLabel = cell.className.indexOf('table-total-label-cell') >= 0;
                 if (!isCat && !isTotalLabel) {
                     // In header rows, the first N cells (matching row-header column count) are also row-header corners
-                    if (isHeaderRow && c < numRowHeaderCols) {
+                    if (isHeaderRow && c < this.numRowHeaderCols) {
                         cell.style.position = 'sticky';
                         cell.style.left = `${leftOffset}px`;
                         cell.style.zIndex = '200'; // corner: above both axes

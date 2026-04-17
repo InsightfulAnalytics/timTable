@@ -17,12 +17,15 @@ export declare class Visual implements IVisual {
     private manualColumnWidths;
     private lastColumnWidthSnapshot;
     private colElements;
+    private numRowHeaderCols;
     constructor(options: VisualConstructorOptions);
     getFormattingModel(): any;
     private getCellsInLogicalColumn;
     private applyManualWidths;
     private syncTableWidth;
+    private refreshStickyLeft;
     private attachResizeHandles;
+    private startGroupResize;
     private startColumnResize;
     private addTooltip;
     enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject;
