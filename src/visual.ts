@@ -51,6 +51,7 @@ export class Visual implements IVisual {
     private tooltipService: ITooltipService;
     private manualColumnWidths: Map<number, number> = new Map();
     private lastColumnWidthSnapshot: string = "";
+    private colElements: HTMLElement[] = [];
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
@@ -99,7 +100,19 @@ export class Visual implements IVisual {
                 cell.style.minWidth = `${width}px`;
                 cell.style.maxWidth = `${width}px`;
             });
+            if (this.colElements[colIdx]) {
+                this.colElements[colIdx].style.width = `${width}px`;
+            }
         });
+        this.syncTableWidth();
+    }
+
+    private syncTableWidth(): void {
+        if (this.colElements.length > 0) {
+            let total = 0;
+            this.colElements.forEach(col => { total += parseInt(col.style.width) || 0; });
+            this.table.style.width = `${total}px`;
+        }
     }
 
     private attachResizeHandles(): void {
@@ -152,6 +165,10 @@ export class Visual implements IVisual {
                 cell.style.minWidth = `${newWidth}px`;
                 cell.style.maxWidth = `${newWidth}px`;
             });
+            if (this.colElements[logicalColIdx]) {
+                this.colElements[logicalColIdx].style.width = `${newWidth}px`;
+            }
+            this.syncTableWidth();
         };
 
         const onMouseUp = (upEvent: MouseEvent) => {
@@ -163,6 +180,10 @@ export class Visual implements IVisual {
             const delta = upEvent.clientX - startX;
             const newWidth = Math.max(30, startWidth + delta);
             this.manualColumnWidths.set(logicalColIdx, newWidth);
+            if (this.colElements[logicalColIdx]) {
+                this.colElements[logicalColIdx].style.width = `${newWidth}px`;
+            }
+            this.syncTableWidth();
         };
 
         document.addEventListener('mousemove', onMouseMove);
@@ -3755,7 +3776,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let efTotalFontFamily = specSettings.totalFontFamily !== undefined ? specSettings.totalFontFamily : totalRowFontFamily;
                     let efTotalFontSize = specSettings.totalFontSize !== undefined ? specSettings.totalFontSize : totalRowFontSize;
                     let efTotalWordWrap = specSettings.totalTextWrap !== undefined ? specSettings.totalTextWrap : totalRowWordWrap;
-                    let efTotalBg = specSettings.totalBackgroundColor ? specSettings.totalBackgroundColor : backgroundColor;
+                    let efTotalBg = specSettings.totalBackgroundColor ? specSettings.totalBackgroundColor : totalBgColor;
 
                     // Apply background CF to grand total cell if applyTo includes totals
                     const grandBgApplyToRaw = dataViewObjects.getValue<any>(
@@ -5376,6 +5397,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         this.table.appendChild(thead);
         this.table.appendChild(tbody);
 
+        // Create <colgroup> with <col> elements for reliable column-width control
+        // (table-layout: fixed uses <col> widths first, bypassing first-row colspan issues)
+        const colgroup = document.createElement('colgroup');
+        this.colElements = [];
+        const lastHdrRow = thead.rows[thead.rows.length - 1];
+        let totalTableWidth = 0;
+        for (let i = 0; i < lastHdrRow.cells.length; i++) {
+            const col = document.createElement('col');
+            const w = parseInt(lastHdrRow.cells[i].style.width) || 100;
+            col.style.width = `${w}px`;
+            colgroup.appendChild(col);
+            this.colElements.push(col);
+            totalTableWidth += w;
+        }
+        this.table.insertBefore(colgroup, this.table.firstChild);
+        this.table.style.width = `${totalTableWidth}px`;
+
         // Apply sticky top to all header-row cells (now inside <thead>)
         // Helper: detect if a bg color is missing or transparent
         const isTransparentBg = (bg: string): boolean => {
@@ -5411,6 +5449,19 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         this.applyManualWidths();
         this.attachResizeHandles();
 
+        // Count row-header columns from first data row (handles both transposed and normal layouts)
+        let numRowHeaderCols = 0;
+        if (tbody.rows.length > 0) {
+            for (let c = 0; c < tbody.rows[0].cells.length; c++) {
+                const cls = tbody.rows[0].cells[c].className;
+                if (cls.indexOf('table-category-cell') >= 0 || cls.indexOf('table-total-label-cell') >= 0) {
+                    numRowHeaderCols++;
+                } else {
+                    break;
+                }
+            }
+        }
+
         // Apply sticky left to category / total-label cells (row headers)
         const allRows = Array.from(this.table.rows);
         for (let r = 0; r < allRows.length; r++) {
@@ -5422,8 +5473,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 const isCat = cell.className.indexOf('table-category-cell') >= 0;
                 const isTotalLabel = cell.className.indexOf('table-total-label-cell') >= 0;
                 if (!isCat && !isTotalLabel) {
-                    // In header rows, the first N cells (matching category column count) are also row-header corners
-                    if (isHeaderRow && c < (hasCategories ? categories.sources.length : 0)) {
+                    // In header rows, the first N cells (matching row-header column count) are also row-header corners
+                    if (isHeaderRow && c < numRowHeaderCols) {
                         cell.style.position = 'sticky';
                         cell.style.left = `${leftOffset}px`;
                         cell.style.zIndex = '200'; // corner: above both axes

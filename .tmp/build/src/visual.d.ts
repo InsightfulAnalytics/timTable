@@ -16,10 +16,12 @@ export declare class Visual implements IVisual {
     private tooltipService;
     private manualColumnWidths;
     private lastColumnWidthSnapshot;
+    private colElements;
     constructor(options: VisualConstructorOptions);
     getFormattingModel(): any;
     private getCellsInLogicalColumn;
     private applyManualWidths;
+    private syncTableWidth;
     private attachResizeHandles;
     private startColumnResize;
     private addTooltip;
