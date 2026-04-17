@@ -5377,6 +5377,16 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         this.table.appendChild(tbody);
 
         // Apply sticky top to all header-row cells (now inside <thead>)
+        // Helper: detect if a bg color is missing or transparent
+        const isTransparentBg = (bg: string): boolean => {
+            if (!bg) return true;
+            const v = bg.trim().toLowerCase();
+            if (v === '' || v === 'transparent' || v === 'rgba(0, 0, 0, 0)' || v === 'initial' || v === 'inherit') return true;
+            // Detect rgba with alpha 0
+            const m = v.match(/rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
+            if (m && parseFloat(m[1]) === 0) return true;
+            return false;
+        };
         let cumulativeTop = 0;
         for (let r = 0; r < thead.rows.length; r++) {
             const row = thead.rows[r];
@@ -5385,10 +5395,21 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 const cell = row.cells[c];
                 cell.style.position = 'sticky';
                 cell.style.top = `${cumulativeTop}px`;
-                cell.style.zIndex = '2';
+                cell.style.zIndex = '100';
+                // Ensure opaque bg so scrolling content is hidden behind sticky cell
+                if (isTransparentBg(cell.style.backgroundColor)) {
+                    const fallback = row.style.backgroundColor && !isTransparentBg(row.style.backgroundColor)
+                        ? row.style.backgroundColor
+                        : (!isTransparentBg(headerBackgroundColor) ? headerBackgroundColor : '#f0f0f0');
+                    cell.style.backgroundColor = fallback;
+                }
             }
             cumulativeTop += rowH;
         }
+
+        // Apply manual column width overrides and attach resize handles FIRST so sticky leftOffset sees correct widths
+        this.applyManualWidths();
+        this.attachResizeHandles();
 
         // Apply sticky left to category / total-label cells (row headers)
         const allRows = Array.from(this.table.rows);
@@ -5405,25 +5426,32 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (isHeaderRow && c < (hasCategories ? categories.sources.length : 0)) {
                         cell.style.position = 'sticky';
                         cell.style.left = `${leftOffset}px`;
-                        cell.style.zIndex = '3'; // corner: above both axes
+                        cell.style.zIndex = '200'; // corner: above both axes
+                        if (isTransparentBg(cell.style.backgroundColor)) {
+                            const fb = !isTransparentBg(row.style.backgroundColor) ? row.style.backgroundColor
+                                : (!isTransparentBg(headerBackgroundColor) ? headerBackgroundColor : '#f0f0f0');
+                            cell.style.backgroundColor = fb;
+                        }
                         leftOffset += parseInt(cell.style.width) || categoryColumnWidth;
+                        continue;
                     }
                     break; // done with row-header cells for this row
                 }
                 cell.style.position = 'sticky';
                 cell.style.left = `${leftOffset}px`;
                 if (isHeaderRow) {
-                    cell.style.zIndex = '3'; // corner cell: sticky top + left
+                    cell.style.zIndex = '200'; // corner cell: sticky top + left
                 } else {
-                    cell.style.zIndex = '1';
+                    cell.style.zIndex = '50';
+                }
+                // Ensure opaque bg so scrolling content is hidden behind sticky cell
+                if (isTransparentBg(cell.style.backgroundColor)) {
+                    const fb = !isTransparentBg(row.style.backgroundColor) ? row.style.backgroundColor : '#ffffff';
+                    cell.style.backgroundColor = fb;
                 }
                 leftOffset += parseInt(cell.style.width) || categoryColumnWidth;
             }
         }
-
-        // Apply manual column width overrides and attach resize handles
-        this.applyManualWidths();
-        this.attachResizeHandles();
     }
 }
 
