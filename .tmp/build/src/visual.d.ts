@@ -14,6 +14,9 @@ export declare class Visual implements IVisual {
     private dataView;
     private host;
     private tooltipService;
+    private selectionManager;
+    private rowSelectionIds;
+    private colSelectionIds;
     private manualColumnWidths;
     private lastColumnWidthSnapshot;
     private colElements;
@@ -30,4 +33,8 @@ export declare class Visual implements IVisual {
     private addTooltip;
     enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject;
     update(options: VisualUpdateOptions): void;
+    /**
+     * Dim unselected rows when a selection is active (PBI cross-filtering).
+     */
+    private syncSelectionOpacity;
 }

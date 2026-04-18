@@ -1154,5 +1154,6 @@
             "canvas": true
         }
     },
+    "supportsMultiVisualSelection": true,
     "privileges": []
 }

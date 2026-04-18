@@ -40,6 +40,8 @@ import { dataViewObjects, dataViewWildcard } from "powerbi-visuals-utils-datavie
 import { valueFormatter } from "powerbi-visuals-utils-formattingutils";
 import ITooltipService = powerbi.extensibility.ITooltipService;
 import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
+import ISelectionManager = powerbi.extensibility.ISelectionManager;
+import ISelectionId = powerbi.extensibility.ISelectionId;
 
 export class Visual implements IVisual {
     private tableContainer: HTMLDivElement;
@@ -49,6 +51,9 @@ export class Visual implements IVisual {
     private dataView: DataView;
     private host: powerbi.extensibility.visual.IVisualHost;
     private tooltipService: ITooltipService;
+    private selectionManager: ISelectionManager;
+    private rowSelectionIds: (ISelectionId | null)[] = [];
+    private colSelectionIds: (ISelectionId | null)[] = [];
     private manualColumnWidths: Map<number, number> = new Map();
     private lastColumnWidthSnapshot: string = "";
     private colElements: HTMLElement[] = [];
@@ -64,6 +69,17 @@ export class Visual implements IVisual {
         this.table = document.createElement('table');
         this.table.className = 'pbi-table';
         this.tableContainer.appendChild(this.table);
+
+        this.selectionManager = this.host.createSelectionManager();
+
+        // Clear selection when clicking on empty area of the visual
+        this.tableContainer.addEventListener("click", (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (target === this.tableContainer || target === this.table) {
+                this.selectionManager.clear();
+                this.syncSelectionOpacity();
+            }
+        });
 
         this.formattingSettingsService = new FormattingSettingsService();
         this.visualSettings = new VisualSettings();
@@ -913,8 +929,8 @@ export class Visual implements IVisual {
 
         // Column grouping support (matrix columns field)
         let hasColumnGrouping = false;
-        let columnLeaves: { path: any[] }[] = [];
-        let columnHeaderGroups: { label: string, span: number }[][] = [];
+        let columnLeaves: { path: any[], matrixNode?: any }[] = [];
+        let columnHeaderGroups: { label: string, span: number, matrixNode?: any }[][] = [];
         let columnLevelNames: string[] = [];
         let storedFlatRows: any[] = null;
         let storedMeasureCount = 0;
@@ -957,6 +973,7 @@ export class Visual implements IVisual {
                         value: newPath[depth] || "Total",
                         path: pathArray,
                         identity: node.identity,
+                        matrixNode: node,
                         objects: node.objects,
                         rawValues: nodeVals,
                         isSubtotal: !!node.isSubtotal,
@@ -1007,6 +1024,20 @@ export class Visual implements IVisual {
             storedRoot = root;
             storedSubtotalChild = subtotalChild;
 
+            // Build selection IDs for cross-filtering interactivity
+            this.rowSelectionIds = flatRows.map(r => {
+                if (r.matrixNode && !r.isSubtotal && r.matrixNode.identity) {
+                    try {
+                        return this.host.createSelectionIdBuilder()
+                            .withMatrixNode(r.matrixNode, matrixRows.levels)
+                            .createSelectionId();
+                    } catch (e) {
+                        return null;
+                    }
+                }
+                return null;
+            });
+
             // Detect column grouping from the matrix columns hierarchy
             if (dataView.matrix.columns) {
                 const matrixCols = dataView.matrix.columns;
@@ -1030,6 +1061,9 @@ export class Visual implements IVisual {
                     // Also track ALL leaves (including subtotals) to determine value key indices,
                     // because rawValues keys follow tree-order across all leaves including subtotals.
                     let allColumnLeafIndex = 0; // counter for ALL leaves (regular + subtotal) in tree order
+                    // Track column tree nodes at each non-measure level for selection
+                    let columnNodesByLevel: { value: any, matrixNode: any, leafStart: number, leafCount: number }[][] = columnLevelNames.map(() => []);
+                    let currentLeafCounters: number[] = columnLevelNames.map(() => 0);
 
                     const flattenCol = (node: any, path: any[], depth: number, isSubtotalBranch: boolean) => {
                         let newPath = [...path];
@@ -1038,6 +1072,13 @@ export class Visual implements IVisual {
                         const nonSubtotalChildren = allChildren.filter((c: any) => !c.isSubtotal);
                         const subtotalChildren = allChildren.filter((c: any) => c.isSubtotal);
                         const isSubtotal = isSubtotalBranch || !!node.isSubtotal;
+
+                        // Track non-subtotal intermediate nodes for selection
+                        if (!isSubtotal && node.value !== undefined && depth < columnLevelNames.length) {
+                            const leafStartIdx = columnLeaves.length;
+                            columnNodesByLevel[depth].push({ value: node.value, matrixNode: node, leafStart: leafStartIdx, leafCount: 0 });
+                        }
+
                         // Stop recursing if the next level is the measure level
                         const nextIsMeasureLevel = measureLevelDepth >= 0 && (depth + 1) === measureLevelDepth;
                         if (nonSubtotalChildren.length === 0 && subtotalChildren.length === 0 || nextIsMeasureLevel) {
@@ -1048,7 +1089,7 @@ export class Visual implements IVisual {
                                     columnSubtotalValueKeys.push(allColumnLeafIndex * storedMeasureCount + m);
                                 }
                             } else {
-                                columnLeaves.push({ path: newPath });
+                                columnLeaves.push({ path: newPath, matrixNode: node });
                             }
                             allColumnLeafIndex++;
                         } else {
@@ -1056,6 +1097,14 @@ export class Visual implements IVisual {
                             nonSubtotalChildren.forEach((c: any) => flattenCol(c, newPath, depth + 1, isSubtotal));
                             // Then subtotal children
                             subtotalChildren.forEach((c: any) => flattenCol(c, newPath, depth + 1, true));
+                        }
+
+                        // After recursion, update leaf count for this node
+                        if (!isSubtotal && node.value !== undefined && depth < columnLevelNames.length) {
+                            const lastEntry = columnNodesByLevel[depth][columnNodesByLevel[depth].length - 1];
+                            if (lastEntry) {
+                                lastEntry.leafCount = columnLeaves.length - lastEntry.leafStart;
+                            }
                         }
                     };
                     // Process all children (non-subtotal first, then subtotal) in tree order
@@ -1076,23 +1125,52 @@ export class Visual implements IVisual {
                     // Build column header grouping info for rendering multi-row headers
                     const M = storedMeasureCount;
                     for (let level = 0; level < columnLevelNames.length; level++) {
-                        let groups: { label: string, span: number }[] = [];
+                        let groups: { label: string, span: number, matrixNode?: any }[] = [];
                         let lastValue: string | null = null;
                         let currentSpan = 0;
+                        let nodeIdx = 0;
                         columnLeaves.forEach(leaf => {
                             const val = leaf.path[level] !== undefined ? String(leaf.path[level]) : "";
                             if (val === lastValue) {
                                 currentSpan += M;
                             } else {
-                                if (lastValue !== null) groups.push({ label: lastValue, span: currentSpan });
+                                if (lastValue !== null) {
+                                    const mNode = nodeIdx > 0 && nodeIdx - 1 < columnNodesByLevel[level].length
+                                        ? columnNodesByLevel[level][nodeIdx - 1].matrixNode : undefined;
+                                    groups.push({ label: lastValue, span: currentSpan, matrixNode: mNode });
+                                }
                                 lastValue = val;
                                 currentSpan = M;
+                                nodeIdx++;
                             }
                         });
-                        if (lastValue !== null) groups.push({ label: lastValue, span: currentSpan });
+                        if (lastValue !== null) {
+                            const mNode = nodeIdx > 0 && nodeIdx - 1 < columnNodesByLevel[level].length
+                                ? columnNodesByLevel[level][nodeIdx - 1].matrixNode : undefined;
+                            groups.push({ label: lastValue, span: currentSpan, matrixNode: mNode });
+                        }
                         columnHeaderGroups.push(groups);
                     }
                 }
+            }
+
+            // Build column selection IDs for cross-filtering by column
+            const matrixCols2 = dataView.matrix.columns;
+            if (matrixCols2) {
+                this.colSelectionIds = columnLeaves.map(leaf => {
+                    if (leaf.matrixNode && leaf.matrixNode.identity) {
+                        try {
+                            return this.host.createSelectionIdBuilder()
+                                .withMatrixNode(leaf.matrixNode, matrixCols2.levels)
+                                .createSelectionId();
+                        } catch (e) {
+                            return null;
+                        }
+                    }
+                    return null;
+                });
+            } else {
+                this.colSelectionIds = [];
             }
 
             // Extract subtotal values for "Measure" total
@@ -2225,6 +2303,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                     // Column grouping cells with colspan
                     let displayColOffset = 0;
+                    let colLeafOffset = 0;
                     groups.forEach(group => {
                         let cell = colHeaderRow.insertCell();
                         cell.textContent = group.label;
@@ -2245,6 +2324,59 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (headerWordWrap) {
                             cell.style.wordBreak = "break-word";
                         }
+
+                        // Column header selection: build selectionId from group's own matrix node
+                        const matrixColLevels = dataView.matrix.columns ? dataView.matrix.columns.levels : [];
+                        let groupSelId: ISelectionId | null = null;
+                        if (group.matrixNode && group.matrixNode.identity) {
+                            try {
+                                groupSelId = this.host.createSelectionIdBuilder()
+                                    .withMatrixNode(group.matrixNode, matrixColLevels)
+                                    .createSelectionId();
+                            } catch (e) { /* skip */ }
+                        }
+                        // Fallback: use leaf selectionIds when no group-level node
+                        const numLeavesInGroup = group.span / Math.max(storedMeasureCount, 1);
+                        if (!groupSelId) {
+                            const groupSelIds: ISelectionId[] = [];
+                            for (let li = colLeafOffset; li < colLeafOffset + numLeavesInGroup && li < this.colSelectionIds.length; li++) {
+                                const sid = this.colSelectionIds[li];
+                                if (sid) groupSelIds.push(sid);
+                            }
+                            if (groupSelIds.length === 1) groupSelId = groupSelIds[0];
+                            else if (groupSelIds.length > 1) {
+                                // Multi-select all leaves under this group
+                                const capturedIds = groupSelIds;
+                                cell.style.cursor = "pointer";
+                                cell.addEventListener("click", (e: MouseEvent) => {
+                                    e.stopPropagation();
+                                    this.selectionManager.select(capturedIds, e.ctrlKey || e.metaKey).then(() => {
+                                        this.syncSelectionOpacity();
+                                    });
+                                });
+                                cell.addEventListener("contextmenu", (e: MouseEvent) => {
+                                    this.selectionManager.showContextMenu(capturedIds[0], { x: e.clientX, y: e.clientY });
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                });
+                            }
+                        }
+                        if (groupSelId) {
+                            cell.style.cursor = "pointer";
+                            cell.addEventListener("click", (e: MouseEvent) => {
+                                e.stopPropagation();
+                                this.selectionManager.select(groupSelId!, e.ctrlKey || e.metaKey).then(() => {
+                                    this.syncSelectionOpacity();
+                                });
+                            });
+                            cell.addEventListener("contextmenu", (e: MouseEvent) => {
+                                this.selectionManager.showContextMenu(groupSelId!, { x: e.clientX, y: e.clientY });
+                                e.preventDefault();
+                                e.stopPropagation();
+                            });
+                        }
+                        colLeafOffset += numLeavesInGroup;
+
                         displayColOffset += group.span;
                     });
 
@@ -2408,6 +2540,27 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 if (efWordWrap) {
                     header.style.wordBreak = "break-word";
                 }
+
+                // Column selection on measure header click (maps header idx to column leaf)
+                if (hasColumnGrouping && columnLeaves.length > 0) {
+                    const M = Math.max(storedMeasureCount, 1);
+                    const colLeafIdx = Math.floor(idx / M);
+                    const sid = colLeafIdx < this.colSelectionIds.length ? this.colSelectionIds[colLeafIdx] : null;
+                    if (sid) {
+                        header.style.cursor = "pointer";
+                        header.addEventListener("click", (e: MouseEvent) => {
+                            e.stopPropagation();
+                            this.selectionManager.select(sid, e.ctrlKey || e.metaKey).then(() => {
+                                this.syncSelectionOpacity();
+                            });
+                        });
+                        header.addEventListener("contextmenu", (e: MouseEvent) => {
+                            this.selectionManager.showContextMenu(sid, { x: e.clientX, y: e.clientY });
+                            e.preventDefault();
+                            e.stopPropagation();
+                        });
+                    }
+                }
             });
 
             // Add column total headers — one per enabled base measure
@@ -2550,6 +2703,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                 let row = this.table.insertRow();
                 row.className = 'table-data-row';
+                row.setAttribute('data-row-index', String(i));
                 row.style.borderBottom = horizBorderValue;
                 // Apply alternating background colors with support for conditional formatting
                 const isEvenRow = i % 2 === 0;
@@ -2560,6 +2714,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                 // Determine if this row is a subtotal row
                 const isSubtotalRow = rowTotalIdx >= 0;
+
+                // Attach selection click handler for cross-filtering
+                const selId = this.rowSelectionIds[i];
+                if (selId) {
+                    row.style.cursor = "pointer";
+                    row.addEventListener("click", (e: MouseEvent) => {
+                        e.stopPropagation();
+                        this.selectionManager.select(selId, e.ctrlKey || e.metaKey).then(() => {
+                            this.syncSelectionOpacity();
+                        });
+                    });
+                    // PBI context menu (right-click: Include/Exclude/Drill etc.)
+                    row.addEventListener("contextmenu", (e: MouseEvent) => {
+                        this.selectionManager.showContextMenu(selId, { x: e.clientX, y: e.clientY });
+                        e.preventDefault();
+                        e.stopPropagation();
+                    });
+                }
 
                 // Add category value
                 if (hasCategories) {
@@ -4009,6 +4181,23 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     catHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
                     if (headerWordWrap) {
                         catHeader.style.wordBreak = "break-word";
+                    }
+
+                    // Transposed: category column headers map to rowSelectionIds
+                    const catSelId = this.rowSelectionIds[i];
+                    if (catSelId) {
+                        catHeader.style.cursor = "pointer";
+                        catHeader.addEventListener("click", (e: MouseEvent) => {
+                            e.stopPropagation();
+                            this.selectionManager.select(catSelId, e.ctrlKey || e.metaKey).then(() => {
+                                this.syncSelectionOpacity();
+                            });
+                        });
+                        catHeader.addEventListener("contextmenu", (e: MouseEvent) => {
+                            this.selectionManager.showContextMenu(catSelId, { x: e.clientX, y: e.clientY });
+                            e.preventDefault();
+                            e.stopPropagation();
+                        });
                     }
                 }
             } else {
@@ -5574,6 +5763,44 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.backgroundColor = fb;
                 }
                 leftOffset += parseInt(cell.style.width) || categoryColumnWidth;
+            }
+        }
+
+        // Apply selection dimming if any rows are currently selected
+        this.syncSelectionOpacity();
+    }
+
+    /**
+     * Dim unselected rows when a selection is active (PBI cross-filtering).
+     */
+    private syncSelectionOpacity(): void {
+        const selectedIds = this.selectionManager.getSelectionIds() as ISelectionId[];
+        const hasSelection = selectedIds && selectedIds.length > 0;
+        const tbody = this.table.tBodies[0];
+        if (!tbody) return;
+
+        for (let r = 0; r < tbody.rows.length; r++) {
+            const row = tbody.rows[r];
+            // Total rows and header rows not dimmed
+            if (row.className.indexOf('table-total-row') >= 0 || row.className.indexOf('table-header-row') >= 0) {
+                row.style.opacity = '1';
+                continue;
+            }
+            if (!hasSelection) {
+                row.style.opacity = '1';
+                continue;
+            }
+            // Check if this row's selection ID matches any of the selected IDs
+            const rowIdx = parseInt(row.getAttribute('data-row-index') || '-1', 10);
+            const rowSelId = rowIdx >= 0 ? this.rowSelectionIds[rowIdx] : null;
+            if (rowSelId) {
+                const isSelected = selectedIds.some(selId =>
+                    (selId as any).equals ? (selId as any).equals(rowSelId) : selId === rowSelId
+                );
+                row.style.opacity = isSelected ? '1' : '0.3';
+            } else {
+                // Rows without selection IDs (e.g. subtotals) dim when selection active
+                row.style.opacity = '0.3';
             }
         }
     }
