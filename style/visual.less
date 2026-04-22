@@ -53,6 +53,7 @@
     display: table-cell;
     vertical-align: middle;
     position: relative;
+    transition: opacity 0.15s ease-in-out;
 
     &:last-child {
         border-right: none;
@@ -90,6 +91,7 @@
     background-color: #f5f5f5;
     display: table-cell;
     vertical-align: middle;
+    transition: opacity 0.15s ease-in-out;
 }
 
 .table-data-cell {
@@ -99,10 +101,15 @@
     border-right: 1px solid #e0e0e0;
     display: table-cell;
     vertical-align: middle;
+    transition: opacity 0.15s ease-in-out;
 
     &:last-child {
         border-right: none;
     }
+}
+
+.column-dimmed {
+    opacity: 0.3;
 }
 
 .table-total-row {

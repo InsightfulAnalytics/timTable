@@ -44,6 +44,7 @@ import ISelectionManager = powerbi.extensibility.ISelectionManager;
 import ISelectionId = powerbi.extensibility.ISelectionId;
 
 export class Visual implements IVisual {
+    private static readonly columnPathSeparator = "\u241F";
     private tableContainer: HTMLDivElement;
     private table: HTMLTableElement;
     private formattingSettingsService: FormattingSettingsService;
@@ -54,6 +55,7 @@ export class Visual implements IVisual {
     private selectionManager: ISelectionManager;
     private rowSelectionIds: (ISelectionId | null)[] = [];
     private colSelectionIds: (ISelectionId | null)[] = [];
+    private cellSelectionMap: Map<string, { rowIdx: number; colLeafPathKey: string }> = new Map();
     private manualColumnWidths: Map<number, number> = new Map();
     private lastColumnWidthSnapshot: string = "";
     private colElements: HTMLElement[] = [];
@@ -107,6 +109,34 @@ export class Visual implements IVisual {
             }
         }
         return cells;
+    }
+
+    private getSelectionKey(selectionId: ISelectionId | null | undefined): string {
+        if (!selectionId) {
+            return "";
+        }
+
+        const keyGetter = (selectionId as any).getKey;
+        return typeof keyGetter === "function" ? keyGetter.call(selectionId) : "";
+    }
+
+    private getColumnPathKey(path: any[] | null | undefined): string {
+        if (!path || path.length === 0) {
+            return "";
+        }
+
+        return path
+            .filter(segment => segment !== null && segment !== undefined && String(segment) !== "")
+            .map(segment => String(segment))
+            .join(Visual.columnPathSeparator);
+    }
+
+    private columnPathMatches(candidatePath: string, selectedPath: string): boolean {
+        if (!candidatePath || !selectedPath) {
+            return false;
+        }
+
+        return candidatePath === selectedPath || candidatePath.startsWith(`${selectedPath}${Visual.columnPathSeparator}`);
     }
 
     private applyManualWidths(): void {
@@ -908,6 +938,7 @@ export class Visual implements IVisual {
         while (this.table.firstChild) {
             this.table.removeChild(this.table.firstChild);
         }
+        this.cellSelectionMap.clear();
 
         this.dataView = options.dataViews[0];
 
@@ -930,13 +961,15 @@ export class Visual implements IVisual {
         // Column grouping support (matrix columns field)
         let hasColumnGrouping = false;
         let columnLeaves: { path: any[], matrixNode?: any }[] = [];
-        let columnHeaderGroups: { label: string, span: number, matrixNode?: any }[][] = [];
+        let columnHeaderGroups: { label: string, span: number, matrixNode?: any, path?: any[] }[][] = [];
         let columnLevelNames: string[] = [];
         let storedFlatRows: any[] = null;
         let storedMeasureCount = 0;
         let storedRoot: any = null;
         let storedSubtotalChild: any = null;
         let columnSubtotalValueKeys: number[] = []; // value key indices for column subtotal leaves (for "Measure" column totals)
+        let matrixRowLevels: any[] = []; // hoisted for cell-level combined selection IDs
+        let matrixColLevels: any[] = []; // hoisted for cell-level combined selection IDs
 
         // Extract data from matrix structure (primary path with matrix-only mapping)
         if (dataView.matrix && dataView.matrix.rows && dataView.matrix.rows.root) {
@@ -945,6 +978,7 @@ export class Visual implements IVisual {
             const allChildren = root.children || [];
             const subtotalChild = allChildren.find((c: any) => c.isSubtotal);
             const vSources = dataView.matrix.valueSources || [];
+            matrixRowLevels = matrixRows.levels || [];
 
             const hasCatLevel = matrixRows.levels && matrixRows.levels.length > 0 && matrixRows.levels[0].sources.length > 0;
             hasCategories = hasCatLevel;
@@ -1061,9 +1095,8 @@ export class Visual implements IVisual {
                     // Also track ALL leaves (including subtotals) to determine value key indices,
                     // because rawValues keys follow tree-order across all leaves including subtotals.
                     let allColumnLeafIndex = 0; // counter for ALL leaves (regular + subtotal) in tree order
-                    // Track column tree nodes at each non-measure level for selection
-                    let columnNodesByLevel: { value: any, matrixNode: any, leafStart: number, leafCount: number }[][] = columnLevelNames.map(() => []);
-                    let currentLeafCounters: number[] = columnLevelNames.map(() => 0);
+                    // Track column tree nodes at each non-measure level for selection/highlighting
+                    let columnNodesByLevel: { value: any, matrixNode: any, leafStart: number, leafCount: number, path: any[] }[][] = columnLevelNames.map(() => []);
 
                     const flattenCol = (node: any, path: any[], depth: number, isSubtotalBranch: boolean) => {
                         let newPath = [...path];
@@ -1076,7 +1109,7 @@ export class Visual implements IVisual {
                         // Track non-subtotal intermediate nodes for selection
                         if (!isSubtotal && node.value !== undefined && depth < columnLevelNames.length) {
                             const leafStartIdx = columnLeaves.length;
-                            columnNodesByLevel[depth].push({ value: node.value, matrixNode: node, leafStart: leafStartIdx, leafCount: 0 });
+                            columnNodesByLevel[depth].push({ value: node.value, matrixNode: node, leafStart: leafStartIdx, leafCount: 0, path: newPath });
                         }
 
                         // Stop recursing if the next level is the measure level
@@ -1125,7 +1158,7 @@ export class Visual implements IVisual {
                     // Build column header grouping info for rendering multi-row headers
                     const M = storedMeasureCount;
                     for (let level = 0; level < columnLevelNames.length; level++) {
-                        let groups: { label: string, span: number, matrixNode?: any }[] = [];
+                        let groups: { label: string, span: number, matrixNode?: any, path?: any[] }[] = [];
                         let lastValue: string | null = null;
                         let currentSpan = 0;
                         let nodeIdx = 0;
@@ -1135,9 +1168,14 @@ export class Visual implements IVisual {
                                 currentSpan += M;
                             } else {
                                 if (lastValue !== null) {
-                                    const mNode = nodeIdx > 0 && nodeIdx - 1 < columnNodesByLevel[level].length
-                                        ? columnNodesByLevel[level][nodeIdx - 1].matrixNode : undefined;
-                                    groups.push({ label: lastValue, span: currentSpan, matrixNode: mNode });
+                                    const levelNode = nodeIdx > 0 && nodeIdx - 1 < columnNodesByLevel[level].length
+                                        ? columnNodesByLevel[level][nodeIdx - 1] : undefined;
+                                    groups.push({
+                                        label: lastValue,
+                                        span: currentSpan,
+                                        matrixNode: levelNode?.matrixNode,
+                                        path: levelNode?.path
+                                    });
                                 }
                                 lastValue = val;
                                 currentSpan = M;
@@ -1145,9 +1183,14 @@ export class Visual implements IVisual {
                             }
                         });
                         if (lastValue !== null) {
-                            const mNode = nodeIdx > 0 && nodeIdx - 1 < columnNodesByLevel[level].length
-                                ? columnNodesByLevel[level][nodeIdx - 1].matrixNode : undefined;
-                            groups.push({ label: lastValue, span: currentSpan, matrixNode: mNode });
+                            const levelNode = nodeIdx > 0 && nodeIdx - 1 < columnNodesByLevel[level].length
+                                ? columnNodesByLevel[level][nodeIdx - 1] : undefined;
+                            groups.push({
+                                label: lastValue,
+                                span: currentSpan,
+                                matrixNode: levelNode?.matrixNode,
+                                path: levelNode?.path
+                            });
                         }
                         columnHeaderGroups.push(groups);
                     }
@@ -1157,6 +1200,7 @@ export class Visual implements IVisual {
             // Build column selection IDs for cross-filtering by column
             const matrixCols2 = dataView.matrix.columns;
             if (matrixCols2) {
+                matrixColLevels = matrixCols2.levels || [];
                 this.colSelectionIds = columnLeaves.map(leaf => {
                     if (leaf.matrixNode && leaf.matrixNode.identity) {
                         try {
@@ -2325,6 +2369,11 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             cell.style.wordBreak = "break-word";
                         }
 
+                        const groupColumnPathKey = this.getColumnPathKey(group.path || []);
+                        if (groupColumnPathKey) {
+                            cell.setAttribute("data-column-path", groupColumnPathKey);
+                        }
+
                         // Column header selection: build selectionId from group's own matrix node
                         const matrixColLevels = dataView.matrix.columns ? dataView.matrix.columns.levels : [];
                         let groupSelId: ISelectionId | null = null;
@@ -2362,6 +2411,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             }
                         }
                         if (groupSelId) {
+                            const groupSelectionKey = this.getSelectionKey(groupSelId);
+                            if (groupSelectionKey) {
+                                cell.setAttribute("data-selection-key", groupSelectionKey);
+                            }
                             cell.style.cursor = "pointer";
                             cell.addEventListener("click", (e: MouseEvent) => {
                                 e.stopPropagation();
@@ -2546,7 +2599,15 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     const M = Math.max(storedMeasureCount, 1);
                     const colLeafIdx = Math.floor(idx / M);
                     const sid = colLeafIdx < this.colSelectionIds.length ? this.colSelectionIds[colLeafIdx] : null;
+                    const columnPathKey = colLeafIdx < columnLeaves.length ? this.getColumnPathKey(columnLeaves[colLeafIdx].path) : "";
+                    if (columnPathKey) {
+                        header.setAttribute("data-column-path", columnPathKey);
+                    }
                     if (sid) {
+                        const headerSelectionKey = this.getSelectionKey(sid);
+                        if (headerSelectionKey) {
+                            header.setAttribute("data-selection-key", headerSelectionKey);
+                        }
                         header.style.cursor = "pointer";
                         header.addEventListener("click", (e: MouseEvent) => {
                             e.stopPropagation();
@@ -3207,6 +3268,15 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     }
 
                     cell.className = 'table-data-cell';
+                    if (hasColumnGrouping && columnLeaves.length > 0) {
+                        const colLeafIdx = Math.floor(measureIndex / Math.max(storedMeasureCount, 1));
+                        if (colLeafIdx < columnLeaves.length) {
+                            const cellColumnPathKey = this.getColumnPathKey(columnLeaves[colLeafIdx].path);
+                            if (cellColumnPathKey) {
+                                cell.setAttribute("data-column-path", cellColumnPathKey);
+                            }
+                        }
+                    }
                     cell.style.width = `${valueColumnWidths[measureIndex]}px`;
                     cell.style.minWidth = `${valueColumnWidths[measureIndex]}px`;
                     cell.style.maxWidth = `${valueColumnWidths[measureIndex]}px`;
@@ -3290,6 +3360,39 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         value: cell.textContent || "-"
                     });
                     this.addTooltip(cell, tooltipItems);
+
+                    // Cell-level selection: combine row + column identity for precise cross-filtering
+                    // Only applies when column grouping is active (otherwise row-level selection is sufficient)
+                    if (hasColumnGrouping && columnLeaves.length > 0 && !isSubtotalRow) {
+                        const colLeafIdxForClick = Math.floor(measureIndex / Math.max(storedMeasureCount, 1));
+                        const colLeaf = colLeafIdxForClick < columnLeaves.length ? columnLeaves[colLeafIdxForClick] : null;
+                        const rowNode = storedFlatRows ? storedFlatRows[i] : null;
+                        if (colLeaf?.matrixNode && colLeaf.matrixNode.identity && rowNode?.matrixNode && rowNode.matrixNode.identity) {
+                            try {
+                                const cellSelId = this.host.createSelectionIdBuilder()
+                                    .withMatrixNode(rowNode.matrixNode, matrixRowLevels)
+                                    .withMatrixNode(colLeaf.matrixNode, matrixColLevels)
+                                    .createSelectionId();
+                                const cellKey = this.getSelectionKey(cellSelId);
+                                const colLeafPathKey = this.getColumnPathKey(colLeaf.path || []);
+                                if (cellKey && colLeafPathKey) {
+                                    this.cellSelectionMap.set(cellKey, { rowIdx: i, colLeafPathKey });
+                                }
+                                cell.style.cursor = "pointer";
+                                cell.addEventListener("click", (e: MouseEvent) => {
+                                    e.stopPropagation();
+                                    this.selectionManager.select(cellSelId, e.ctrlKey || e.metaKey).then(() => {
+                                        this.syncSelectionOpacity();
+                                    });
+                                });
+                                cell.addEventListener("contextmenu", (e: MouseEvent) => {
+                                    this.selectionManager.showContextMenu(cellSelId, { x: e.clientX, y: e.clientY });
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                });
+                            } catch (e) { /* skip if builder fails */ }
+                        }
+                    }
                 });
 
                 // Add column total cells for this row — one per enabled base measure
@@ -5776,31 +5879,103 @@ let dataBarsSlices: formattingSettings.Slice[] = [
     private syncSelectionOpacity(): void {
         const selectedIds = this.selectionManager.getSelectionIds() as ISelectionId[];
         const hasSelection = selectedIds && selectedIds.length > 0;
+        const selectedKeys = new Set((selectedIds || []).map(selId => this.getSelectionKey(selId)).filter(key => !!key));
         const tbody = this.table.tBodies[0];
         if (!tbody) return;
 
+        // ── Detect which selection type is active ──────────────────────────────
+        const selectedRowKeys = new Set(
+            this.rowSelectionIds
+                .map(id => this.getSelectionKey(id))
+                .filter(key => !!key && selectedKeys.has(key))
+        );
+
+        const selectedColumnPaths = new Set<string>();
+        const columnTrackedCells = Array.from(this.table.querySelectorAll("[data-column-path]")) as HTMLElement[];
+        const selectableColumnCells = Array.from(this.table.querySelectorAll("[data-selection-key][data-column-path]")) as HTMLElement[];
+        selectableColumnCells.forEach(cell => {
+            const key = cell.getAttribute("data-selection-key") || "";
+            const path = cell.getAttribute("data-column-path") || "";
+            if (key && path && selectedKeys.has(key)) selectedColumnPaths.add(path);
+        });
+
+        // Cell-level: entries from cellSelectionMap whose key is in selectedKeys
+        const selectedCellEntries = Array.from(selectedKeys)
+            .map(key => this.cellSelectionMap.get(key))
+            .filter(e => !!e) as { rowIdx: number; colLeafPathKey: string }[];
+        const hasCellSelection = selectedCellEntries.length > 0;
+        const hasRowSelection = selectedRowKeys.size > 0;
+        const hasColumnSelection = selectedColumnPaths.size > 0;
+
+        // ── Cell selection: intersection dimming ──────────────────────────────
+        if (hasCellSelection) {
+            const selectedRowIdxSet = new Set(selectedCellEntries.map(e => e.rowIdx));
+            const selectedColPathKeys = selectedCellEntries.map(e => e.colLeafPathKey);
+            const sep = Visual.columnPathSeparator;
+
+            // Determine if a column path is relevant (ancestor, exact, or descendant of selected leaf)
+            const colPathIsRelevant = (colPath: string) =>
+                selectedColPathKeys.some(selPath =>
+                    colPath === selPath ||
+                    colPath.startsWith(selPath + sep) ||   // colPath is descendant of selPath
+                    selPath.startsWith(colPath + sep)      // colPath is ancestor of selPath
+                );
+
+            // Column header cells (no data-row-index on parent): dim if column not relevant
+            // Data cells: dim if row not selected OR column not relevant
+            columnTrackedCells.forEach(cell => {
+                const colPath = cell.getAttribute("data-column-path") || "";
+                const parentRow = cell.parentElement as HTMLElement;
+                const rowIdx = parentRow ? parseInt(parentRow.getAttribute("data-row-index") || "-1", 10) : -1;
+                const colMatch = colPathIsRelevant(colPath);
+
+                if (rowIdx >= 0) {
+                    // Data cell: selected if BOTH row and column match
+                    cell.classList.toggle("column-dimmed", !(selectedRowIdxSet.has(rowIdx) && colMatch));
+                } else {
+                    // Header cell: selected if column matches
+                    cell.classList.toggle("column-dimmed", !colMatch);
+                }
+            });
+
+            // Row-level opacity: dim rows not in selected row set (dims category cells too)
+            for (let r = 0; r < tbody.rows.length; r++) {
+                const row = tbody.rows[r];
+                if (row.className.indexOf("table-total-row") >= 0) { row.style.opacity = "1"; continue; }
+                const rowIdx = parseInt(row.getAttribute("data-row-index") || "-1", 10);
+                row.style.opacity = rowIdx >= 0 && selectedRowIdxSet.has(rowIdx) ? "1" : "0.3";
+            }
+            return;
+        }
+
+        // ── Column selection: dim non-selected columns ─────────────────────────
+        const selectedColumnPathList = Array.from(selectedColumnPaths);
+        columnTrackedCells.forEach(cell => {
+            const colPath = cell.getAttribute("data-column-path") || "";
+            const isColSelected = selectedColumnPathList.some(selPath => this.columnPathMatches(colPath, selPath));
+            cell.classList.toggle("column-dimmed", hasColumnSelection && !isColSelected);
+        });
+
+        // ── Row selection: dim non-selected rows ──────────────────────────────
         for (let r = 0; r < tbody.rows.length; r++) {
             const row = tbody.rows[r];
-            // Total rows and header rows not dimmed
-            if (row.className.indexOf('table-total-row') >= 0 || row.className.indexOf('table-header-row') >= 0) {
-                row.style.opacity = '1';
+            if (row.className.indexOf("table-total-row") >= 0 || row.className.indexOf("table-header-row") >= 0) {
+                row.style.opacity = "1";
                 continue;
             }
-            if (!hasSelection) {
-                row.style.opacity = '1';
+            if (!hasSelection || !hasRowSelection) {
+                row.style.opacity = "1";
                 continue;
             }
-            // Check if this row's selection ID matches any of the selected IDs
-            const rowIdx = parseInt(row.getAttribute('data-row-index') || '-1', 10);
+            const rowIdx = parseInt(row.getAttribute("data-row-index") || "-1", 10);
             const rowSelId = rowIdx >= 0 ? this.rowSelectionIds[rowIdx] : null;
             if (rowSelId) {
                 const isSelected = selectedIds.some(selId =>
                     (selId as any).equals ? (selId as any).equals(rowSelId) : selId === rowSelId
                 );
-                row.style.opacity = isSelected ? '1' : '0.3';
+                row.style.opacity = isSelected ? "1" : "0.3";
             } else {
-                // Rows without selection IDs (e.g. subtotals) dim when selection active
-                row.style.opacity = '0.3';
+                row.style.opacity = "0.3";
             }
         }
     }

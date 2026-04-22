@@ -7,6 +7,7 @@ import EnumerateVisualObjectInstancesOptions = powerbi.EnumerateVisualObjectInst
 import VisualObjectInstance = powerbi.VisualObjectInstance;
 import VisualObjectInstanceEnumerationObject = powerbi.VisualObjectInstanceEnumerationObject;
 export declare class Visual implements IVisual {
+    private static readonly columnPathSeparator;
     private tableContainer;
     private table;
     private formattingSettingsService;
@@ -17,6 +18,7 @@ export declare class Visual implements IVisual {
     private selectionManager;
     private rowSelectionIds;
     private colSelectionIds;
+    private cellSelectionMap;
     private manualColumnWidths;
     private lastColumnWidthSnapshot;
     private colElements;
@@ -24,6 +26,9 @@ export declare class Visual implements IVisual {
     constructor(options: VisualConstructorOptions);
     getFormattingModel(): any;
     private getCellsInLogicalColumn;
+    private getSelectionKey;
+    private getColumnPathKey;
+    private columnPathMatches;
     private applyManualWidths;
     private syncTableWidth;
     private refreshStickyLeft;
