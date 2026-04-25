@@ -19,7 +19,6 @@ export declare class RowHeightSettings extends FormattingSettingsCard {
     name: string;
     displayName: string;
     visible: boolean;
-    headerBold: formattingSettings.ToggleSwitch;
     valueRowHeight: formattingSettings.NumUpDown;
     alternateValueRowHeight: formattingSettings.NumUpDown;
     totalRowHeight: formattingSettings.NumUpDown;

@@ -935,19 +935,22 @@ export class Visual implements IVisual {
         };
 
         // Helper function to get row background color, supporting conditional formatting
+        if (!options.dataViews || options.dataViews.length === 0) {
+            while (this.table.firstChild) {
+                this.table.removeChild(this.table.firstChild);
+            }
+            let row = this.table.insertRow();
+            let cell = row.insertCell();
+            cell.textContent = "No data available";
+            return;
+        }
+
         while (this.table.firstChild) {
             this.table.removeChild(this.table.firstChild);
         }
         this.cellSelectionMap.clear();
 
         this.dataView = options.dataViews[0];
-
-        if (!options.dataViews || options.dataViews.length === 0) {
-            let row = this.table.insertRow();
-            let cell = row.insertCell();
-            cell.textContent = "No data available";
-            return;
-        }
 
         let dataView: DataView = options.dataViews[0];
 
@@ -1844,9 +1847,17 @@ interface MeasureSpecificSettings {
           const scTotalHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalHorizontalGrid" }, true);
           const scTotalTransparency = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "totalTransparency" }, 0);
 
-          // Populate columnHeaders nameSeries dropdown and rebuild names group with per-measure selector
-          columnHeadersSettings.nameSeries.items = measureHeaders.map(name => ({ value: name, displayName: name }));
-          
+          // Populate columnHeaders nameSeries dropdown: row categories first, then measures.
+          // Category items use the prefix "cat:" + queryName so they can be distinguished from measures.
+          const catNameItems: { value: string, displayName: string }[] = hasCategories
+              ? (categories.sources as any[]).map((src: any) => ({
+                  value: `cat:${src.queryName}`,
+                  displayName: src.displayName || 'Category'
+              }))
+              : [];
+          const measureNameItems = measureHeaders.map(name => ({ value: name, displayName: name }));
+          columnHeadersSettings.nameSeries.items = [...catNameItems, ...measureNameItems];
+
           const rawPersistedNameSeries = dataViewObjects.getValue<any>(
               this.dataView.metadata.objects || {},
               { objectName: "columnHeaders", propertyName: "nameSeries" },
@@ -1861,13 +1872,38 @@ interface MeasureSpecificSettings {
           columnHeadersSettings.nameSeries.value = matchedNameItem || columnHeadersSettings.nameSeries.items[0] || { value: "", displayName: "" };
 
           const selectedNameSeriesName = columnHeadersSettings.nameSeries.value?.value as string;
-          const selectedNameMeasureIdx = measureHeaders.indexOf(selectedNameSeriesName);
-          const selectedNameValueColumn = selectedNameMeasureIdx >= 0 ? values[selectedNameMeasureIdx] : null;
-          const selectedNameQueryName = selectedNameValueColumn?.source?.queryName;
-          const selectedNameObjects = selectedNameValueColumn?.source?.objects || {};
-          const nameSelector = selectedNameQueryName ? { metadata: selectedNameQueryName } : undefined;
+          const isCategoryNameSeries = selectedNameSeriesName?.startsWith('cat:');
 
-          const chNameOverride = dataViewObjects.getValue<string>(selectedNameObjects, { objectName: "columnHeaders", propertyName: "nameOverride" }, "");
+          let nameSelector: { metadata?: string; data?: any[] } | undefined;
+          let chNameOverride: string;
+
+          if (isCategoryNameSeries) {
+              // Selected series is a row category — use its metadata selector
+              const catQueryName = selectedNameSeriesName.slice(4); // strip 'cat:'
+              const catSource = hasCategories
+                  ? (categories.sources as any[]).find((s: any) => s.queryName === catQueryName)
+                  : null;
+              const catObjects = catSource?.objects || {};
+              nameSelector = catQueryName ? { metadata: catQueryName } : undefined;
+              chNameOverride = dataViewObjects.getValue<string>(catObjects, { objectName: "columnHeaders", propertyName: "nameOverride" }, "");
+          } else {
+              const selectedNameMeasureIdx = measureHeaders.indexOf(selectedNameSeriesName);
+              const selectedNameValueColumn = selectedNameMeasureIdx >= 0 ? values[selectedNameMeasureIdx] : null;
+              const selectedNameQueryName = selectedNameValueColumn?.source?.queryName;
+              const selectedNameObjects = selectedNameValueColumn?.source?.objects || {};
+
+              // Build nameOverride selector: composite wildcard when column grouping active so the
+              // formula is evaluated per-column-leaf; plain measure selector otherwise.
+              if (hasColumnGrouping && selectedNameQueryName) {
+                  const nameWildcard = dataViewWildcard.createDataViewWildcardSelector(
+                      dataViewWildcard.DataViewWildcardMatchingOption.InstancesAndTotals
+                  );
+                  nameSelector = { metadata: selectedNameQueryName, data: nameWildcard.data };
+              } else {
+                  nameSelector = selectedNameQueryName ? { metadata: selectedNameQueryName } : undefined;
+              }
+              chNameOverride = dataViewObjects.getValue<string>(selectedNameObjects, { objectName: "columnHeaders", propertyName: "nameOverride" }, "");
+          }
 
           // Rebuild the namesGroup slices
           columnHeadersSettings.namesGroup.slices = [
@@ -2064,7 +2100,19 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                       measureSettingsList.push(baseMSettings[mIdx]);
                       measureFormats.push(baseMFormats[mIdx]);
                       measureHeaders.push(baseMHeaders[mIdx]);
-                      measureHeaderOverrides.push(baseMHeaderOvr[mIdx]);
+                      // Formula results from composite wildcard selector come in per-cell objects
+                      // (not column node objects). Read from the first non-subtotal data row for
+                      // this column/measure combination so per-column formulas (e.g. MIN(Year))
+                      // are evaluated in each column's filter context.
+                      const firstDataRow = storedFlatRows?.find((r: any) => !r.isSubtotal);
+                      const cellObjects = firstDataRow?.rawValues?.[vKey]?.objects || {};
+                      const cellNameOverride = dataViewObjects.getValue<string>(
+                          cellObjects,
+                          { objectName: "columnHeaders", propertyName: "nameOverride" },
+                          ""
+                      );
+                      // Fall back to measure-level constant (stored in source.objects)
+                      measureHeaderOverrides.push(cellNameOverride !== "" ? cellNameOverride : baseMHeaderOvr[mIdx]);
                       valueColumnWidths.push(baseVCWidths[mIdx]);
                   }
               }
@@ -2515,7 +2563,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             if (hasCategories) {
                 categories.sources.forEach((source: any, levelIdx: number) => {
                     let categoryHeader = headerRow.insertCell();
-                    categoryHeader.textContent = source.displayName || 'Category';
+                    // Apply nameOverride if one has been set for this category
+                    const catNameOvr = dataViewObjects.getValue<string>(
+                        source.objects || {},
+                        { objectName: "columnHeaders", propertyName: "nameOverride" },
+                        ""
+                    );
+                    categoryHeader.textContent = catNameOvr !== "" ? catNameOvr : (source.displayName || 'Category');
                     categoryHeader.className = 'table-header-cell';
                     const cw = levelIdx === 0 ? categoryColumnWidth : categoryColumnWidth; // Maybe configurable later, using base for now
                     categoryHeader.style.width = `${cw}px`;
@@ -2545,7 +2599,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 let headerText = measureHeaderOverrides[idx];
                 if (hasColumnGrouping && columnLeaves.length > 0 && storedMeasureCount === 1) {
                     const colIdx = idx; // 1 measure, so display col idx == column leaf idx
-                    if (colIdx < columnLeaves.length) {
+                    // Only use the column path as the header text when no custom override
+                    // (manual text or formula result) has been set for this column.
+                    if (colIdx < columnLeaves.length && headerText === measureHeaders[idx]) {
                         headerText = columnLeaves[colIdx].path.join(' \u203A ');
                     }
                 }
@@ -3290,12 +3346,16 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.textOverflow = "ellipsis";
 
                     let specSettings = measureSettingsList[measureIndex];
-                    let specRowBgColor = isEvenRow ? 
-                        (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : cellBackgroundColor) : 
-                        (specSettings.alternateBackgroundColor !== undefined ? specSettings.alternateBackgroundColor : cellBackgroundColor);
-                    let specCellTextColor = isEvenRow ? 
-                        (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) : 
-                        (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor);
+                    // Only apply specificColumn static colours when CF has not already applied a custom colour.
+                    // cellBackgroundColor equals defaultMeasureBgColor when no per-row CF colour was set.
+                    const hasCFBg = cellBackgroundColor !== defaultMeasureBgColor;
+                    const hasCFTxt = cellTextColor !== defaultMeasureTextColor;
+                    let specRowBgColor = hasCFBg ? cellBackgroundColor : (isEvenRow ?
+                        (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : cellBackgroundColor) :
+                        (specSettings.alternateBackgroundColor !== undefined ? specSettings.alternateBackgroundColor : cellBackgroundColor));
+                    let specCellTextColor = hasCFTxt ? cellTextColor : (isEvenRow ?
+                        (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) :
+                        (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor));
 
                     let effectiveBg = specRowBgColor;
                     let effectiveColor = specCellTextColor;
@@ -3661,8 +3721,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             totalRow.style.borderTop = horizBorder2xValue;
             totalRow.style.borderBottom = horizBorder2xValue;
             totalRow.style.height = `${totalRowHeight}px`;
-            const isTotalRowEven = rowCount % 2 === 0;
-            const totalBgColor = isTotalRowEven ? backgroundColor : alternateBackgroundColor;
+            const totalBgColor = backgroundColor;
 
             if (hasCategories) {
                 const numCatCols = categories.sources.length;
@@ -4267,9 +4326,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let catHeader = headerRow.insertCell();
                     catHeader.textContent = String(categories.values[i]);
                     catHeader.className = 'table-header-cell';
-                    catHeader.style.width = `${valueColumnWidths[i]}px`;
-                    catHeader.style.minWidth = `${valueColumnWidths[i]}px`;
-                    catHeader.style.maxWidth = `${valueColumnWidths[i]}px`;
+                    catHeader.style.width = `${columnWidth}px`;
+                    catHeader.style.minWidth = `${columnWidth}px`;
+                    catHeader.style.maxWidth = `${columnWidth}px`;
                     applyRowSquash(catHeader, headerRowHeight, headerFontSize, headerWordWrap);
                     catHeader.style.fontWeight = headerBold ? "bold" : "normal";
                     catHeader.style.fontStyle = headerItalic ? "italic" : "normal";
@@ -4905,12 +4964,15 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.textOverflow = "ellipsis";
 
                     let specSettings = measureSettingsList[measureIndex];
-                    let specRowBgColor = isEvenRow ? 
-                        (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : cellBackgroundColor) : 
-                        (specSettings.alternateBackgroundColor !== undefined ? specSettings.alternateBackgroundColor : cellBackgroundColor);
-                    let specCellTextColor = isEvenRow ? 
-                        (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) : 
-                        (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor);
+                    // Only apply specificColumn static colours when CF has not already applied a custom colour.
+                    const hasCFBg = cellBackgroundColor !== defaultMeasureBgColor;
+                    const hasCFTxt = cellTextColor !== defaultMeasureTextColor;
+                    let specRowBgColor = hasCFBg ? cellBackgroundColor : (isEvenRow ?
+                        (specSettings.backgroundColor !== undefined ? specSettings.backgroundColor : cellBackgroundColor) :
+                        (specSettings.alternateBackgroundColor !== undefined ? specSettings.alternateBackgroundColor : cellBackgroundColor));
+                    let specCellTextColor = hasCFTxt ? cellTextColor : (isEvenRow ?
+                        (specSettings.textColor !== undefined ? specSettings.textColor : cellTextColor) :
+                        (specSettings.alternateTextColor !== undefined ? specSettings.alternateTextColor : cellTextColor));
 
                     let effectiveBg = specRowBgColor;
                     let effectiveColor = specCellTextColor;

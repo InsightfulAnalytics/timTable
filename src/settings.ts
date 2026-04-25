@@ -98,13 +98,6 @@ export class RowHeightSettings extends FormattingSettingsCard{
     name: string = "rowHeight";
     displayName: string = "Row height";
     visible: boolean = true;
-public headerBold = new formattingSettings.ToggleSwitch({
-        name: "headerBold",
-        displayName: "Header Bold",
-        value: true,
-        visible: true
-    });
-
 
     public valueRowHeight = new formattingSettings.NumUpDown({
         name: "valueRowHeight",

@@ -41,16 +41,6 @@
                         "numeric": true
                     }
                 },
-                "categoryWordWrap": {
-                    "type": {
-                        "bool": true
-                    }
-                },
-                "switchValuesToRows": {
-                    "type": {
-                        "bool": true
-                    }
-                },
                 "totalRowHeight": {
                     "type": {
                         "numeric": true
