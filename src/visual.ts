@@ -461,6 +461,9 @@ export class Visual implements IVisual {
         const colTotalBold = columnTotalsSettings.font.bold?.value || false;
         const colTotalUnderline = columnTotalsSettings.font.underline?.value || false;
 
+        // Only show "Hide row headers" toggle when "Switch values to rows" is on
+        valuesSettings.hideRowHeaders.visible = !!valuesSettings.switchValuesToRows.value;
+
         const categoryColumnWidth = columnWidthSettings.categoryColumnWidth.value;
         const categoryWordWrap = columnWidthSettings.categoryWordWrap.value;
         const valueWordWrap = valuesSettings.textWrap.value;
