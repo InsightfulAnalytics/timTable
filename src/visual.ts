@@ -5256,6 +5256,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
 
+                    if (specSettings.totalTransparency > 0) {
+                        efTotalColor = applyTransparency(efTotalColor, specSettings.totalTransparency);
+                    }
+
                     let efTotalAlign = specSettings.totalAlignment ? specSettings.totalAlignment : "right";
                     applyRowSquash(totalCell, rowHeight, efTotalFontSize, efTotalWordWrap);
                     totalCell.style.fontWeight = efTotalBold ? "bold" : "normal";
