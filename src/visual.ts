@@ -1280,6 +1280,7 @@ export class Visual implements IVisual {
         }
 
         const switchValuesToRows = valuesSettings.switchValuesToRows?.value || false;
+        const reverseOrder = valuesSettings.reverseOrder?.value || false;
         let rowCount = hasCategories && categories.values ? categories.values.length : (values[0].values ? values[0].values.length : 1);
 
         // Pre-process measure settings to populate formatting model properly
@@ -4530,17 +4531,37 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 measureNameCell.style.width = `${categoryColumnWidth}px`;
                 measureNameCell.style.minWidth = `${categoryColumnWidth}px`;
                 measureNameCell.style.maxWidth = `${categoryColumnWidth}px`;
-                applyRowSquash(measureNameCell, rowHeight, cellFontSize, categoryWordWrap);
-                measureNameCell.style.fontWeight = valueBold ? "bold" : "normal";
-                      measureNameCell.style.fontStyle = cellItalic ? "italic" : "normal";
-                      measureNameCell.style.textDecoration = cellUnderline ? "underline" : "none";
+                // In transposed layout, the measure-name cell visually plays the role of the
+                // measure column header — so honour the per-measure Header overrides
+                // (font, colors, alignment, transparency, text-wrap) defined under specificColumn.
+                const mnSpec = measureSettingsList[measureIndex] || {} as any;
+                const mnBold = mnSpec.headerBold !== undefined ? mnSpec.headerBold : headerBold;
+                const mnItalic = mnSpec.headerItalic !== undefined ? mnSpec.headerItalic : headerItalic;
+                const mnUnderline = mnSpec.headerUnderline !== undefined ? mnSpec.headerUnderline : headerUnderline;
+                const mnFontFamily = mnSpec.headerFontFamily !== undefined ? mnSpec.headerFontFamily : headerFontFamily;
+                const mnFontSize = mnSpec.headerFontSize !== undefined ? mnSpec.headerFontSize : cellFontSize;
+                const mnWordWrap = mnSpec.headerTextWrap !== undefined ? mnSpec.headerTextWrap : categoryWordWrap;
+                const mnAlign = mnSpec.headerAlignment ? mnSpec.headerAlignment : undefined;
+                let mnTextColor = mnSpec.headerTextColor ? mnSpec.headerTextColor : defaultCategoryTextColor;
+                if (mnSpec.headerTransparency && mnSpec.headerTransparency > 0) {
+                    mnTextColor = applyTransparency(mnTextColor, mnSpec.headerTransparency);
+                }
+                const mnBgColor = mnSpec.headerBackgroundColor ? mnSpec.headerBackgroundColor : rowBgColor;
+                applyRowSquash(measureNameCell, rowHeight, mnFontSize, mnWordWrap);
+                measureNameCell.style.fontWeight = mnBold ? "bold" : "normal";
+                measureNameCell.style.fontStyle = mnItalic ? "italic" : "normal";
+                measureNameCell.style.textDecoration = mnUnderline ? "underline" : "none";
+                measureNameCell.style.fontFamily = mnFontFamily;
                 measureNameCell.style.borderRight = vertBorderValue;
-                measureNameCell.style.backgroundColor = rowBgColor;
-                measureNameCell.style.color = defaultCategoryTextColor; // or some specific color
+                measureNameCell.style.backgroundColor = mnBgColor;
+                measureNameCell.style.color = mnTextColor;
+                if (mnAlign) {
+                    measureNameCell.style.textAlign = mnAlign;
+                }
                 measureNameCell.style.overflow = "hidden";
                 measureNameCell.style.textOverflow = "ellipsis";
-                measureNameCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
-                if (categoryWordWrap) {
+                measureNameCell.style.whiteSpace = mnWordWrap ? "normal" : "nowrap";
+                if (mnWordWrap) {
                     measureNameCell.style.wordBreak = "break-word";
                 }
 
@@ -5789,6 +5810,65 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             }
         }
 
+        // ── Reverse order (apply before sticky/thead split) ──
+        if (reverseOrder) {
+            const isRowHeaderCell = (cell: HTMLTableCellElement): boolean => {
+                const cls = cell.className || '';
+                return cls.indexOf('table-category-cell') >= 0 || cls.indexOf('table-total-label-cell') >= 0;
+            };
+            // In transposed mode, determine row-header column count from a data row
+            // so header rows (corner cells) and total rows align with data rows.
+            let transposedLeadCount = 0;
+            if (switchValuesToRows) {
+                for (let r = 0; r < this.table.rows.length; r++) {
+                    const row = this.table.rows[r];
+                    if ((row.className || '').indexOf('table-data-row') >= 0) {
+                        let n = 0;
+                        while (n < row.cells.length && isRowHeaderCell(row.cells[n])) n++;
+                        if (n > 0) { transposedLeadCount = n; break; }
+                    }
+                }
+            }
+            for (let r = 0; r < this.table.rows.length; r++) {
+                const row = this.table.rows[r];
+                const cells = Array.from(row.cells);
+                if (!switchValuesToRows) {
+                    // Normal layout: full flip — every cell reverses (category col moves right too)
+                    for (let i = cells.length - 1; i >= 0; i--) {
+                        row.appendChild(cells[i]);
+                    }
+                } else {
+                    // Transposed layout: keep leading row-header columns (Year/Measure/category)
+                    // pinned at left. Only reverse the trailing data + total cells.
+                    const leadCount = Math.min(transposedLeadCount, cells.length);
+                    // Re-append leading cells in original order (no-op for ordering)
+                    for (let i = 0; i < leadCount; i++) {
+                        row.appendChild(cells[i]);
+                    }
+                    // Append remaining cells in reverse order
+                    for (let i = cells.length - 1; i >= leadCount; i--) {
+                        row.appendChild(cells[i]);
+                    }
+                }
+            }
+            if (switchValuesToRows) {
+                // Transposed layout: move column-header rows to the BOTTOM of the table
+                // (mirrors the normal-mode behaviour where the category column moves to the right).
+                // Mark with data-no-sticky-top so the thead-hoist below leaves them in the body.
+                const headerRows: HTMLTableRowElement[] = [];
+                for (let r = 0; r < this.table.rows.length; r++) {
+                    const row = this.table.rows[r];
+                    if ((row.className || '').indexOf('table-header-row') >= 0) {
+                        headerRows.push(row);
+                    }
+                }
+                headerRows.forEach(hr => {
+                    hr.setAttribute('data-no-sticky-top', '1');
+                    this.table.appendChild(hr);
+                });
+            }
+        }
+
         // ── Sticky row & column headers ──
         // Transfer row-level borders to cells (border-collapse: separate ignores <tr> borders)
         for (let r = 0; r < this.table.rows.length; r++) {
@@ -5814,7 +5894,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         const tbody = document.createElement('tbody');
         while (this.table.rows.length > 0) {
             const row = this.table.rows[0];
-            if (row.className.indexOf('table-header-row') >= 0) {
+            if (row.className.indexOf('table-header-row') >= 0 && row.getAttribute('data-no-sticky-top') !== '1') {
                 thead.appendChild(row);
             } else {
                 tbody.appendChild(row);
@@ -5832,7 +5912,11 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         // (table-layout: fixed uses <col> widths first, bypassing first-row colspan issues)
         const colgroup = document.createElement('colgroup');
         this.colElements = [];
-        const lastHdrRow = thead.rows[thead.rows.length - 1];
+        // Pick the row that defines column widths. Normally last <thead> row, but if
+        // header rows were diverted to <tbody> (reverseOrder + transposed), fall back.
+        const lastHdrRow = (thead.rows[thead.rows.length - 1]
+            || (tbody.querySelector('.table-header-row') as HTMLTableRowElement | null)
+            || tbody.rows[tbody.rows.length - 1]);
         let totalTableWidth = 0;
         for (let i = 0; i < lastHdrRow.cells.length; i++) {
             const col = document.createElement('col');

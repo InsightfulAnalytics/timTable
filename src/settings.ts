@@ -80,6 +80,13 @@ export class ValuesSettings extends FormattingSettingsCard {
         visible: true
     });
 
+    public reverseOrder = new formattingSettings.ToggleSwitch({
+        name: "reverseOrder",
+        displayName: "Reverse order",
+        value: false,
+        visible: true
+    });
+
     public name: string = "values";
     public displayName: string = "Values";
     public visible: boolean = true;
@@ -90,7 +97,8 @@ export class ValuesSettings extends FormattingSettingsCard {
         this.alternateTextColor, 
         this.alternateBackgroundColor, 
         this.textWrap,
-        this.switchValuesToRows
+        this.switchValuesToRows,
+        this.reverseOrder
     ];
 }
 

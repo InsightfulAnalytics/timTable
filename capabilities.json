@@ -330,6 +330,11 @@
                         "bool": true
                     }
                 },
+                "reverseOrder": {
+                    "type": {
+                        "bool": true
+                    }
+                },
                 "fontFamily": {
                     "type": {
                         "formatting": {

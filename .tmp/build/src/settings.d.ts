@@ -10,6 +10,7 @@ export declare class ValuesSettings extends FormattingSettingsCard {
     alternateBackgroundColor: formattingSettings.ColorPicker;
     textWrap: formattingSettings.ToggleSwitch;
     switchValuesToRows: formattingSettings.ToggleSwitch;
+    reverseOrder: formattingSettings.ToggleSwitch;
     name: string;
     displayName: string;
     visible: boolean;
