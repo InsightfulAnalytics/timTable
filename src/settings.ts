@@ -87,6 +87,13 @@ export class ValuesSettings extends FormattingSettingsCard {
         visible: true
     });
 
+    public hideRowHeaders = new formattingSettings.ToggleSwitch({
+        name: "hideRowHeaders",
+        displayName: "Hide row headers",
+        value: false,
+        visible: true
+    });
+
     public name: string = "values";
     public displayName: string = "Values";
     public visible: boolean = true;
@@ -98,7 +105,8 @@ export class ValuesSettings extends FormattingSettingsCard {
         this.alternateBackgroundColor, 
         this.textWrap,
         this.switchValuesToRows,
-        this.reverseOrder
+        this.reverseOrder,
+        this.hideRowHeaders
     ];
 }
 
@@ -343,13 +351,6 @@ export class DataBarsFormattingSettings extends formattingSettings.CompositeCard
     });
 
     public groups: formattingSettings.Group[] = [this.selectSeriesGroup, this.dataBarsGroup, this.yAxisGroup];
-}
-
-export class DataBarMarkersSettings extends FormattingSettingsCard {
-    name: string = "dataBarMarkers";
-    displayName: string = "Data Bar Markers";
-    visible: boolean = true;
-    public slices: FormattingSettingsSlice[] = [];
 }
 
 
@@ -1028,12 +1029,11 @@ export class VisualSettings extends FormattingSettingsModel {
     public valueBackgroundConditionalFormatting: ValueBackgroundConditionalFormattingSettings = new ValueBackgroundConditionalFormattingSettings();
     public dataBarsConditionalFormatting: DataBarsConditionalFormattingSettings = new DataBarsConditionalFormattingSettings();
     public dataBarsFormatting: DataBarsFormattingSettings = new DataBarsFormattingSettings();
-    public dataBarMarkers: DataBarMarkersSettings = new DataBarMarkersSettings();
     public totals: TotalsSettings = new TotalsSettings();
     public columnTotals: ColumnTotalsSettings = new ColumnTotalsSettings();
     public subTotals: SubTotalsSettings = new SubTotalsSettings();
     public gridMenu: GridSettings = new GridSettings();
     public columnWidth: ColumnWidthSettings = new ColumnWidthSettings();
 
-    public cards: FormattingSettingsCard[] = [this.gridMenu, this.valuesMenu, this.totals, this.columnTotals, this.subTotals, this.rowHeight, this.columnWidth, this.columnHeaders, this.specificColumn, this.dataBarsFormatting, this.dataBarMarkers, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.valueBackgroundConditionalFormatting];
+    public cards: FormattingSettingsCard[] = [this.gridMenu, this.valuesMenu, this.totals, this.columnTotals, this.subTotals, this.rowHeight, this.columnWidth, this.columnHeaders, this.specificColumn, this.dataBarsFormatting, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.valueBackgroundConditionalFormatting];
 }

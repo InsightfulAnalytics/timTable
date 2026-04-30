@@ -11,6 +11,7 @@ export declare class ValuesSettings extends FormattingSettingsCard {
     textWrap: formattingSettings.ToggleSwitch;
     switchValuesToRows: formattingSettings.ToggleSwitch;
     reverseOrder: formattingSettings.ToggleSwitch;
+    hideRowHeaders: formattingSettings.ToggleSwitch;
     name: string;
     displayName: string;
     visible: boolean;
@@ -77,12 +78,6 @@ export declare class DataBarsFormattingSettings extends formattingSettings.Compo
     yAxisGroup: formattingSettings.Group;
     dataBarsGroup: formattingSettings.Group;
     groups: formattingSettings.Group[];
-}
-export declare class DataBarMarkersSettings extends FormattingSettingsCard {
-    name: string;
-    displayName: string;
-    visible: boolean;
-    slices: FormattingSettingsSlice[];
 }
 export declare class TotalsSettings extends formattingSettings.CompositeCard {
     name: string;
@@ -241,7 +236,6 @@ export declare class VisualSettings extends FormattingSettingsModel {
     valueBackgroundConditionalFormatting: ValueBackgroundConditionalFormattingSettings;
     dataBarsConditionalFormatting: DataBarsConditionalFormattingSettings;
     dataBarsFormatting: DataBarsFormattingSettings;
-    dataBarMarkers: DataBarMarkersSettings;
     totals: TotalsSettings;
     columnTotals: ColumnTotalsSettings;
     subTotals: SubTotalsSettings;

@@ -638,8 +638,6 @@ export class Visual implements IVisual {
         const dataBarsCFSettings = this.visualSettings.dataBarsConditionalFormatting;
         dataBarsCFSettings.slices = []; // Will be populated dynamically per-measure
 
-        const dataBarMarkersSettings = this.visualSettings.dataBarMarkers;
-        dataBarMarkersSettings.slices = []; // Will be populated dynamically per-measure
 
         // Reset columnWidth slices: base slices always shown, per-measure slices added dynamically when not aligned
         if (columnWidthSettings.alignedColumns.value) {
@@ -1546,57 +1544,6 @@ interface MeasureSpecificSettings {
             // Data bars settings
             const objects = valueColumn.source.objects || {};
 
-            // Data bar markers settings
-            const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
-            let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
-            const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
-            const markerColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarMarkers", propertyName: "markerColor" }, "#000000");
-            const markerSize = dataViewObjects.getValue<number>(objects, { objectName: "dataBarMarkers", propertyName: "markerSize" }, 10);
-
-            dataBarMarkersSettings.slices.push(new formattingSettings.ToggleSwitch({
-                name: "showMarker",
-                displayName: displayName + " Show Marker",
-                value: showMarker,
-                visible: true,
-                selector: { metadata: queryName }
-            }));
-
-            if (showMarker) {
-                const markerShapeItems = [
-                    { value: "cross", displayName: "Cross" },
-                    { value: "circle", displayName: "Circle" },
-                    { value: "horizontalLine", displayName: "Horizontal Line" },
-                    { value: "verticalLine", displayName: "Vertical Line" },
-                    { value: "semiCircle", displayName: "Semi Circle" }
-                ];
-                const currentShapeItem = markerShapeItems.find(x => x.value === markerShape) || markerShapeItems[1];
-
-                dataBarMarkersSettings.slices.push(new formattingSettings.ItemDropdown({
-                    name: "markerShape",
-                    displayName: displayName + " Marker Shape",
-                    value: currentShapeItem,
-                    items: markerShapeItems,
-                    visible: true,
-                    selector: { metadata: queryName }
-                }));
-
-                dataBarMarkersSettings.slices.push(new formattingSettings.ColorPicker({
-                    name: "markerColor",
-                    displayName: displayName + " Marker Color",
-                    value: { value: markerColor },
-                    visible: true,
-                    selector: { metadata: queryName },
-                    instanceKind: powerbi.VisualEnumerationInstanceKinds.ConstantOrRule
-                }));
-
-                dataBarMarkersSettings.slices.push(new formattingSettings.NumUpDown({
-                    name: "markerSize",
-                    displayName: displayName + " Marker Size",
-                    value: markerSize,
-                    visible: true,
-                    selector: { metadata: queryName }
-                }));
-            }
 
           });
 
@@ -3181,113 +3128,6 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 cell.appendChild(zeroLine);
                             }
 
-                            // Data bar markers settings
-                            const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
-                            if (showMarker) {
-                                let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
-                                const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
-                                const markerSize = dataViewObjects.getValue<number>(objects, { objectName: "dataBarMarkers", propertyName: "markerSize" }, 10);
-                                let cellMarkerColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarMarkers", propertyName: "markerColor" }, "#000000");
-                                
-                                if (valueColumn.objects && valueColumn.objects[i]) {
-                                    const cfMarkerColor = dataViewObjects.getFillColor(
-                                        valueColumn.objects[i],
-                                        { objectName: "dataBarMarkers", propertyName: "markerColor" }
-                                    );
-                                    if (cfMarkerColor) {
-                                        cellMarkerColor = cfMarkerColor;
-                                    }
-                                }
-
-                                let marker = document.createElement("div");
-                                marker.style.position = "absolute";
-                                marker.style.zIndex = "3";
-                                marker.style.width = `${markerSize}px`;
-                                marker.style.height = `${markerSize}px`;
-
-                                if (verticalDataBars) {
-                                    let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                    marker.style.left = `calc(50% - ${markerSize / 2}px)`;
-                                    marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
-                                } else {
-                                    let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                    marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
-                                    marker.style.top = `calc(50% - ${markerSize / 2}px)`;
-                                }
-
-                                if (markerShape === "circle") {
-                                    marker.style.backgroundColor = cellMarkerColor;
-                                    marker.style.borderRadius = "50%";
-                                } else if (markerShape === "cross") {
-                                    marker.style.backgroundColor = "transparent";
-                                    let line1 = document.createElement("div");
-                                    line1.style.position = "absolute";
-                                    line1.style.backgroundColor = cellMarkerColor;
-                                    line1.style.width = "100%";
-                                    line1.style.height = "2px";
-                                    line1.style.top = "calc(50% - 1px)";
-                                    line1.style.transform = "rotate(45deg)";
-
-                                    let line2 = document.createElement("div");
-                                    line2.style.position = "absolute";
-                                    line2.style.backgroundColor = cellMarkerColor;
-                                    line2.style.width = "100%";
-                                    line2.style.height = "2px";
-                                    line2.style.top = "calc(50% - 1px)";
-                                    line2.style.transform = "rotate(-45deg)";
-
-                                    marker.appendChild(line1);
-                                    marker.appendChild(line2);
-                                } else if (markerShape === "horizontalLine") {
-                                    marker.style.backgroundColor = cellMarkerColor;
-                                    marker.style.height = "2px";
-                                    marker.style.top = "calc(50% - 1px)";
-                                    marker.style.width = `${markerSize}px`;
-                                } else if (markerShape === "verticalLine") {
-                                    marker.style.backgroundColor = cellMarkerColor;
-                                    marker.style.width = "2px";
-                                    if (verticalDataBars) {
-                                        let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                        marker.style.left = `calc(50% - 1px)`;
-                                        marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
-                                    } else {
-                                        let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                        marker.style.left = `calc(${markerLeftPct}% - 1px)`;
-                                    }
-                                } else if (markerShape === "semiCircle") {
-                                    marker.style.backgroundColor = cellMarkerColor;
-                                    if (verticalDataBars) {
-                                        let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                        if (numValue >= 0) {
-                                            marker.style.borderTopLeftRadius = `${markerSize}px`;
-                                            marker.style.borderTopRightRadius = `${markerSize}px`;
-                                            marker.style.height = `${markerSize / 2}px`;
-                                            marker.style.bottom = `calc(${markerBottomPct}%)`;
-                                        } else {
-                                            marker.style.borderBottomLeftRadius = `${markerSize}px`;
-                                            marker.style.borderBottomRightRadius = `${markerSize}px`;
-                                            marker.style.height = `${markerSize / 2}px`;
-                                            marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
-                                        }
-                                    } else {
-                                        let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                        // Draw semi circle pointing outwards
-                                        if (numValue >= 0) {
-                                            marker.style.borderTopRightRadius = `${markerSize}px`;
-                                            marker.style.borderBottomRightRadius = `${markerSize}px`;
-                                            marker.style.width = `${markerSize / 2}px`;
-                                            marker.style.left = `calc(${markerLeftPct}%)`;
-                                        } else {
-                                            marker.style.borderTopLeftRadius = `${markerSize}px`;
-                                            marker.style.borderBottomLeftRadius = `${markerSize}px`;
-                                            marker.style.width = `${markerSize / 2}px`;
-                                            marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
-                                        }
-                                    }
-                                }
-
-                                cell.appendChild(marker);
-                            }
 
                             let textDiv = document.createElement("div");
                             textDiv.style.zIndex = "2";
@@ -4501,6 +4341,22 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 // Cell 0 (optional): Column group labels when column grouping is active — one cell per level
                 if (hasColumnGrouping && (valueColumn as any).columnPath) {
                     const colPath = (valueColumn as any).columnPath as any[];
+                    // Per-measure header overrides also apply to the row-header column-group cells
+                    // (e.g. Year) so transparency / colors / font set on a measure's Header card
+                    // affect the entire row-header strip in transposed mode.
+                    const cgSpec = measureSettingsList[measureIndex] || {} as any;
+                    const cgBold = cgSpec.headerBold !== undefined ? cgSpec.headerBold : valueBold;
+                    const cgItalic = cgSpec.headerItalic !== undefined ? cgSpec.headerItalic : cellItalic;
+                    const cgUnderline = cgSpec.headerUnderline !== undefined ? cgSpec.headerUnderline : cellUnderline;
+                    const cgFontFamily = cgSpec.headerFontFamily !== undefined ? cgSpec.headerFontFamily : headerFontFamily;
+                    const cgFontSize = cgSpec.headerFontSize !== undefined ? cgSpec.headerFontSize : cellFontSize;
+                    const cgWordWrap = cgSpec.headerTextWrap !== undefined ? cgSpec.headerTextWrap : categoryWordWrap;
+                    const cgAlign = cgSpec.headerAlignment ? cgSpec.headerAlignment : undefined;
+                    let cgTextColor = cgSpec.headerTextColor ? cgSpec.headerTextColor : defaultCategoryTextColor;
+                    if (cgSpec.headerTransparency && cgSpec.headerTransparency > 0) {
+                        cgTextColor = applyTransparency(cgTextColor, cgSpec.headerTransparency);
+                    }
+                    const cgBgColor = cgSpec.headerBackgroundColor ? cgSpec.headerBackgroundColor : rowBgColor;
                     for (let lvl = 0; lvl < columnLevelNames.length; lvl++) {
                         let colGroupCell = row.insertCell();
                         colGroupCell.textContent = lvl < colPath.length ? String(colPath[lvl]) : "";
@@ -4508,17 +4364,21 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         colGroupCell.style.width = `${categoryColumnWidth}px`;
                         colGroupCell.style.minWidth = `${categoryColumnWidth}px`;
                         colGroupCell.style.maxWidth = `${categoryColumnWidth}px`;
-                        applyRowSquash(colGroupCell, rowHeight, cellFontSize, categoryWordWrap);
-                        colGroupCell.style.fontWeight = valueBold ? "bold" : "normal";
-                        colGroupCell.style.fontStyle = cellItalic ? "italic" : "normal";
-                        colGroupCell.style.textDecoration = cellUnderline ? "underline" : "none";
+                        applyRowSquash(colGroupCell, rowHeight, cgFontSize, cgWordWrap);
+                        colGroupCell.style.fontWeight = cgBold ? "bold" : "normal";
+                        colGroupCell.style.fontStyle = cgItalic ? "italic" : "normal";
+                        colGroupCell.style.textDecoration = cgUnderline ? "underline" : "none";
+                        colGroupCell.style.fontFamily = cgFontFamily;
                         colGroupCell.style.borderRight = vertBorderValue;
-                        colGroupCell.style.backgroundColor = rowBgColor;
-                        colGroupCell.style.color = defaultCategoryTextColor;
+                        colGroupCell.style.backgroundColor = cgBgColor;
+                        colGroupCell.style.color = cgTextColor;
+                        if (cgAlign) {
+                            colGroupCell.style.textAlign = cgAlign;
+                        }
                         colGroupCell.style.overflow = "hidden";
                         colGroupCell.style.textOverflow = "ellipsis";
-                        colGroupCell.style.whiteSpace = categoryWordWrap ? "normal" : "nowrap";
-                        if (categoryWordWrap) {
+                        colGroupCell.style.whiteSpace = cgWordWrap ? "normal" : "nowrap";
+                        if (cgWordWrap) {
                             colGroupCell.style.wordBreak = "break-word";
                         }
                     }
@@ -4579,7 +4439,6 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                 const objects = valueColumn.source.objects || {};
                 const showDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showDataBars" }, false);
-                const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
                 
                 let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
                             const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
@@ -4587,11 +4446,6 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const zeroLineColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineColor" }, "#000000");
                             const zeroLineTransparency = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "zeroLineTransparency" }, 0);
                             const dataBarHeight = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "dataBarHeight" }, 80);
-                
-                let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
-                const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
-                const markerSize = dataViewObjects.getValue<number>(objects, { objectName: "dataBarMarkers", propertyName: "markerSize" }, 10);
-                let cellMarkerColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarMarkers", propertyName: "markerColor" }, "#000000");
 
                 const min = measureMins[measureIndex];
                 const max = measureMaxs[measureIndex];
@@ -4828,113 +4682,6 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 cell.appendChild(zeroLine);
                             }
 
-                            // Data bar markers settings
-                            const showMarker = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarMarkers", propertyName: "showMarker" }, false);
-                            if (showMarker) {
-                                let markerShapeRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarMarkers", propertyName: "markerShape" }, "circle");
-                                const markerShape = typeof markerShapeRaw === "string" ? markerShapeRaw : (markerShapeRaw.value || "circle");
-                                const markerSize = dataViewObjects.getValue<number>(objects, { objectName: "dataBarMarkers", propertyName: "markerSize" }, 10);
-                                let cellMarkerColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarMarkers", propertyName: "markerColor" }, "#000000");
-                                
-                                if (valueColumn.objects && valueColumn.objects[i]) {
-                                    const cfMarkerColor = dataViewObjects.getFillColor(
-                                        valueColumn.objects[i],
-                                        { objectName: "dataBarMarkers", propertyName: "markerColor" }
-                                    );
-                                    if (cfMarkerColor) {
-                                        cellMarkerColor = cfMarkerColor;
-                                    }
-                                }
-
-                                let marker = document.createElement("div");
-                                marker.style.position = "absolute";
-                                marker.style.zIndex = "3";
-                                marker.style.width = `${markerSize}px`;
-                                marker.style.height = `${markerSize}px`;
-
-                                if (verticalDataBars) {
-                                    let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                    marker.style.left = `calc(50% - ${markerSize / 2}px)`;
-                                    marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
-                                } else {
-                                    let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                    marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
-                                    marker.style.top = `calc(50% - ${markerSize / 2}px)`;
-                                }
-
-                                if (markerShape === "circle") {
-                                    marker.style.backgroundColor = cellMarkerColor;
-                                    marker.style.borderRadius = "50%";
-                                } else if (markerShape === "cross") {
-                                    marker.style.backgroundColor = "transparent";
-                                    let line1 = document.createElement("div");
-                                    line1.style.position = "absolute";
-                                    line1.style.backgroundColor = cellMarkerColor;
-                                    line1.style.width = "100%";
-                                    line1.style.height = "2px";
-                                    line1.style.top = "calc(50% - 1px)";
-                                    line1.style.transform = "rotate(45deg)";
-
-                                    let line2 = document.createElement("div");
-                                    line2.style.position = "absolute";
-                                    line2.style.backgroundColor = cellMarkerColor;
-                                    line2.style.width = "100%";
-                                    line2.style.height = "2px";
-                                    line2.style.top = "calc(50% - 1px)";
-                                    line2.style.transform = "rotate(-45deg)";
-
-                                    marker.appendChild(line1);
-                                    marker.appendChild(line2);
-                                } else if (markerShape === "horizontalLine") {
-                                    marker.style.backgroundColor = cellMarkerColor;
-                                    marker.style.height = "2px";
-                                    marker.style.top = "calc(50% - 1px)";
-                                    marker.style.width = `${markerSize}px`;
-                                } else if (markerShape === "verticalLine") {
-                                    marker.style.backgroundColor = cellMarkerColor;
-                                    marker.style.width = "2px";
-                                    if (verticalDataBars) {
-                                        let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                        marker.style.left = `calc(50% - 1px)`;
-                                        marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
-                                    } else {
-                                        let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                        marker.style.left = `calc(${markerLeftPct}% - 1px)`;
-                                    }
-                                } else if (markerShape === "semiCircle") {
-                                    marker.style.backgroundColor = cellMarkerColor;
-                                    if (verticalDataBars) {
-                                        let markerBottomPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                        if (numValue >= 0) {
-                                            marker.style.borderTopLeftRadius = `${markerSize}px`;
-                                            marker.style.borderTopRightRadius = `${markerSize}px`;
-                                            marker.style.height = `${markerSize / 2}px`;
-                                            marker.style.bottom = `calc(${markerBottomPct}%)`;
-                                        } else {
-                                            marker.style.borderBottomLeftRadius = `${markerSize}px`;
-                                            marker.style.borderBottomRightRadius = `${markerSize}px`;
-                                            marker.style.height = `${markerSize / 2}px`;
-                                            marker.style.bottom = `calc(${markerBottomPct}% - ${markerSize / 2}px)`;
-                                        }
-                                    } else {
-                                        let markerLeftPct = numValue >= 0 ? leftPct + widthPct : leftPct;
-                                        // Draw semi circle pointing outwards
-                                        if (numValue >= 0) {
-                                            marker.style.borderTopRightRadius = `${markerSize}px`;
-                                            marker.style.borderBottomRightRadius = `${markerSize}px`;
-                                            marker.style.width = `${markerSize / 2}px`;
-                                            marker.style.left = `calc(${markerLeftPct}%)`;
-                                        } else {
-                                            marker.style.borderTopLeftRadius = `${markerSize}px`;
-                                            marker.style.borderBottomLeftRadius = `${markerSize}px`;
-                                            marker.style.width = `${markerSize / 2}px`;
-                                            marker.style.left = `calc(${markerLeftPct}% - ${markerSize / 2}px)`;
-                                        }
-                                    }
-                                }
-
-                                cell.appendChild(marker);
-                            }
 
                             let textDiv = document.createElement("div");
                             textDiv.style.zIndex = "2";
@@ -5812,49 +5559,20 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
         // ── Reverse order (apply before sticky/thead split) ──
         if (reverseOrder) {
-            const isRowHeaderCell = (cell: HTMLTableCellElement): boolean => {
-                const cls = cell.className || '';
-                return cls.indexOf('table-category-cell') >= 0 || cls.indexOf('table-total-label-cell') >= 0;
-            };
-            // In transposed mode, determine row-header column count from a data row
-            // so header rows (corner cells) and total rows align with data rows.
-            let transposedLeadCount = 0;
-            if (switchValuesToRows) {
+            if (!switchValuesToRows) {
+                // Normal layout: full flip — every cell reverses (category col moves right too)
                 for (let r = 0; r < this.table.rows.length; r++) {
                     const row = this.table.rows[r];
-                    if ((row.className || '').indexOf('table-data-row') >= 0) {
-                        let n = 0;
-                        while (n < row.cells.length && isRowHeaderCell(row.cells[n])) n++;
-                        if (n > 0) { transposedLeadCount = n; break; }
-                    }
-                }
-            }
-            for (let r = 0; r < this.table.rows.length; r++) {
-                const row = this.table.rows[r];
-                const cells = Array.from(row.cells);
-                if (!switchValuesToRows) {
-                    // Normal layout: full flip — every cell reverses (category col moves right too)
+                    const cells = Array.from(row.cells);
                     for (let i = cells.length - 1; i >= 0; i--) {
                         row.appendChild(cells[i]);
                     }
-                } else {
-                    // Transposed layout: keep leading row-header columns (Year/Measure/category)
-                    // pinned at left. Only reverse the trailing data + total cells.
-                    const leadCount = Math.min(transposedLeadCount, cells.length);
-                    // Re-append leading cells in original order (no-op for ordering)
-                    for (let i = 0; i < leadCount; i++) {
-                        row.appendChild(cells[i]);
-                    }
-                    // Append remaining cells in reverse order
-                    for (let i = cells.length - 1; i >= leadCount; i--) {
-                        row.appendChild(cells[i]);
-                    }
                 }
-            }
-            if (switchValuesToRows) {
-                // Transposed layout: move column-header rows to the BOTTOM of the table
-                // (mirrors the normal-mode behaviour where the category column moves to the right).
-                // Mark with data-no-sticky-top so the thead-hoist below leaves them in the body.
+            } else {
+                // Transposed layout: keep data cells (categories left→right, total at end) in
+                // their natural order. The only visual change is moving column-header row(s)
+                // from the top of the table to the bottom — mirroring the normal-mode behaviour
+                // where the category column shifts to the right edge.
                 const headerRows: HTMLTableRowElement[] = [];
                 for (let r = 0; r < this.table.rows.length; r++) {
                     const row = this.table.rows[r];

@@ -274,55 +274,6 @@
                 }
             }
         },
-        "dataBarMarkers": {
-            "properties": {
-                "showMarker": {
-                    "type": {
-                        "bool": true
-                    }
-                },
-                "markerShape": {
-                    "type": {
-                        "enumeration": [
-                            {
-                                "value": "cross",
-                                "displayName": "Cross"
-                            },
-                            {
-                                "value": "circle",
-                                "displayName": "Circle"
-                            },
-                            {
-                                "value": "horizontalLine",
-                                "displayName": "Horizontal Line"
-                            },
-                            {
-                                "value": "verticalLine",
-                                "displayName": "Vertical Line"
-                            },
-                            {
-                                "value": "semiCircle",
-                                "displayName": "Semi Circle"
-                            }
-                        ]
-                    }
-                },
-                "markerColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
-                "markerSize": {
-                    "type": {
-                        "numeric": true
-                    }
-                }
-            }
-        },
         "values": {
             "properties": {
                 "switchValuesToRows": {
