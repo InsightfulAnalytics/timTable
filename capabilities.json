@@ -286,6 +286,11 @@
                         "bool": true
                     }
                 },
+                "hideRowHeaders": {
+                    "type": {
+                        "bool": true
+                    }
+                },
                 "fontFamily": {
                     "type": {
                         "formatting": {

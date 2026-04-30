@@ -1279,6 +1279,7 @@ export class Visual implements IVisual {
 
         const switchValuesToRows = valuesSettings.switchValuesToRows?.value || false;
         const reverseOrder = valuesSettings.reverseOrder?.value || false;
+        const hideRowHeaders = valuesSettings.hideRowHeaders?.value || false;
         let rowCount = hasCategories && categories.values ? categories.values.length : (values[0].values ? values[0].values.length : 1);
 
         // Pre-process measure settings to populate formatting model properly
@@ -5587,6 +5588,25 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             }
         }
 
+        // ── Hide row-header columns (transposed only) ──
+        // When `hideRowHeaders` is on in transposed mode, collapse the leading row-header
+        // column(s) (Year, Measure, etc.) to zero width. We zero the matching <col>
+        // elements (table-layout:fixed honours these) AFTER the colgroup is built below.
+        // We do NOT use display:none on the cells, because that would cause the remaining
+        // cells in each row to shift left into the now-empty column slots — visually
+        // hiding more columns than intended.
+        let hideRowHeaderLeadCount = 0;
+        if (hideRowHeaders && switchValuesToRows) {
+            for (let r = 0; r < this.table.rows.length; r++) {
+                const row = this.table.rows[r];
+                if ((row.className || '').indexOf('table-data-row') >= 0) {
+                    let n = 0;
+                    while (n < row.cells.length && (row.cells[n].className || '').indexOf('table-category-cell') >= 0) n++;
+                    if (n > 0) { hideRowHeaderLeadCount = n; break; }
+                }
+            }
+        }
+
         // ── Sticky row & column headers ──
         // Transfer row-level borders to cells (border-collapse: separate ignores <tr> borders)
         for (let r = 0; r < this.table.rows.length; r++) {
@@ -5646,6 +5666,37 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         }
         this.table.insertBefore(colgroup, this.table.firstChild);
         this.table.style.width = `${totalTableWidth}px`;
+
+        // table-layout:fixed honours <col> widths regardless of cell display, so when
+        // `hideRowHeaders` is active we must also zero the matching <col> elements to
+        // actually collapse the leading row-header columns.
+        if (hideRowHeaderLeadCount > 0 && this.colElements.length > 0) {
+            let widthRemoved = 0;
+            const zeroLimit = Math.min(hideRowHeaderLeadCount, this.colElements.length);
+            for (let c = 0; c < zeroLimit; c++) {
+                widthRemoved += parseInt(this.colElements[c].style.width) || 0;
+                this.colElements[c].style.width = '0px';
+            }
+            const newTableW = Math.max(0, totalTableWidth - widthRemoved);
+            this.table.style.width = `${newTableW}px`;
+            // Also zero each cell in the affected columns so explicit cell widths,
+            // padding, and borders don't keep the column visually present.
+            for (let r = 0; r < this.table.rows.length; r++) {
+                const row = this.table.rows[r];
+                const limit = Math.min(zeroLimit, row.cells.length);
+                for (let c = 0; c < limit; c++) {
+                    const cell = row.cells[c];
+                    cell.style.width = '0px';
+                    cell.style.minWidth = '0px';
+                    cell.style.maxWidth = '0px';
+                    cell.style.padding = '0';
+                    cell.style.borderLeft = 'none';
+                    cell.style.borderRight = 'none';
+                    cell.style.overflow = 'hidden';
+                    cell.style.visibility = 'hidden';
+                }
+            }
+        }
 
         // Apply sticky top to all header-row cells (now inside <thead>)
         // Helper: detect if a bg color is missing or transparent
