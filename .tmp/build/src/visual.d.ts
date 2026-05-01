@@ -23,7 +23,24 @@ export declare class Visual implements IVisual {
     private lastColumnWidthSnapshot;
     private colElements;
     private numRowHeaderCols;
+    private focusedRowIdx;
+    private focusedColIdx;
     constructor(options: VisualConstructorOptions);
+    /**
+     * Apply ARIA roles, indices, and roving tabindex to all rows/cells. Call after every
+     * render so dynamically generated DOM is keyboard- and screen-reader accessible.
+     */
+    private applyAccessibilityAttributes;
+    /**
+     * Move focus to the cell at (rowIdx, colIdx). Updates roving tabindex.
+     */
+    private focusCell;
+    /**
+     * Keyboard navigation handler for the grid. Arrow keys move focus, Home/End jump
+     * to row edges, Ctrl+Home/End to grid corners, Enter/Space activate the cell
+     * (triggers the same selection logic as a mouse click).
+     */
+    private handleKeyDown;
     getFormattingModel(): any;
     private getCellsInLogicalColumn;
     private getSelectionKey;

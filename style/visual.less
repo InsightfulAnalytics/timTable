@@ -142,3 +142,54 @@
         border-right: none;
     }
 }
+
+/* -- Accessibility -------------------------------------------------------- */
+/* Visible keyboard focus indicator on grid + cells */
+.pbi-table:focus {
+    outline: 2px solid #0078d4;
+    outline-offset: -2px;
+}
+.pbi-table [role="gridcell"]:focus,
+.pbi-table [role="columnheader"]:focus,
+.pbi-table [role="rowheader"]:focus {
+    outline: 2px solid #0078d4;
+    outline-offset: -2px;
+    position: relative;
+    z-index: 300;
+}
+
+/* Windows High Contrast / forced-colors mode (WCAG 2.4.7, certified-visual req) */
+@media (forced-colors: active) {
+    .table-container {
+        background-color: Canvas;
+        color: CanvasText;
+        forced-color-adjust: none;
+    }
+    .pbi-table,
+    .pbi-table th,
+    .pbi-table td,
+    .table-header-row,
+    .table-data-row,
+    .table-total-row,
+    .table-header-cell,
+    .table-category-cell,
+    .table-data-cell,
+    .table-total-label-cell {
+        background-color: Canvas !important;
+        color: CanvasText !important;
+        border-color: CanvasText !important;
+        forced-color-adjust: none;
+    }
+    .pbi-table:focus,
+    .pbi-table [role="gridcell"]:focus,
+    .pbi-table [role="columnheader"]:focus,
+    .pbi-table [role="rowheader"]:focus {
+        outline: 2px solid Highlight !important;
+        background-color: Highlight !important;
+        color: HighlightText !important;
+    }
+    .resize-handle:hover {
+        background-color: Highlight !important;
+    }
+    /* Selection dimming uses opacity, which forced-colors honours; nothing to override */
+}

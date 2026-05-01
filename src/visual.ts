@@ -60,6 +60,9 @@ export class Visual implements IVisual {
     private lastColumnWidthSnapshot: string = "";
     private colElements: HTMLElement[] = [];
     private numRowHeaderCols: number = 0;
+    // Currently focused cell coords (for roving tabindex / keyboard nav)
+    private focusedRowIdx: number = -1;
+    private focusedColIdx: number = -1;
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
@@ -70,6 +73,10 @@ export class Visual implements IVisual {
 
         this.table = document.createElement('table');
         this.table.className = 'pbi-table';
+        // Accessibility: expose table as ARIA grid, allow keyboard focus
+        this.table.setAttribute('role', 'grid');
+        this.table.setAttribute('aria-label', 'Data table');
+        this.table.tabIndex = 0;
         this.tableContainer.appendChild(this.table);
 
         this.selectionManager = this.host.createSelectionManager();
@@ -83,8 +90,172 @@ export class Visual implements IVisual {
             }
         });
 
+        // Keyboard navigation: arrow keys move focus, Enter/Space activate selection
+        this.table.addEventListener("keydown", (e: KeyboardEvent) => this.handleKeyDown(e));
+        // When the table itself receives focus (Tab in), forward focus to a cell
+        this.table.addEventListener("focus", () => {
+            if (this.focusedRowIdx < 0 || this.focusedColIdx < 0) {
+                this.focusCell(0, 0);
+            } else {
+                this.focusCell(this.focusedRowIdx, this.focusedColIdx);
+            }
+        });
+
         this.formattingSettingsService = new FormattingSettingsService();
         this.visualSettings = new VisualSettings();
+    }
+
+    /**
+     * Apply ARIA roles, indices, and roving tabindex to all rows/cells. Call after every
+     * render so dynamically generated DOM is keyboard- and screen-reader accessible.
+     */
+    private applyAccessibilityAttributes(): void {
+        const rows = this.table.rows;
+        const totalRows = rows.length;
+        let maxCols = 0;
+        for (let r = 0; r < totalRows; r++) {
+            let logicalCols = 0;
+            for (let c = 0; c < rows[r].cells.length; c++) {
+                logicalCols += rows[r].cells[c].colSpan || 1;
+            }
+            if (logicalCols > maxCols) maxCols = logicalCols;
+        }
+        this.table.setAttribute('aria-rowcount', String(totalRows));
+        this.table.setAttribute('aria-colcount', String(maxCols));
+
+        for (let r = 0; r < totalRows; r++) {
+            const row = rows[r];
+            row.setAttribute('role', 'row');
+            row.setAttribute('aria-rowindex', String(r + 1));
+            const isHeader = row.className.indexOf('table-header-row') >= 0;
+            let logicalCol = 0;
+            for (let c = 0; c < row.cells.length; c++) {
+                const cell = row.cells[c];
+                const cellRole = isHeader
+                    ? 'columnheader'
+                    : (cell.className.indexOf('table-category-cell') >= 0
+                        || cell.className.indexOf('table-total-label-cell') >= 0
+                            ? 'rowheader' : 'gridcell');
+                cell.setAttribute('role', cellRole);
+                cell.setAttribute('aria-colindex', String(logicalCol + 1));
+                if (!cell.hasAttribute('tabindex')) {
+                    cell.setAttribute('tabindex', '-1');
+                }
+                logicalCol += cell.colSpan || 1;
+            }
+        }
+
+        // Ensure the previously focused cell still exists; otherwise reset.
+        if (this.focusedRowIdx >= totalRows
+            || this.focusedRowIdx < 0
+            || !rows[this.focusedRowIdx]
+            || this.focusedColIdx < 0
+            || this.focusedColIdx >= rows[this.focusedRowIdx].cells.length) {
+            this.focusedRowIdx = totalRows > 0 ? 0 : -1;
+            this.focusedColIdx = (totalRows > 0 && rows[0].cells.length > 0) ? 0 : -1;
+        }
+        // Roving tabindex: only the active cell is tabbable inside the grid.
+        if (this.focusedRowIdx >= 0 && this.focusedColIdx >= 0) {
+            const activeCell = rows[this.focusedRowIdx].cells[this.focusedColIdx];
+            if (activeCell) activeCell.setAttribute('tabindex', '0');
+        }
+    }
+
+    /**
+     * Move focus to the cell at (rowIdx, colIdx). Updates roving tabindex.
+     */
+    private focusCell(rowIdx: number, colIdx: number): void {
+        const rows = this.table.rows;
+        if (rows.length === 0) return;
+        rowIdx = Math.max(0, Math.min(rowIdx, rows.length - 1));
+        const row = rows[rowIdx];
+        if (!row || row.cells.length === 0) return;
+        colIdx = Math.max(0, Math.min(colIdx, row.cells.length - 1));
+
+        // Reset prior tabindex
+        if (this.focusedRowIdx >= 0 && this.focusedColIdx >= 0
+            && rows[this.focusedRowIdx]
+            && rows[this.focusedRowIdx].cells[this.focusedColIdx]) {
+            rows[this.focusedRowIdx].cells[this.focusedColIdx].setAttribute('tabindex', '-1');
+        }
+
+        const cell = row.cells[colIdx];
+        cell.setAttribute('tabindex', '0');
+        cell.focus({ preventScroll: false });
+        this.focusedRowIdx = rowIdx;
+        this.focusedColIdx = colIdx;
+    }
+
+    /**
+     * Keyboard navigation handler for the grid. Arrow keys move focus, Home/End jump
+     * to row edges, Ctrl+Home/End to grid corners, Enter/Space activate the cell
+     * (triggers the same selection logic as a mouse click).
+     */
+    private handleKeyDown(e: KeyboardEvent): void {
+        const rows = this.table.rows;
+        if (rows.length === 0) return;
+        let r = this.focusedRowIdx >= 0 ? this.focusedRowIdx : 0;
+        let c = this.focusedColIdx >= 0 ? this.focusedColIdx : 0;
+        let handled = true;
+
+        switch (e.key) {
+            case 'ArrowDown':
+                r = Math.min(r + 1, rows.length - 1);
+                break;
+            case 'ArrowUp':
+                r = Math.max(r - 1, 0);
+                break;
+            case 'ArrowRight':
+                if (c + 1 < rows[r].cells.length) {
+                    c++;
+                } else if (r + 1 < rows.length) {
+                    r++; c = 0;
+                }
+                break;
+            case 'ArrowLeft':
+                if (c > 0) {
+                    c--;
+                } else if (r > 0) {
+                    r--; c = rows[r].cells.length - 1;
+                }
+                break;
+            case 'Home':
+                if (e.ctrlKey) { r = 0; c = 0; } else { c = 0; }
+                break;
+            case 'End':
+                if (e.ctrlKey) {
+                    r = rows.length - 1;
+                    c = rows[r].cells.length - 1;
+                } else {
+                    c = rows[r].cells.length - 1;
+                }
+                break;
+            case 'Enter':
+            case ' ': {
+                const cell = rows[r] && rows[r].cells[c];
+                if (cell) {
+                    // Dispatch a synthetic click so existing selection handlers fire
+                    const clickEvt = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        ctrlKey: e.ctrlKey,
+                        metaKey: e.metaKey,
+                        shiftKey: e.shiftKey
+                    });
+                    cell.dispatchEvent(clickEvt);
+                }
+                break;
+            }
+            default:
+                handled = false;
+                break;
+        }
+
+        if (handled) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.focusCell(r, c);
+        }
     }
 
     public getFormattingModel(): any {
@@ -6026,6 +6197,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
         // Apply selection dimming if any rows are currently selected
         this.syncSelectionOpacity();
+
+        // Apply ARIA roles, indices, and roving tabindex for keyboard / screen reader access
+        this.applyAccessibilityAttributes();
     }
 
     /**
