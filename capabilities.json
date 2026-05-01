@@ -1131,5 +1131,6 @@
         }
     },
     "supportsMultiVisualSelection": true,
+    "supportsKeyboardFocus": true,
     "privileges": []
 }

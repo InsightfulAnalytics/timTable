@@ -42,6 +42,7 @@ import ITooltipService = powerbi.extensibility.ITooltipService;
 import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
 import ISelectionManager = powerbi.extensibility.ISelectionManager;
 import ISelectionId = powerbi.extensibility.ISelectionId;
+import IVisualEventService = powerbi.extensibility.IVisualEventService;
 
 export class Visual implements IVisual {
     private static readonly columnPathSeparator = "\u241F";
@@ -53,6 +54,11 @@ export class Visual implements IVisual {
     private host: powerbi.extensibility.visual.IVisualHost;
     private tooltipService: ITooltipService;
     private selectionManager: ISelectionManager;
+    private events: IVisualEventService;
+    private localizationManager: powerbi.extensibility.ILocalizationManager;
+    private colorPalette: powerbi.extensibility.ISandboxExtendedColorPalette;
+    private isHighContrast: boolean = false;
+    private allowInteractions: boolean = true;
     private rowSelectionIds: (ISelectionId | null)[] = [];
     private colSelectionIds: (ISelectionId | null)[] = [];
     private cellSelectionMap: Map<string, { rowIdx: number; colLeafPathKey: string }> = new Map();
@@ -67,15 +73,27 @@ export class Visual implements IVisual {
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
         this.tooltipService = this.host.tooltipService;
+        this.events = this.host.eventService;
+        this.localizationManager = this.host.createLocalizationManager();
+        this.colorPalette = this.host.colorPalette;
+        this.isHighContrast = !!this.colorPalette.isHighContrast;
+        // hostCapabilities.allowInteractions is false in some embedded scenarios; respect it
+        // before wiring up cross-filter click handlers.
+        this.allowInteractions = this.host.hostCapabilities?.allowInteractions !== false;
+
         this.tableContainer = document.createElement("div");
         this.tableContainer.className = "table-container";
+        if (this.isHighContrast) {
+            this.tableContainer.classList.add("forced-colors");
+        }
         options.element.appendChild(this.tableContainer);
 
         this.table = document.createElement('table');
         this.table.className = 'pbi-table';
-        // Accessibility: expose table as ARIA grid, allow keyboard focus
+        // Accessibility: expose table as ARIA grid, allow keyboard focus.
+        // Use localized aria-label so screen readers honour the host locale.
         this.table.setAttribute('role', 'grid');
-        this.table.setAttribute('aria-label', 'Data table');
+        this.table.setAttribute('aria-label', this.localizationManager.getDisplayName('Visual_AriaLabel') || 'Data table');
         this.table.tabIndex = 0;
         this.tableContainer.appendChild(this.table);
 
@@ -83,6 +101,7 @@ export class Visual implements IVisual {
 
         // Clear selection when clicking on empty area of the visual
         this.tableContainer.addEventListener("click", (e: MouseEvent) => {
+            if (!this.allowInteractions) return;
             const target = e.target as HTMLElement;
             if (target === this.tableContainer || target === this.table) {
                 this.selectionManager.clear();
@@ -625,6 +644,19 @@ export class Visual implements IVisual {
     }
 
     public update(options: VisualUpdateOptions) {
+        // Notify Power BI host that rendering has begun (required for export-to-PDF/PPT,
+        // high-contrast rendering, and AppSource certification).
+        this.events?.renderingStarted(options);
+        try {
+            this.updateInternal(options);
+            this.events?.renderingFinished(options);
+        } catch (e) {
+            this.events?.renderingFailed(options, e instanceof Error ? e.message : String(e));
+            throw e;
+        }
+    }
+
+    private updateInternal(options: VisualUpdateOptions) {
         if (options.dataViews && options.dataViews[0]) {
             this.visualSettings = this.formattingSettingsService.populateFormattingSettingsModel(VisualSettings, options.dataViews[0]);
             this.dataView = options.dataViews[0];
@@ -1448,15 +1480,6 @@ export class Visual implements IVisual {
                     rootNonSubtotal.forEach((c: any) => flattenCol(c, [], 0, false));
                     rootSubtotal.forEach((c: any) => flattenCol(c, [], 0, true));
 
-                    console.log('[timTable] column detection', JSON.stringify({
-                        columnLevelNames,
-                        measureLevelDepth,
-                        columnLeafCount: columnLeaves.length,
-                        columnLeafPaths: columnLeaves.map(l => l.path),
-                        columnSubtotalValueKeys: columnSubtotalValueKeys,
-                        allColumnLeafIndex: allColumnLeafIndex
-                    }));
-
                     // Build column header grouping info for rendering multi-row headers
                     const M = storedMeasureCount;
                     for (let level = 0; level < columnLevelNames.length; level++) {
@@ -1539,18 +1562,6 @@ export class Visual implements IVisual {
                     }
                 });
             }
-
-            // Debug: log subtotals found
-            console.log('[timTable] matrix extraction', JSON.stringify({
-                regularChildCount: flatRows.length,
-                subtotalFound: !!subtotalChild,
-                rootHasValues: !!root.values,
-                rootKeys: Object.keys(root),
-                subtotalValues: matrixSubtotalValues,
-                measureCount: vSources.length,
-                allChildCount: allChildren.length,
-                childIsSubtotalFlags: allChildren.map((c: any) => ({ value: c.value, isSubtotal: c.isSubtotal, keys: Object.keys(c) }))
-            }));
 
             // Populate dataView.categorical for helper functions that access it directly
             if (!dataView.categorical) {
@@ -3058,21 +3069,6 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 }
             }
 
-            // One-time debug dump of valueColumn objects status
-            if (values.length > 0) {
-                const vc0 = values[0];
-                console.log(`[DB CF INIT] measure0 name=${vc0.source.displayName} queryName=${vc0.source.queryName}`);
-                console.log(`[DB CF INIT] measure0 .objects exists=${!!vc0.objects}, .objects type=${typeof vc0.objects}`);
-                if (vc0.objects) {
-                    console.log(`[DB CF INIT] measure0 .objects is array=${Array.isArray(vc0.objects)}, length=${(vc0.objects as any).length}`);
-                    // Show first 3 entries
-                    for (let z = 0; z < Math.min(3, rowCount); z++) {
-                        console.log(`[DB CF INIT] measure0 .objects[${z}]=${JSON.stringify(vc0.objects[z])}`);
-                    }
-                }
-                console.log(`[DB CF INIT] measure0 .source.objects=${JSON.stringify(vc0.source.objects)}`);
-            }
-
             const categoryShowTotals = (categories?.sources || []).map((catSource: any) => {
                 return dataViewObjects.getValue<boolean>(catSource.objects || {}, { objectName: "totals", propertyName: "showTotalRow" }, true);
             });
@@ -3231,29 +3227,6 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                 // Add measure values
                 values.forEach((valueColumn, measureIndex) => {
-                    if (i < 2 && measureIndex === 0) {
-                        const obj = valueColumn.objects?.[i];
-                        const hasObjs = !!valueColumn.objects;
-                        const objKeys = obj ? Object.keys(obj).join(',') : 'none';
-                        console.log(`[DB CF DEBUG] row=${i} measure=${measureIndex} hasObjects=${hasObjs} obj[i]keys=${objKeys}`);
-                        if (hasObjs && valueColumn.objects[i]) {
-                            console.log(`[DB CF DEBUG]   obj[${i}] full:`, JSON.stringify(valueColumn.objects[i]));
-                        }
-                        // Also check if valueConditionalFormatting objects exist (this card is known to work)
-                        if (hasObjs) {
-                            console.log(`[DB CF DEBUG]   objects array length-ish: objects is array=${Array.isArray(valueColumn.objects)}, typeof=${typeof valueColumn.objects}`);
-                            // Check first few entries
-                            for (let z = 0; z < Math.min(3, (valueColumn.objects as any).length || 3); z++) {
-                                if (valueColumn.objects[z]) {
-                                    console.log(`[DB CF DEBUG]   objects[${z}] keys: ${Object.keys(valueColumn.objects[z]).join(',')}`);
-                                }
-                            }
-                        }
-                        // Check source.objects for the measure-level defaults
-                        if (valueColumn.source?.objects) {
-                            console.log(`[DB CF DEBUG]   source.objects keys: ${Object.keys(valueColumn.source.objects).join(',')}`);
-                        }
-                    }
                     const defaultMeasureTextColor = dataViewObjects.getFillColor(
                         valueColumn.source.objects || {},
                         { objectName: "valueConditionalFormatting", propertyName: "textColor" },

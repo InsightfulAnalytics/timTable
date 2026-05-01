@@ -16,6 +16,11 @@ export declare class Visual implements IVisual {
     private host;
     private tooltipService;
     private selectionManager;
+    private events;
+    private localizationManager;
+    private colorPalette;
+    private isHighContrast;
+    private allowInteractions;
     private rowSelectionIds;
     private colSelectionIds;
     private cellSelectionMap;
@@ -56,6 +61,7 @@ export declare class Visual implements IVisual {
     private addTooltip;
     enumerateObjectInstances(options: EnumerateVisualObjectInstancesOptions): VisualObjectInstance[] | VisualObjectInstanceEnumerationObject;
     update(options: VisualUpdateOptions): void;
+    private updateInternal;
     /**
      * Dim unselected rows when a selection is active (PBI cross-filtering).
      */

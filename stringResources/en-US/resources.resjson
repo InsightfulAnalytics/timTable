@@ -1,0 +1,9 @@
+{
+    "Visual_DisplayName": "TimTable",
+    "Visual_Description": "Table visual with categorical rows, measure columns, automatic totals, conditional formatting, data bars, resizable columns, and full keyboard/screen-reader accessibility.",
+    "Visual_AriaLabel": "Data table",
+    "Visual_RowHeader": "Row header",
+    "Visual_ColumnHeader": "Column header",
+    "Visual_TotalRow": "Total row",
+    "Visual_TotalColumn": "Total column"
+}
