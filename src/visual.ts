@@ -1081,7 +1081,7 @@ export class Visual implements IVisual {
                 return arr;
             };
 
-            const flattenNode = (node: any, depth: number = 0, currentPath: any[] = []) => {
+            const flattenNode = (node: any, depth: number = 0, currentPath: any[] = [], ancestors: any[] = []) => {
                 const subTChild = (node.children || []).find((c: any) => c.isSubtotal);
                 const nodeVals = node.values || subTChild?.values || {};
                 
@@ -1105,6 +1105,7 @@ export class Visual implements IVisual {
                         path: pathArray,
                         identity: node.identity,
                         matrixNode: node,
+                        ancestors: ancestors.slice(),
                         objects: node.objects,
                         rawValues: nodeVals,
                         isSubtotal: !!node.isSubtotal,
@@ -1114,21 +1115,22 @@ export class Visual implements IVisual {
                 
                 if (node.children) {
                     const regulars = node.children.filter((c: any) => !c.isSubtotal);
+                    const childAncestors = [...ancestors, node];
                     sortChildren(regulars, depth + 1).forEach((c: any) => {
-                        flattenNode(c, depth + 1, newPath);
+                        flattenNode(c, depth + 1, newPath, childAncestors);
                     });
                     
                     // Add subtotals at the end of the group
                     const stChild = node.children.find((c: any) => c.isSubtotal);
                     if (stChild) {
-                         flattenNode(stChild, depth + 1, newPath);
+                         flattenNode(stChild, depth + 1, newPath, childAncestors);
                     }
                 }
             };
             
             const topRegulars = allChildren.filter((c: any) => !c.isSubtotal);
             sortChildren(topRegulars, 0).forEach((c: any) => {
-                flattenNode(c, 0, []);
+                flattenNode(c, 0, [], []);
             });
 
             // Flat scope: drop subtotals + sort whole list by chosen field (blanks treated as 0).
@@ -1183,9 +1185,17 @@ export class Visual implements IVisual {
             this.rowSelectionIds = flatRows.map(r => {
                 if (r.matrixNode && !r.isSubtotal && r.matrixNode.identity) {
                     try {
-                        return this.host.createSelectionIdBuilder()
-                            .withMatrixNode(r.matrixNode, matrixRows.levels)
-                            .createSelectionId();
+                        const builder = this.host.createSelectionIdBuilder();
+                        // Chain ancestors first so the selection encodes the full row hierarchy
+                        // (e.g. Year=2021 + Month=Dec instead of just Month=Dec, which would
+                        // incorrectly cross-filter every December across all years).
+                        (r.ancestors || []).forEach((anc: any) => {
+                            if (anc && anc.identity) {
+                                builder.withMatrixNode(anc, matrixRows.levels);
+                            }
+                        });
+                        builder.withMatrixNode(r.matrixNode, matrixRows.levels);
+                        return builder.createSelectionId();
                     } catch (e) {
                         return null;
                     }
@@ -3491,10 +3501,16 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         const rowNode = storedFlatRows ? storedFlatRows[i] : null;
                         if (colLeaf?.matrixNode && colLeaf.matrixNode.identity && rowNode?.matrixNode && rowNode.matrixNode.identity) {
                             try {
-                                const cellSelId = this.host.createSelectionIdBuilder()
-                                    .withMatrixNode(rowNode.matrixNode, matrixRowLevels)
-                                    .withMatrixNode(colLeaf.matrixNode, matrixColLevels)
-                                    .createSelectionId();
+                                const cellBuilder = this.host.createSelectionIdBuilder();
+                                // Include row ancestors so cell selection encodes full row hierarchy
+                                (rowNode.ancestors || []).forEach((anc: any) => {
+                                    if (anc && anc.identity) {
+                                        cellBuilder.withMatrixNode(anc, matrixRowLevels);
+                                    }
+                                });
+                                cellBuilder.withMatrixNode(rowNode.matrixNode, matrixRowLevels);
+                                cellBuilder.withMatrixNode(colLeaf.matrixNode, matrixColLevels);
+                                const cellSelId = cellBuilder.createSelectionId();
                                 const cellKey = this.getSelectionKey(cellSelId);
                                 const colLeafPathKey = this.getColumnPathKey(colLeaf.path || []);
                                 if (cellKey && colLeafPathKey) {

@@ -1074,5 +1074,5 @@ export class VisualSettings extends FormattingSettingsModel {
     public columnWidth: ColumnWidthSettings = new ColumnWidthSettings();
     public sortBy: SortBySettings = new SortBySettings();
 
-    public cards: FormattingSettingsCard[] = [this.gridMenu, this.valuesMenu, this.totals, this.columnTotals, this.subTotals, this.rowHeight, this.columnWidth, this.columnHeaders, this.specificColumn, this.sortBy, this.dataBarsFormatting, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.valueBackgroundConditionalFormatting];
+    public cards: FormattingSettingsCard[] = [this.gridMenu, this.valuesMenu, this.sortBy, this.totals, this.rowHeight, this.columnTotals, this.columnWidth, this.columnHeaders, this.specificColumn, this.dataBarsFormatting, this.dataBarsConditionalFormatting, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.valueBackgroundConditionalFormatting, this.subTotals];
 }
