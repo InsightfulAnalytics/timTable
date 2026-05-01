@@ -30,6 +30,7 @@ export declare class Visual implements IVisual {
     private getColumnPathKey;
     private columnPathMatches;
     private applyManualWidths;
+    private persistManualWidths;
     private syncTableWidth;
     private refreshStickyLeft;
     private attachResizeHandles;

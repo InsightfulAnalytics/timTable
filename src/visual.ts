@@ -154,6 +154,28 @@ export class Visual implements IVisual {
         this.syncTableWidth();
     }
 
+    // Persist the current `manualColumnWidths` map (and the associated settings snapshot
+    // it was paired against) so that user-driven column resizes survive a save + refresh.
+    // The map is serialised as a JSON string under the `columnWidth.manualWidthsJson` property.
+    private persistManualWidths(): void {
+        if (!this.host || !this.host.persistProperties) return;
+        const obj: { [k: string]: number } = {};
+        this.manualColumnWidths.forEach((width, colIdx) => {
+            obj[String(colIdx)] = width;
+        });
+        const json = JSON.stringify(obj);
+        this.host.persistProperties({
+            merge: [{
+                objectName: "columnWidth",
+                selector: null,
+                properties: {
+                    manualWidthsJson: json,
+                    manualWidthsSnapshot: this.lastColumnWidthSnapshot || ""
+                }
+            }]
+        });
+    }
+
     private syncTableWidth(): void {
         if (this.colElements.length > 0) {
             let total = 0;
@@ -288,6 +310,8 @@ export class Visual implements IVisual {
             }
             this.syncTableWidth();
             this.refreshStickyLeft();
+            // Persist so the resize survives a save + refresh.
+            this.persistManualWidths();
         };
 
         document.addEventListener('mousemove', onMouseMove);
@@ -333,6 +357,8 @@ export class Visual implements IVisual {
             }
             this.syncTableWidth();
             this.refreshStickyLeft();
+            // Persist so the resize survives a save + refresh.
+            this.persistManualWidths();
         };
 
         document.addEventListener('mousemove', onMouseMove);
@@ -2304,10 +2330,57 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         // Determine column total column widths (per base measure)
         const colTotalColumnWidths = Array.from({ length: M }, (_, i) => valueColumnWidths[i]);
 
-        // Check if column width settings changed — if so, clear manual column resize overrides
+        // Hydrate manual column-width overrides persisted from a previous session.
+        // These are stored as a JSON map of { logicalColIdx: widthPx } under
+        // columnWidth.manualWidthsJson. We re-hydrate every update so that values
+        // saved in the report (which become the metadata.objects on reload, and
+        // also after persistProperties() echoes back through update()) are honoured.
+        const persistedManualWidthsJson = dataViewObjects.getValue<string>(
+            this.dataView?.metadata?.objects || {},
+            { objectName: "columnWidth", propertyName: "manualWidthsJson" },
+            ""
+        );
+        const persistedManualSnapshot = dataViewObjects.getValue<string>(
+            this.dataView?.metadata?.objects || {},
+            { objectName: "columnWidth", propertyName: "manualWidthsSnapshot" },
+            ""
+        );
+
+        // Check if column width settings changed — if so, clear manual column resize overrides.
+        // Use the persisted snapshot as the baseline so a Save+Refresh (which starts with an
+        // empty in-memory snapshot) does NOT wipe legitimately persisted manual widths.
         const currentColumnWidthSnapshot = JSON.stringify([categoryColumnWidth, ...valueColumnWidths, ...colTotalColumnWidths]);
-        if (currentColumnWidthSnapshot !== this.lastColumnWidthSnapshot) {
+        const baselineSnapshot = this.lastColumnWidthSnapshot || persistedManualSnapshot;
+        const settingsChanged = baselineSnapshot !== "" && currentColumnWidthSnapshot !== baselineSnapshot;
+        if (settingsChanged) {
             this.manualColumnWidths.clear();
+            // Persist the cleared state so the on-disk JSON matches the runtime map.
+            this.host.persistProperties({
+                merge: [{
+                    objectName: "columnWidth",
+                    selector: null,
+                    properties: {
+                        manualWidthsJson: "",
+                        manualWidthsSnapshot: currentColumnWidthSnapshot
+                    }
+                }]
+            });
+        } else if (persistedManualWidthsJson) {
+            // Rebuild the runtime map from persisted JSON every update so manual
+            // widths survive a save + refresh (manualColumnWidths is in-memory only).
+            try {
+                const parsed = JSON.parse(persistedManualWidthsJson);
+                this.manualColumnWidths.clear();
+                Object.keys(parsed).forEach(k => {
+                    const idx = parseInt(k, 10);
+                    const w = Number(parsed[k]);
+                    if (!isNaN(idx) && !isNaN(w) && w > 0) {
+                        this.manualColumnWidths.set(idx, w);
+                    }
+                });
+            } catch {
+                // Bad JSON — ignore and leave the in-memory map alone.
+            }
         }
         this.lastColumnWidthSnapshot = currentColumnWidthSnapshot;
 
