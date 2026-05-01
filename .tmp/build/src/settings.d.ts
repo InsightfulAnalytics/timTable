@@ -226,6 +226,15 @@ export declare class SubTotalsSettings extends FormattingSettingsCard {
     levelSubtotalEnabled: formattingSettings.ToggleSwitch;
     slices: FormattingSettingsSlice[];
 }
+export declare class SortBySettings extends FormattingSettingsCard {
+    name: string;
+    displayName: string;
+    visible: boolean;
+    scope: formattingSettings.ItemDropdown;
+    sortByField: formattingSettings.ItemDropdown;
+    direction: formattingSettings.ItemDropdown;
+    slices: FormattingSettingsSlice[];
+}
 export declare class VisualSettings extends FormattingSettingsModel {
     valuesMenu: ValuesSettings;
     specificColumn: SpecificColumnSettings;
@@ -241,5 +250,6 @@ export declare class VisualSettings extends FormattingSettingsModel {
     subTotals: SubTotalsSettings;
     gridMenu: GridSettings;
     columnWidth: ColumnWidthSettings;
+    sortBy: SortBySettings;
     cards: FormattingSettingsCard[];
 }

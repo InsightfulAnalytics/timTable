@@ -599,6 +599,31 @@
                 }
             }
         },
+        "sortBy": {
+            "properties": {
+                "scope": {
+                    "type": {
+                        "enumeration": [
+                            { "value": "hierarchical", "displayName": "Hierarchical" },
+                            { "value": "flat", "displayName": "Flat" }
+                        ]
+                    }
+                },
+                "sortByField": {
+                    "type": {
+                        "text": true
+                    }
+                },
+                "direction": {
+                    "type": {
+                        "enumeration": [
+                            { "value": "asc", "displayName": "Ascending" },
+                            { "value": "desc", "displayName": "Descending" }
+                        ]
+                    }
+                }
+            }
+        },
         "specificColumn": {
             "properties": {
                 "series": {

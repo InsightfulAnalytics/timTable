@@ -1014,6 +1014,73 @@ export class Visual implements IVisual {
             hasCategories = hasCatLevel;
 
             let flatRows: any[] = [];
+
+            // ── Sort By: decode persisted settings from metadata.objects ──
+            const sortByObjects = (dataView.metadata.objects as any)?.sortBy || {};
+            const _rawSortField = sortByObjects.sortByField;
+            const sortField: string = (typeof _rawSortField === 'string' ? _rawSortField : _rawSortField?.value) || '__default__';
+            const _rawSortDir = sortByObjects.direction;
+            const sortDirVal: string = (typeof _rawSortDir === 'string' ? _rawSortDir : _rawSortDir?.value) || 'asc';
+            const _rawSortScope = sortByObjects.scope;
+            const sortScopeVal: string = (typeof _rawSortScope === 'string' ? _rawSortScope : _rawSortScope?.value) || 'hierarchical';
+            const sortDirMul = sortDirVal === 'desc' ? -1 : 1;
+
+            let sortMode: 'default' | 'measure' | 'category' = 'default';
+            let sortMeasureIdx = -1;
+            let sortCategoryLevel = -1;
+            if (sortField && sortField !== '__default__') {
+                if (sortField.indexOf('m:') === 0) {
+                    const idx = parseInt(sortField.slice(2), 10);
+                    if (!isNaN(idx) && idx >= 0 && idx < (vSources?.length || 0)) {
+                        sortMode = 'measure';
+                        sortMeasureIdx = idx;
+                    }
+                } else if (sortField.indexOf('c:') === 0) {
+                    const qn = sortField.slice(2);
+                    const lvl = (matrixRowLevels || []).findIndex((l: any) => l?.sources?.[0]?.queryName === qn);
+                    if (lvl >= 0) {
+                        sortMode = 'category';
+                        sortCategoryLevel = lvl;
+                    }
+                }
+            }
+
+            const getNodeMeasureValue = (node: any): number => {
+                const subT = (node.children || []).find((c: any) => c.isSubtotal);
+                const valSrc = subT?.values || node.values || {};
+                const v = valSrc[sortMeasureIdx]?.value;
+                const n = Number(v);
+                return isNaN(n) ? 0 : n;
+            };
+            const compareNodes = (a: any, b: any): number => {
+                if (sortMode === 'measure') {
+                    return (getNodeMeasureValue(a) - getNodeMeasureValue(b)) * sortDirMul;
+                }
+                // category
+                const av = a.value, bv = b.value;
+                let r: number;
+                if (typeof av === 'number' && typeof bv === 'number') {
+                    r = av - bv;
+                } else {
+                    r = String(av ?? '').localeCompare(String(bv ?? ''));
+                }
+                return r * sortDirMul;
+            };
+            // Apply hierarchical in-tree sort. Only sort at depths matching the chosen field.
+            const shouldSortAtDepth = (depth: number): boolean => {
+                if (sortMode === 'default') return false;
+                if (sortMode === 'measure') return true; // sort at every level
+                if (sortMode === 'category') return depth === sortCategoryLevel;
+                return false;
+            };
+            const sortChildren = (children: any[], childDepth: number): any[] => {
+                if (sortScopeVal !== 'hierarchical') return children; // flat handled later
+                if (!shouldSortAtDepth(childDepth)) return children;
+                const arr = children.slice();
+                arr.sort(compareNodes);
+                return arr;
+            };
+
             const flattenNode = (node: any, depth: number = 0, currentPath: any[] = []) => {
                 const subTChild = (node.children || []).find((c: any) => c.isSubtotal);
                 const nodeVals = node.values || subTChild?.values || {};
@@ -1046,7 +1113,8 @@ export class Visual implements IVisual {
                 }
                 
                 if (node.children) {
-                    node.children.filter((c: any) => !c.isSubtotal).forEach((c: any) => {
+                    const regulars = node.children.filter((c: any) => !c.isSubtotal);
+                    sortChildren(regulars, depth + 1).forEach((c: any) => {
                         flattenNode(c, depth + 1, newPath);
                     });
                     
@@ -1058,9 +1126,32 @@ export class Visual implements IVisual {
                 }
             };
             
-            allChildren.filter((c: any) => !c.isSubtotal).forEach((c: any) => {
+            const topRegulars = allChildren.filter((c: any) => !c.isSubtotal);
+            sortChildren(topRegulars, 0).forEach((c: any) => {
                 flattenNode(c, 0, []);
             });
+
+            // Flat scope: drop subtotals + sort whole list by chosen field (blanks treated as 0).
+            if (sortScopeVal === 'flat' && sortMode !== 'default') {
+                flatRows = flatRows.filter(r => !r.isSubtotal);
+                flatRows.sort((a, b) => {
+                    if (sortMode === 'measure') {
+                        const av = Number(a.rawValues?.[sortMeasureIdx]?.value);
+                        const bv = Number(b.rawValues?.[sortMeasureIdx]?.value);
+                        return ((isNaN(av) ? 0 : av) - (isNaN(bv) ? 0 : bv)) * sortDirMul;
+                    }
+                    const av = a.path?.[sortCategoryLevel];
+                    const bv = b.path?.[sortCategoryLevel];
+                    let r: number;
+                    if (typeof av === 'number' && typeof bv === 'number') {
+                        r = av - bv;
+                    } else {
+                        r = String(av ?? '').localeCompare(String(bv ?? ''));
+                    }
+                    return r * sortDirMul;
+                });
+            }
+
 
             if (hasCatLevel) {
                 categories = {
@@ -1740,6 +1831,59 @@ interface MeasureSpecificSettings {
           showTotalColumn = baseMeasureColTotalIncluded.some(v => v);
           // Count how many total columns we will render
           const colTotalCount = baseMeasureColTotalIncluded.filter(v => v).length;
+
+          // ── Populate Sort By dropdown items + sync persisted values ──
+          const sortBySettings = this.visualSettings.sortBy;
+          const sortFieldItems: { value: string, displayName: string }[] = [
+              { value: "__default__", displayName: "Default" }
+          ];
+          if (hasCategories && categories?.sources) {
+              (categories.sources as any[]).forEach((src: any) => {
+                  if (src?.queryName) {
+                      sortFieldItems.push({
+                          value: `c:${src.queryName}`,
+                          displayName: src.displayName || src.queryName
+                      });
+                  }
+              });
+          }
+          measureHeaders.forEach((name, idx) => {
+              sortFieldItems.push({ value: `m:${idx}`, displayName: name });
+          });
+          sortBySettings.sortByField.items = sortFieldItems;
+          const rawPersistedSortField = dataViewObjects.getValue<any>(
+              this.dataView.metadata.objects || {},
+              { objectName: "sortBy", propertyName: "sortByField" },
+              undefined
+          );
+          const persistedSortField = typeof rawPersistedSortField === 'string'
+              ? rawPersistedSortField
+              : rawPersistedSortField?.value;
+          const matchedSortField = persistedSortField
+              ? sortFieldItems.find(i => i.value === persistedSortField)
+              : null;
+          sortBySettings.sortByField.value = matchedSortField || sortFieldItems[0];
+          // Sync scope/direction value objects from persisted strings (so dropdown shows correct selection)
+          const rawPersistedScope = dataViewObjects.getValue<any>(
+              this.dataView.metadata.objects || {},
+              { objectName: "sortBy", propertyName: "scope" },
+              undefined
+          );
+          const persistedScope = typeof rawPersistedScope === 'string' ? rawPersistedScope : rawPersistedScope?.value;
+          if (persistedScope) {
+              const scopeMatch = sortBySettings.scope.items.find((i: any) => i.value === persistedScope);
+              if (scopeMatch) sortBySettings.scope.value = scopeMatch;
+          }
+          const rawPersistedDir = dataViewObjects.getValue<any>(
+              this.dataView.metadata.objects || {},
+              { objectName: "sortBy", propertyName: "direction" },
+              undefined
+          );
+          const persistedDir = typeof rawPersistedDir === 'string' ? rawPersistedDir : rawPersistedDir?.value;
+          if (persistedDir) {
+              const dirMatch = sortBySettings.direction.items.find((i: any) => i.value === persistedDir);
+              if (dirMatch) sortBySettings.direction.value = dirMatch;
+          }
 
           // Populate specificColumn series dropdown and rebuild value slices with per-measure selector
           const specificColumnSettings = this.visualSettings.specificColumn;

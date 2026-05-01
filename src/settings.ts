@@ -1019,6 +1019,44 @@ export class SubTotalsSettings extends FormattingSettingsCard {
     public slices: FormattingSettingsSlice[] = [this.rowSubtotals, this.levelSubtotalEnabled];
 }
 
+export class SortBySettings extends FormattingSettingsCard {
+    public name: string = "sortBy";
+    public displayName: string = "Sort by";
+    public visible: boolean = true;
+
+    public scope = new formattingSettings.ItemDropdown({
+        name: "scope",
+        displayName: "Scope",
+        items: [
+            { value: "hierarchical", displayName: "Hierarchical" },
+            { value: "flat", displayName: "Flat" }
+        ],
+        value: { value: "hierarchical", displayName: "Hierarchical" },
+        visible: true
+    });
+
+    public sortByField = new formattingSettings.ItemDropdown({
+        name: "sortByField",
+        displayName: "Sort by field",
+        items: [{ value: "__default__", displayName: "Default" }],
+        value: { value: "__default__", displayName: "Default" },
+        visible: true
+    });
+
+    public direction = new formattingSettings.ItemDropdown({
+        name: "direction",
+        displayName: "Direction",
+        items: [
+            { value: "asc", displayName: "Ascending" },
+            { value: "desc", displayName: "Descending" }
+        ],
+        value: { value: "asc", displayName: "Ascending" },
+        visible: true
+    });
+
+    public slices: FormattingSettingsSlice[] = [this.scope, this.sortByField, this.direction];
+}
+
 export class VisualSettings extends FormattingSettingsModel {
     public valuesMenu: ValuesSettings = new ValuesSettings();
     public specificColumn: SpecificColumnSettings = new SpecificColumnSettings();
@@ -1034,6 +1072,7 @@ export class VisualSettings extends FormattingSettingsModel {
     public subTotals: SubTotalsSettings = new SubTotalsSettings();
     public gridMenu: GridSettings = new GridSettings();
     public columnWidth: ColumnWidthSettings = new ColumnWidthSettings();
+    public sortBy: SortBySettings = new SortBySettings();
 
-    public cards: FormattingSettingsCard[] = [this.gridMenu, this.valuesMenu, this.totals, this.columnTotals, this.subTotals, this.rowHeight, this.columnWidth, this.columnHeaders, this.specificColumn, this.dataBarsFormatting, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.valueBackgroundConditionalFormatting];
+    public cards: FormattingSettingsCard[] = [this.gridMenu, this.valuesMenu, this.totals, this.columnTotals, this.subTotals, this.rowHeight, this.columnWidth, this.columnHeaders, this.specificColumn, this.sortBy, this.dataBarsFormatting, this.categoryConditionalFormatting, this.valueConditionalFormatting, this.dataBarsConditionalFormatting, this.valueBackgroundConditionalFormatting];
 }
