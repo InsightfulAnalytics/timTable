@@ -1425,6 +1425,7 @@ interface MeasureSpecificSettings {
     alignment: string | undefined;
     displayUnits: number;
     decimalPlaces: number;
+    formatString: string | undefined;
     fontFamily: string | undefined;
     fontSize: number | undefined;
     bold: boolean | undefined;
@@ -1451,6 +1452,7 @@ interface MeasureSpecificSettings {
     totalAlignment: string | undefined;
     totalDisplayUnits: number;
     totalDecimalPlaces: number;
+    totalFormatString: string | undefined;
     totalFontFamily: string | undefined;
     totalFontSize: number | undefined;
     totalBold: boolean | undefined;
@@ -1473,8 +1475,9 @@ interface MeasureSpecificSettings {
                   alternateTextColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "alternateTextColor" }, undefined),
                   alternateBackgroundColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "alternateBackgroundColor" }, undefined),
                   alignment: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "alignment" }, undefined) as string | undefined,
-                  displayUnits: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "displayUnits" }, 0),
-                  decimalPlaces: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "decimalPlaces" }, null),
+                  displayUnits: 0,
+                  decimalPlaces: null,
+                  formatString: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "formatString" }, undefined) as string | undefined,
                   fontFamily: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "fontFamily" }, undefined) as string | undefined,
                   fontSize: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "fontSize" }, undefined) as number | undefined,
                   bold: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "bold" }, undefined) as boolean | undefined,
@@ -1499,8 +1502,9 @@ interface MeasureSpecificSettings {
                   totalTextColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalTextColor" }, undefined),
                   totalBackgroundColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalBackgroundColor" }, undefined),
                   totalAlignment: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalAlignment" }, undefined) as string | undefined,
-                  totalDisplayUnits: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalDisplayUnits" }, 0),
-                  totalDecimalPlaces: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalDecimalPlaces" }, null),
+                  totalDisplayUnits: 0,
+                  totalDecimalPlaces: null,
+                  totalFormatString: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalFormatString" }, undefined) as string | undefined,
                   totalFontFamily: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalFontFamily" }, undefined) as string | undefined,
                   totalFontSize: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalFontSize" }, undefined) as number | undefined,
                   totalBold: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalBold" }, undefined) as boolean | undefined,
@@ -1945,8 +1949,7 @@ interface MeasureSpecificSettings {
           const scItalic = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "italic" }, undefined);
           const scUnderline = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "underline" }, undefined);
           const scAlignment = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "alignment" }, undefined);
-          const scDisplayUnits = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "displayUnits" }, 0);
-          const scDecimalPlaces = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "decimalPlaces" }, null);
+          const scFormatString = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "formatString" }, "");
           const scTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "textWrap" }, undefined);
           const scHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true);
           const scTransparency = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "transparency" }, 0);
@@ -1973,8 +1976,7 @@ interface MeasureSpecificSettings {
           const scTotalItalic = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalItalic" }, undefined);
           const scTotalUnderline = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalUnderline" }, undefined);
           const scTotalAlignment = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "totalAlignment" }, undefined);
-          const scTotalDisplayUnits = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "totalDisplayUnits" }, 0);
-          const scTotalDecimalPlaces = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "totalDecimalPlaces" }, null);
+          const scTotalFormatString = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "totalFormatString" }, "");
           const scTotalTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalTextWrap" }, undefined);
           const scTotalHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalHorizontalGrid" }, true);
           const scTotalTransparency = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "totalTransparency" }, 0);
@@ -2091,8 +2093,7 @@ interface MeasureSpecificSettings {
               new formattingSettings.ColorPicker({ name: "alternateTextColor", displayName: "Alternate text color", value: { value: scAltTextColor || "#333333" }, visible: true, selector }),
               new formattingSettings.ColorPicker({ name: "alternateBackgroundColor", displayName: "Alternate background color", value: { value: scAltBgColor || "#f5f5f5" }, visible: true, selector }),
               new formattingSettings.AlignmentGroup({ name: "alignment", displayName: "Alignment", value: scAlignment || "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true, selector }),
-              new formattingSettings.AutoDropdown({ name: "displayUnits", displayName: "Display units", value: scDisplayUnits, visible: true, selector }),
-              new formattingSettings.NumUpDown({ name: "decimalPlaces", displayName: "Value decimal places", value: scDecimalPlaces, visible: true, selector, options: { placeholderText: "Auto" } as any }),
+              new formattingSettings.TextInput({ name: "formatString", displayName: "Format string", value: scFormatString || "", placeholder: "e.g. #,0.00;(#,0.00);0 or 0.00%", visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "textWrap", displayName: "Text wrap", value: scTextWrap ?? false, visible: true, selector }),
               new formattingSettings.NumUpDown({ name: "transparency", displayName: "Value Transparency (%)", value: scTransparency, visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "horizontalGrid", displayName: "Horizontal grid", value: scHorizontalGrid, visible: true, selector })
@@ -2112,8 +2113,7 @@ interface MeasureSpecificSettings {
               new formattingSettings.ColorPicker({ name: "totalTextColor", displayName: "Text color", value: { value: scTotalTextColor || "#00b8d4" }, visible: true, selector }),
               new formattingSettings.ColorPicker({ name: "totalBackgroundColor", displayName: "Background color", value: { value: scTotalBgColor || "#ffffff" }, visible: true, selector }),
               new formattingSettings.AlignmentGroup({ name: "totalAlignment", displayName: "Alignment", value: scTotalAlignment || "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true, selector }),
-              new formattingSettings.AutoDropdown({ name: "totalDisplayUnits", displayName: "Display units", value: scTotalDisplayUnits, visible: true, selector }),
-              new formattingSettings.NumUpDown({ name: "totalDecimalPlaces", displayName: "Value decimal places", value: scTotalDecimalPlaces, visible: true, selector, options: { placeholderText: "Auto" } as any }),
+              new formattingSettings.TextInput({ name: "totalFormatString", displayName: "Format string", value: scTotalFormatString || "", placeholder: "e.g. #,0.00;(#,0.00);0 or 0.00%", visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "totalTextWrap", displayName: "Text wrap", value: scTotalTextWrap ?? false, visible: true, selector }),
               new formattingSettings.NumUpDown({ name: "totalTransparency", displayName: "Transparency (%)", value: scTotalTransparency, visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "totalHorizontalGrid", displayName: "Horizontal grid", value: scTotalHorizontalGrid, visible: true, selector })
@@ -3549,7 +3549,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             if (!ctDynamicFormat && values[mIdx]?.objects) {
                                 ctDynamicFormat = values[mIdx].objects[i]?.general?.formatString;
                             }
-                            const ctFormat = ctDynamicFormat || baseMeasureFormats[mIdx] || "";
+                            const ctFormat = baseMeasureSettings[mIdx].formatString || ctDynamicFormat || baseMeasureFormats[mIdx] || "";
                             const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
                             const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
                             const ctFormattedValue = formatValue(colTotalVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
@@ -3903,7 +3903,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             }
                         }
                     }
-                    const totalFormat = firstRowDynamicFormat || measureFormats[i];
+                    const totalFormat = specSettings.totalFormatString || firstRowDynamicFormat || measureFormats[i];
                     const formattedTotal = formatValue(total, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces);
 
                     // Check if data bars should be rendered on the row total
@@ -4107,7 +4107,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (!gtDynamicFormat && values[mIdx]?.objects && values[mIdx].objects.length > 0) {
                             gtDynamicFormat = values[mIdx].objects[0]?.general?.formatString;
                         }
-                        const ctFormat = gtDynamicFormat || baseMeasureFormats[mIdx] || "";
+                        const ctFormat = baseMeasureSettings[mIdx].formatString || gtDynamicFormat || baseMeasureFormats[mIdx] || "";
                         const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
                         const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
                         const grandFormattedValue = formatValue(grandVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
@@ -4767,7 +4767,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         let numValue = Number(value);
                         const specSettings = measureSettingsList[measureIndex];
                         const dynamicFormat = valueColumn.objects?.[i]?.general?.formatString as string;
-                        const cellFormat = dynamicFormat || measureFormats[measureIndex];
+                        const cellFormat = specSettings.formatString || dynamicFormat || measureFormats[measureIndex];
                         const formattedValue = formatValue(numValue, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces);
 
                         const objects = valueColumn.source.objects || {};
@@ -5064,7 +5064,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 }
                             }
                         }
-                        const totalFormat = firstRowDynamicFormat || measureFormats[measureIndex];
+                        const totalFormat = specSettings.totalFormatString || firstRowDynamicFormat || measureFormats[measureIndex];
                         const formattedTotal = formatValue(totalVal, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces);
 
                         // Check if data bars should be rendered on the row total in transposed mode
@@ -5384,7 +5384,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             if (!ctDynamicFormat && values[mIdx]?.objects) {
                                 ctDynamicFormat = values[mIdx].objects[i]?.general?.formatString;
                             }
-                            const ctFormat = ctDynamicFormat || baseMeasureFormats[mIdx] || "";
+                            const ctFormat = baseMeasureSettings[mIdx].formatString || ctDynamicFormat || baseMeasureFormats[mIdx] || "";
                             const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
                             const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
                             const ctFormattedValue = formatValue(colTotalVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);
@@ -5639,7 +5639,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             if (!gtDynamicFormat && values[mIdx]?.objects && values[mIdx].objects.length > 0) {
                                 gtDynamicFormat = values[mIdx].objects[0]?.general?.formatString;
                             }
-                            const ctFormat = gtDynamicFormat || baseMeasureFormats[mIdx] || "";
+                            const ctFormat = baseMeasureSettings[mIdx].formatString || gtDynamicFormat || baseMeasureFormats[mIdx] || "";
                             const ctDisplayUnits = baseMeasureSettings[mIdx].displayUnits;
                             const ctDecimalPlaces = baseMeasureSettings[mIdx].decimalPlaces;
                             grandCell.textContent = formatValue(grandVal, ctFormat, ctDisplayUnits, ctDecimalPlaces);

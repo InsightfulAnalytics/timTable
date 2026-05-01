@@ -672,16 +672,9 @@
                         ]
                     }
                 },
-                "displayUnits": {
+                "formatString": {
                     "type": {
-                        "formatting": {
-                            "labelDisplayUnits": true
-                        }
-                    }
-                },
-                "decimalPlaces": {
-                    "type": {
-                        "numeric": true
+                        "text": true
                     }
                 },
                 "fontFamily": {
@@ -793,11 +786,8 @@
                         ]
                     }
                 },
-                "totalDisplayUnits": {
-                    "type": { "formatting": { "labelDisplayUnits": true } }
-                },
-                "totalDecimalPlaces": {
-                    "type": { "numeric": true }
+                "totalFormatString": {
+                    "type": { "text": true }
                 },
                 "totalFontFamily": {
                     "type": { "formatting": { "fontFamily": true } }
