@@ -69,6 +69,10 @@ export class Visual implements IVisual {
     // Currently focused cell coords (for roving tabindex / keyboard nav)
     private focusedRowIdx: number = -1;
     private focusedColIdx: number = -1;
+    // Current sort state (mirrors persisted sortBy object), captured during update()
+    // so header rendering can show sort indicators and cycle correctly on click.
+    private currentSortField: string = '__default__';
+    private currentSortDir: string = 'asc';
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
@@ -364,6 +368,71 @@ export class Visual implements IVisual {
                 }
             }]
         });
+    }
+
+    // Persist a new sortBy state. Called by header-click sort affordance.
+    private persistSortBy(field: string, direction: string): void {
+        if (!this.host || !this.host.persistProperties) return;
+        this.host.persistProperties({
+            merge: [{
+                objectName: "sortBy",
+                selector: null,
+                properties: {
+                    sortByField: field,
+                    direction: direction
+                }
+            }]
+        });
+    }
+
+    // Cycle sort state for a given field id (e.g. "m:2" or "c:queryName").
+    // Cycle: default → asc → desc → default.
+    private cycleSort(field: string): void {
+        let nextField = field;
+        let nextDir = 'asc';
+        if (this.currentSortField === field) {
+            if (this.currentSortDir === 'asc') {
+                nextDir = 'desc';
+            } else {
+                nextField = '__default__';
+                nextDir = 'asc';
+            }
+        }
+        this.persistSortBy(nextField, nextDir);
+    }
+
+    // Append a clickable sort icon to a header cell. Click cycles sort state for the
+    // given sortFieldId. Click is stopped from propagating so the existing column-
+    // highlight click handler on measure headers does not also fire.
+    private addSortAffordance(headerCell: HTMLTableCellElement, sortFieldId: string): void {
+        if (!sortFieldId) return;
+        const icon = document.createElement('span');
+        icon.className = 'sort-icon';
+        const isActive = this.currentSortField === sortFieldId;
+        let glyph: string;
+        if (isActive) {
+            glyph = this.currentSortDir === 'desc' ? '▼' : '▲';
+            icon.classList.add('sort-icon-active');
+        } else {
+            glyph = '↕';
+        }
+        icon.textContent = glyph;
+        icon.title = isActive
+            ? (this.currentSortDir === 'asc' ? 'Sorted ascending — click to sort descending' : 'Sorted descending — click to clear sort')
+            : 'Click to sort ascending';
+        icon.setAttribute('aria-label', icon.title);
+        icon.setAttribute('role', 'button');
+        icon.addEventListener('click', (e: MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            this.cycleSort(sortFieldId);
+        });
+        // Prevent the icon mousedown from initiating a column-resize drag if it
+        // happens to fall near the resize handle zone.
+        icon.addEventListener('mousedown', (e: MouseEvent) => {
+            e.stopPropagation();
+        });
+        headerCell.appendChild(icon);
     }
 
     private syncTableWidth(): void {
@@ -1227,6 +1296,9 @@ export class Visual implements IVisual {
             const _rawSortScope = sortByObjects.scope;
             const sortScopeVal: string = (typeof _rawSortScope === 'string' ? _rawSortScope : _rawSortScope?.value) || 'hierarchical';
             const sortDirMul = sortDirVal === 'desc' ? -1 : 1;
+            // Mirror onto instance so header click handlers + indicator rendering can use it.
+            this.currentSortField = sortField;
+            this.currentSortDir = sortDirVal;
 
             let sortMode: 'default' | 'measure' | 'category' = 'default';
             let sortMeasureIdx = -1;
@@ -1234,7 +1306,10 @@ export class Visual implements IVisual {
             if (sortField && sortField !== '__default__') {
                 if (sortField.indexOf('m:') === 0) {
                     const idx = parseInt(sortField.slice(2), 10);
-                    if (!isNaN(idx) && idx >= 0 && idx < (vSources?.length || 0)) {
+                    // NOTE: don't bound by vSources.length — for single-measure-with-column-
+                    // grouping, header idx maps to (colLeafIdx*M + mIdx) which can far exceed
+                    // vSources.length. The valSrc[idx] lookup below tolerates missing keys.
+                    if (!isNaN(idx) && idx >= 0) {
                         sortMode = 'measure';
                         sortMeasureIdx = idx;
                     }
@@ -2963,6 +3038,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (headerWordWrap) {
                         categoryHeader.style.wordBreak = "break-word";
                     }
+                    // Header-click sort affordance (icon-only — body-cell highlight unaffected).
+                    if (source.queryName) {
+                        this.addSortAffordance(categoryHeader, `c:${source.queryName}`);
+                    }
                 });
             }
 
@@ -3057,6 +3136,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         });
                     }
                 }
+                // Header-click sort affordance — added last so the icon sits at the end
+                // of the cell. Icon click stops propagation so the column-select handler
+                // above does NOT also fire when the user is sorting.
+                this.addSortAffordance(header, `m:${idx}`);
             });
 
             // Add column total headers — one per enabled base measure

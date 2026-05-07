@@ -30,6 +30,8 @@ export declare class Visual implements IVisual {
     private numRowHeaderCols;
     private focusedRowIdx;
     private focusedColIdx;
+    private currentSortField;
+    private currentSortDir;
     constructor(options: VisualConstructorOptions);
     /**
      * Apply ARIA roles, indices, and roving tabindex to all rows/cells. Call after every
@@ -53,6 +55,9 @@ export declare class Visual implements IVisual {
     private columnPathMatches;
     private applyManualWidths;
     private persistManualWidths;
+    private persistSortBy;
+    private cycleSort;
+    private addSortAffordance;
     private syncTableWidth;
     private refreshStickyLeft;
     private attachResizeHandles;

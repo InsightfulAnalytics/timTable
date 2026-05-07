@@ -74,6 +74,37 @@
     }
 }
 
+.sort-icon {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 4px;
+    font-size: 0.9em;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    opacity: 0.85;
+    color: #555;
+    background-color: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    vertical-align: middle;
+    transition: opacity 0.15s ease-in-out, background-color 0.15s ease-in-out, color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+    border-radius: 3px;
+
+    &:hover {
+        opacity: 1;
+        background-color: rgba(0, 120, 212, 0.18);
+        border-color: rgba(0, 120, 212, 0.5);
+        color: #0078d4;
+    }
+
+    &.sort-icon-active {
+        opacity: 1;
+        color: #ffffff;
+        background-color: #0078d4;
+        border-color: #0078d4;
+    }
+}
+
 .table-data-row {
     border-bottom: 1px solid #e0e0e0;
     transition: opacity 0.15s ease-in-out;
