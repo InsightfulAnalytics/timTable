@@ -2725,9 +2725,21 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             const headerBgColor = headerBackgroundColor;
             const numCategoryColumns = hasCategories ? categories.sources.length : 0;
 
-            // Add column grouping header rows (for matrix columns field, only when multiple measures)
-            if (hasColumnGrouping && columnHeaderGroups.length > 0 && storedMeasureCount > 1) {
-                columnHeaderGroups.forEach((groups, levelIdx) => {
+            // Add column grouping header rows (for matrix columns field).
+            // For multi-measure: render every non-measure level as a grouping row; the
+            // measure-name row beneath shows the actual measures repeated under each leaf.
+            // For single-measure: render every non-measure level EXCEPT the leaf level
+            // (the leaf level is rendered by the measure header row below, where each
+            // header cell is labelled with the leaf value instead of the measure name).
+            // This matches the standard Power BI matrix behaviour when drilling down on
+            // columns: each level gets its own header row with colSpan-merged parents.
+            const headerGroupsToRender = (hasColumnGrouping && columnHeaderGroups.length > 0)
+                ? (storedMeasureCount > 1
+                    ? columnHeaderGroups
+                    : columnHeaderGroups.slice(0, Math.max(0, columnHeaderGroups.length - 1)))
+                : [];
+            if (headerGroupsToRender.length > 0) {
+                headerGroupsToRender.forEach((groups, levelIdx) => {
                     let colHeaderRow = this.table.insertRow();
                     colHeaderRow.className = 'table-header-row';
                     colHeaderRow.style.borderBottom = horizBorderValue;
@@ -2862,8 +2874,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 });
             }
 
-            // Add a "Total" grouping row when column totals are shown but no column grouping header rows exist
-            if (showTotalColumn && !(hasColumnGrouping && columnHeaderGroups.length > 0 && storedMeasureCount > 1)) {
+            // Add a "Total" grouping row when column totals are shown but no column grouping header rows were rendered above
+            if (showTotalColumn && headerGroupsToRender.length === 0) {
                 let colTotalGroupRow = this.table.insertRow();
                 colTotalGroupRow.className = 'table-header-row';
                 colTotalGroupRow.style.borderBottom = horizBorderValue;
@@ -2956,14 +2968,20 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
             // Add measure column headers (or column-value headers for single-measure + columns)
             measureHeaders.forEach((displayName, idx) => {
-                // For single-measure with columns, use the column path as header text
+                // For single-measure with columns, use the column LEAF value as the header
+                // text (the parent levels are already rendered as grouping rows above).
+                // This matches the standard matrix where the bottom-most header row shows
+                // only the deepest drill level, e.g. "February" rather than
+                // "2022 \u203A 1 \u203A February".
                 let headerText = measureHeaderOverrides[idx];
                 if (hasColumnGrouping && columnLeaves.length > 0 && storedMeasureCount === 1) {
                     const colIdx = idx; // 1 measure, so display col idx == column leaf idx
-                    // Only use the column path as the header text when no custom override
+                    // Only use the column-leaf value as the header text when no custom override
                     // (manual text or formula result) has been set for this column.
                     if (colIdx < columnLeaves.length && headerText === measureHeaders[idx]) {
-                        headerText = columnLeaves[colIdx].path.join(' \u203A ');
+                        const leafPath = columnLeaves[colIdx].path;
+                        const leafVal = leafPath.length > 0 ? leafPath[leafPath.length - 1] : "";
+                        headerText = leafVal !== undefined && leafVal !== null ? String(leafVal) : "";
                     }
                 }
                 const effectiveDisplayName = headerText;
