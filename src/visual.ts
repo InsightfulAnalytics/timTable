@@ -1170,13 +1170,13 @@ export class Visual implements IVisual {
         // Helper function to apply squashing row height
         const applyRowSquash = (cell: HTMLElement, rowHeight: number, fontSize: number, wordWrap: boolean) => {
             if (rowHeight <= 2) {
-                cell.style.fontSize = "0px";
+                cell.style.fontSize = "0pt";
                 cell.style.color = "transparent";
                 cell.style.padding = "0px";
                 cell.style.lineHeight = "0px";
                 cell.style.height = `${rowHeight}px`;
             } else {
-                cell.style.fontSize = `${Math.min(fontSize, Math.max(8, rowHeight - 6))}px`;
+                cell.style.fontSize = `${Math.min(fontSize, Math.max(8, rowHeight - 6))}pt`;
                 cell.style.height = `${rowHeight}px`;
                 cell.style.padding = ""; // fallback to CSS padding
                 if (!wordWrap) {
@@ -3152,19 +3152,36 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     colTotalHeader.style.width = `${colTotalColumnWidths[mIdx]}px`;
                     colTotalHeader.style.minWidth = `${colTotalColumnWidths[mIdx]}px`;
                     colTotalHeader.style.maxWidth = `${colTotalColumnWidths[mIdx]}px`;
-                    applyRowSquash(colTotalHeader, headerRowHeight, headerFontSize, headerWordWrap);
-                    colTotalHeader.style.fontWeight = headerBold ? "bold" : "normal";
-                    colTotalHeader.style.fontStyle = headerItalic ? "italic" : "normal";
-                    colTotalHeader.style.textDecoration = headerUnderline ? "underline" : "none";
-                    colTotalHeader.style.fontFamily = headerFontFamily;
-                    colTotalHeader.style.color = headerTextColor;
-                    colTotalHeader.style.textAlign = headerAlignment;
+
+                    // Apply per-column header overrides (Specific column > Header) on top of global Column headers
+                    const cthSpec = baseMeasureSettings[mIdx];
+                    const cthBold = cthSpec.headerBold !== undefined ? cthSpec.headerBold : headerBold;
+                    const cthItalic = cthSpec.headerItalic !== undefined ? cthSpec.headerItalic : headerItalic;
+                    const cthUnderline = cthSpec.headerUnderline !== undefined ? cthSpec.headerUnderline : headerUnderline;
+                    const cthFontFamily = cthSpec.headerFontFamily !== undefined ? cthSpec.headerFontFamily : headerFontFamily;
+                    const cthFontSize = cthSpec.headerFontSize !== undefined ? cthSpec.headerFontSize : headerFontSize;
+                    const cthWordWrap = cthSpec.headerTextWrap !== undefined ? cthSpec.headerTextWrap : headerWordWrap;
+                    const cthBg = cthSpec.headerBackgroundColor ? cthSpec.headerBackgroundColor : headerBgColor;
+                    let cthColor = cthSpec.headerTextColor ? cthSpec.headerTextColor : headerTextColor;
+                    if (cthSpec.headerTransparency > 0) {
+                        cthColor = applyTransparency(cthColor, cthSpec.headerTransparency);
+                    }
+                    const cthAlign = cthSpec.headerAlignment ? cthSpec.headerAlignment : headerAlignment;
+
+                    applyRowSquash(colTotalHeader, headerRowHeight, cthFontSize, cthWordWrap);
+                    colTotalHeader.style.fontSize = `${cthFontSize}pt`;
+                    colTotalHeader.style.fontWeight = cthBold ? "bold" : "normal";
+                    colTotalHeader.style.fontStyle = cthItalic ? "italic" : "normal";
+                    colTotalHeader.style.textDecoration = cthUnderline ? "underline" : "none";
+                    colTotalHeader.style.fontFamily = cthFontFamily;
+                    colTotalHeader.style.color = cthColor;
+                    colTotalHeader.style.textAlign = cthAlign;
                     colTotalHeader.style.borderRight = vertBorderValue;
-                    colTotalHeader.style.backgroundColor = headerBgColor;
+                    colTotalHeader.style.backgroundColor = cthBg;
                     colTotalHeader.style.overflow = "hidden";
                     colTotalHeader.style.textOverflow = "ellipsis";
-                    colTotalHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
-                    if (headerWordWrap) {
+                    colTotalHeader.style.whiteSpace = cthWordWrap ? "normal" : "nowrap";
+                    if (cthWordWrap) {
                         colTotalHeader.style.wordBreak = "break-word";
                     }
                 }
@@ -3313,7 +3330,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         categoryCell.style.fontStyle = isTotal ? (totalRowItalic ? "italic" : "normal") : "normal";
                         categoryCell.style.textDecoration = isTotal ? (totalRowUnderline ? "underline" : "none") : "none";
                         categoryCell.style.fontFamily = isTotal ? totalRowFontFamily : cellFontFamily;
-                        categoryCell.style.fontSize = isTotal ? `${totalRowFontSize}px` : `${cellFontSize}px`;
+                        categoryCell.style.fontSize = isTotal ? `${totalRowFontSize}pt` : `${cellFontSize}pt`;
                         categoryCell.style.borderRight = vertBorderValue;
                         categoryCell.style.backgroundColor = rowBgColor;
                         categoryCell.style.color = getCategoryTextColor(i, dataView, isTotal);
@@ -3713,7 +3730,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.fontStyle = efItalic ? "italic" : "normal";
                     cell.style.textDecoration = efUnderline ? "underline" : "none";
                     cell.style.fontFamily = efFontFamily;
-                    cell.style.fontSize = `${efFontSize}px`;
+                    cell.style.fontSize = `${efFontSize}pt`;
                     cell.style.whiteSpace = efWordWrap ? "normal" : "nowrap";
 
                     cell.style.textAlign = effectiveAlign;
@@ -3954,7 +3971,15 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                         // Use Column Totals formatting from the dedicated menu
                         let specSettings = baseMeasureSettings[mIdx];
+                        // Per-column total overrides take precedence over the global Column Totals settings
+                        const efColTotalBold = specSettings.totalBold !== undefined ? specSettings.totalBold : colTotalBold;
+                        const efColTotalItalic = specSettings.totalItalic !== undefined ? specSettings.totalItalic : colTotalItalic;
+                        const efColTotalUnderline = specSettings.totalUnderline !== undefined ? specSettings.totalUnderline : colTotalUnderline;
+                        const efColTotalFontFamily = specSettings.totalFontFamily !== undefined ? specSettings.totalFontFamily : colTotalFontFamily;
+                        const efColTotalFontSize = specSettings.totalFontSize !== undefined ? specSettings.totalFontSize : colTotalFontSize;
+                        const efColTotalWordWrap = specSettings.totalTextWrap !== undefined ? specSettings.totalTextWrap : colTotalWordWrap;
                         let effectiveBg = isEvenRow ? backgroundColor : alternateBackgroundColor;
+                        if (specSettings.totalBackgroundColor) effectiveBg = specSettings.totalBackgroundColor;
 
                         // Apply background CF to column total cells if applyTo includes totals
                         const ctBgApplyToRaw = dataViewObjects.getValue<any>(
@@ -3977,6 +4002,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
 
                         let effectiveColor = isEvenRow ? textColor : alternateTextColor;
+                        if (specSettings.totalTextColor) effectiveColor = specSettings.totalTextColor;
 
                         // Apply text CF to column total cells if applyTo includes totals
                         const ctTxtApplyToRaw = dataViewObjects.getValue<any>(
@@ -3998,20 +4024,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             }
                         }
 
-                        let effectiveAlign = specSettings.alignment ? specSettings.alignment : "right";
+                        let effectiveAlign = specSettings.totalAlignment ? specSettings.totalAlignment : (specSettings.alignment ? specSettings.alignment : "right");
 
-                        applyRowSquash(colTotalCell, rowHeight, colTotalFontSize, colTotalWordWrap);
-                        colTotalCell.style.fontWeight = colTotalBold ? "bold" : "normal";
-                        colTotalCell.style.fontStyle = colTotalItalic ? "italic" : "normal";
-                        colTotalCell.style.textDecoration = colTotalUnderline ? "underline" : "none";
-                        colTotalCell.style.fontFamily = colTotalFontFamily;
-                        colTotalCell.style.fontSize = `${colTotalFontSize}px`;
+                        if (specSettings.totalTransparency > 0) {
+                            effectiveColor = applyTransparency(effectiveColor, specSettings.totalTransparency);
+                        }
+
+                        applyRowSquash(colTotalCell, rowHeight, efColTotalFontSize, efColTotalWordWrap);
+                        colTotalCell.style.fontWeight = efColTotalBold ? "bold" : "normal";
+                        colTotalCell.style.fontStyle = efColTotalItalic ? "italic" : "normal";
+                        colTotalCell.style.textDecoration = efColTotalUnderline ? "underline" : "none";
+                        colTotalCell.style.fontFamily = efColTotalFontFamily;
+                        colTotalCell.style.fontSize = `${efColTotalFontSize}pt`;
                         colTotalCell.style.borderRight = vertBorderValue;
                         colTotalCell.style.backgroundColor = effectiveBg;
                         colTotalCell.style.color = effectiveColor;
                         colTotalCell.style.overflow = "hidden";
                         colTotalCell.style.textOverflow = "ellipsis";
-                        colTotalCell.style.whiteSpace = colTotalWordWrap ? "normal" : "nowrap";
+                        colTotalCell.style.whiteSpace = efColTotalWordWrap ? "normal" : "nowrap";
                         colTotalCell.style.textAlign = effectiveAlign;
                         if (colTotalWordWrap) {
                             colTotalCell.style.wordBreak = "break-word";
@@ -4512,7 +4542,14 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                     // Use Column Totals formatting for column total cells in the grand total row
                     let specSettings = baseMeasureSettings[mIdx];
-                    let efTotalBg = totalBgColor;
+                    // Per-column total overrides take precedence over the global Column Totals settings
+                    const efGrandBold = specSettings.totalBold !== undefined ? specSettings.totalBold : colTotalBold;
+                    const efGrandItalic = specSettings.totalItalic !== undefined ? specSettings.totalItalic : colTotalItalic;
+                    const efGrandUnderline = specSettings.totalUnderline !== undefined ? specSettings.totalUnderline : colTotalUnderline;
+                    const efGrandFontFamily = specSettings.totalFontFamily !== undefined ? specSettings.totalFontFamily : colTotalFontFamily;
+                    const efGrandFontSize = specSettings.totalFontSize !== undefined ? specSettings.totalFontSize : colTotalFontSize;
+                    const efGrandWordWrap = specSettings.totalTextWrap !== undefined ? specSettings.totalTextWrap : colTotalWordWrap;
+                    let efTotalBg = specSettings.totalBackgroundColor ? specSettings.totalBackgroundColor : totalBgColor;
 
                     // Apply background CF to grand total cell if applyTo includes totals
                     const grandBgApplyToRaw = dataViewObjects.getValue<any>(
@@ -4531,7 +4568,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
 
-                    let efTotalColor = textColor;
+                    let efTotalColor = specSettings.totalTextColor ? specSettings.totalTextColor : textColor;
 
                     // Apply text CF to grand total cell if applyTo includes totals
                     const grandTxtApplyToRaw = dataViewObjects.getValue<any>(
@@ -4552,19 +4589,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                     let efTotalAlign = specSettings.totalAlignment ? specSettings.totalAlignment : "right";
 
-                    applyRowSquash(grandCell, totalRowHeight, colTotalFontSize, colTotalWordWrap);
-                    grandCell.style.fontWeight = colTotalBold ? "bold" : "normal";
-                    grandCell.style.fontStyle = colTotalItalic ? "italic" : "normal";
-                    grandCell.style.textDecoration = colTotalUnderline ? "underline" : "none";
-                    grandCell.style.fontFamily = colTotalFontFamily;
+                    if (specSettings.totalTransparency > 0) {
+                        efTotalColor = applyTransparency(efTotalColor, specSettings.totalTransparency);
+                    }
+
+                    applyRowSquash(grandCell, totalRowHeight, efGrandFontSize, efGrandWordWrap);
+                    grandCell.style.fontWeight = efGrandBold ? "bold" : "normal";
+                    grandCell.style.fontStyle = efGrandItalic ? "italic" : "normal";
+                    grandCell.style.textDecoration = efGrandUnderline ? "underline" : "none";
+                    grandCell.style.fontFamily = efGrandFontFamily;
+                    grandCell.style.fontSize = `${efGrandFontSize}pt`;
                     grandCell.style.borderRight = vertBorderValue;
                     grandCell.style.backgroundColor = efTotalBg;
                     grandCell.style.color = efTotalColor;
                     grandCell.style.overflow = "hidden";
                     grandCell.style.textOverflow = "ellipsis";
-                    grandCell.style.whiteSpace = colTotalWordWrap ? "normal" : "nowrap";
+                    grandCell.style.whiteSpace = efGrandWordWrap ? "normal" : "nowrap";
                     grandCell.style.textAlign = efTotalAlign;
-                    if (colTotalWordWrap) {
+                    if (efGrandWordWrap) {
                         grandCell.style.wordBreak = "break-word";
                     }
 
@@ -5263,7 +5305,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.fontStyle = efItalic ? "italic" : "normal";
                     cell.style.textDecoration = efUnderline ? "underline" : "none";
                     cell.style.fontFamily = efFontFamily;
-                    cell.style.fontSize = `${efFontSize}px`;
+                    cell.style.fontSize = `${efFontSize}pt`;
                     cell.style.whiteSpace = efWordWrap ? "normal" : "nowrap";
 
                     cell.style.textAlign = effectiveAlign;
@@ -5789,17 +5831,25 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                         // Use Column Totals formatting
                         let specSettings = baseMeasureSettings[mIdx];
-                        let effectiveAlign = specSettings.alignment ? specSettings.alignment : "right";
+                        // Per-column total overrides take precedence over the global Column Totals settings
+                        const efTrCtBold = specSettings.totalBold !== undefined ? specSettings.totalBold : colTotalBold;
+                        const efTrCtItalic = specSettings.totalItalic !== undefined ? specSettings.totalItalic : colTotalItalic;
+                        const efTrCtUnderline = specSettings.totalUnderline !== undefined ? specSettings.totalUnderline : colTotalUnderline;
+                        const efTrCtFontFamily = specSettings.totalFontFamily !== undefined ? specSettings.totalFontFamily : colTotalFontFamily;
+                        const efTrCtFontSize = specSettings.totalFontSize !== undefined ? specSettings.totalFontSize : colTotalFontSize;
+                        const efTrCtWordWrap = specSettings.totalTextWrap !== undefined ? specSettings.totalTextWrap : colTotalWordWrap;
+                        let effectiveAlign = specSettings.totalAlignment ? specSettings.totalAlignment : (specSettings.alignment ? specSettings.alignment : "right");
 
-                        applyRowSquash(cell, valueRowHeight, colTotalFontSize, colTotalWordWrap);
-                        cell.style.fontWeight = colTotalBold ? "bold" : "normal";
-                        cell.style.fontStyle = colTotalItalic ? "italic" : "normal";
-                        cell.style.textDecoration = colTotalUnderline ? "underline" : "none";
-                        cell.style.fontFamily = colTotalFontFamily;
+                        applyRowSquash(cell, valueRowHeight, efTrCtFontSize, efTrCtWordWrap);
+                        cell.style.fontWeight = efTrCtBold ? "bold" : "normal";
+                        cell.style.fontStyle = efTrCtItalic ? "italic" : "normal";
+                        cell.style.textDecoration = efTrCtUnderline ? "underline" : "none";
+                        cell.style.fontFamily = efTrCtFontFamily;
+                        cell.style.fontSize = `${efTrCtFontSize}pt`;
                         cell.style.borderRight = vertBorderValue;
 
                         // Apply background CF to transposed column total cells if applyTo includes totals
-                        let trCtBg = backgroundColor;
+                        let trCtBg = specSettings.totalBackgroundColor ? specSettings.totalBackgroundColor : backgroundColor;
                         const trCtBgApplyToRaw = dataViewObjects.getValue<any>(
                             baseValues[mIdx].source.objects || {},
                             { objectName: "valueBackgroundConditionalFormatting", propertyName: "applyTo" },
@@ -5822,7 +5872,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         cell.style.backgroundColor = trCtBg;
 
                         // Apply text CF to transposed column total cells if applyTo includes totals
-                        let trCtTextColor = textColor;
+                        let trCtTextColor = specSettings.totalTextColor ? specSettings.totalTextColor : textColor;
                         const trCtTxtApplyToRaw = dataViewObjects.getValue<any>(
                             baseValues[mIdx].source.objects || {},
                             { objectName: "valueConditionalFormatting", propertyName: "applyTo" },
@@ -5842,12 +5892,16 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             }
                         }
 
+                        if (specSettings.totalTransparency > 0) {
+                            trCtTextColor = applyTransparency(trCtTextColor, specSettings.totalTransparency);
+                        }
+
                         cell.style.color = trCtTextColor;
                         cell.style.overflow = "hidden";
                         cell.style.textOverflow = "ellipsis";
-                        cell.style.whiteSpace = colTotalWordWrap ? "normal" : "nowrap";
+                        cell.style.whiteSpace = efTrCtWordWrap ? "normal" : "nowrap";
                         cell.style.textAlign = effectiveAlign;
-                        if (colTotalWordWrap) {
+                        if (efTrCtWordWrap) {
                             cell.style.wordBreak = "break-word";
                         }
 
