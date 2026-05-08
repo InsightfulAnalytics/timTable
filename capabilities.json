@@ -1,7 +1,7 @@
 {
     "dataRoles": [
         {
-            "displayName": "Category",
+            "displayName": "Rows",
             "name": "category",
             "kind": "Grouping"
         },
@@ -11,7 +11,7 @@
             "kind": "Grouping"
         },
         {
-            "displayName": "Measure",
+            "displayName": "Values",
             "name": "measure",
             "kind": "Measure"
         }

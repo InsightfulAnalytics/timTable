@@ -687,7 +687,7 @@ export class ColumnHeadersSettings extends formattingSettings.CompositeCard {
         fontSize: new formattingSettings.NumUpDown({
             name: "fontSize",
             displayName: "Font Size",
-            value: 11
+            value: 12
         }),
         bold: new formattingSettings.ToggleSwitch({
             name: "bold",
@@ -709,7 +709,7 @@ export class ColumnHeadersSettings extends formattingSettings.CompositeCard {
     public textColor = new formattingSettings.ColorPicker({
         name: "textColor",
         displayName: "Text color",
-        value: { value: "#1e3a8a" },
+        value: { value: "#333333" },
         visible: true
     });
 
