@@ -1,0 +1,17 @@
+{
+		"version": "1.0.0.0",
+		"author": {"name":"Developer","email":"dev@example.com"},
+		"resources": [
+			{
+				"resourceId": "rId0",
+				"sourceType": 5,
+				"file": "resources/timTableDD1AB490372C46B5A64605746E322F55.pbiviz.json"
+			}
+		],
+		"visual": {"name":"timTable","displayName":"TimTable","guid":"timTableDD1AB490372C46B5A64605746E322F55","visualClassName":"Visual","version":"1.0.0.0","description":"A table visual that displays categorical dimensions as rows and measures as columns with automatic totals row","supportUrl":"https://github.com","gitHubUrl":"https://github.com"},
+		"metadata": {
+			"pbivizjson": {
+				"resourceId": "rId0"
+			}
+		}
+	}
