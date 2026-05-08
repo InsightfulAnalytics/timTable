@@ -621,6 +621,25 @@
                             { "value": "desc", "displayName": "Descending" }
                         ]
                     }
+                },
+                "showButtons": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "buttonAlignment": {
+                    "type": {
+                        "enumeration": [
+                            { "value": "left", "displayName": "Left" },
+                            { "value": "center", "displayName": "Center" },
+                            { "value": "right", "displayName": "Right" }
+                        ]
+                    }
+                },
+                "textOverlay": {
+                    "type": {
+                        "bool": true
+                    }
                 }
             }
         },

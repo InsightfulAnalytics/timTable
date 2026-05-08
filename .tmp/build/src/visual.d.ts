@@ -32,6 +32,9 @@ export declare class Visual implements IVisual {
     private focusedColIdx;
     private currentSortField;
     private currentSortDir;
+    private sortShowButtons;
+    private sortButtonAlignment;
+    private sortTextOverlay;
     constructor(options: VisualConstructorOptions);
     /**
      * Apply ARIA roles, indices, and roving tabindex to all rows/cells. Call after every

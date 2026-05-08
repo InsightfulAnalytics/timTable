@@ -73,6 +73,10 @@ export class Visual implements IVisual {
     // so header rendering can show sort indicators and cycle correctly on click.
     private currentSortField: string = '__default__';
     private currentSortDir: string = 'asc';
+    // Sort-button display preferences (synced from persisted sortBy.* during update()).
+    private sortShowButtons: boolean = true;
+    private sortButtonAlignment: string = 'right';
+    private sortTextOverlay: boolean = false;
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
@@ -404,10 +408,24 @@ export class Visual implements IVisual {
     // Append a clickable sort icon to a header cell. Click cycles sort state for the
     // given sortFieldId. Click is stopped from propagating so the existing column-
     // highlight click handler on measure headers does not also fire.
+    // Honours instance-level prefs:
+    //   - sortShowButtons: short-circuit to no-op when false.
+    //   - sortButtonAlignment: 'left' | 'center' | 'right' — controls icon position
+    //     within the header cell (overlay mode = absolute; inline mode = float).
+    //   - sortTextOverlay: true → icon positioned absolutely OVER the header text
+    //     (no extra cell space consumed); false → icon sits inline next to text.
     private addSortAffordance(headerCell: HTMLTableCellElement, sortFieldId: string): void {
         if (!sortFieldId) return;
+        if (!this.sortShowButtons) return;
         const icon = document.createElement('span');
         icon.className = 'sort-icon';
+        const align = this.sortButtonAlignment || 'right';
+        icon.classList.add(`sort-icon-align-${align}`);
+        if (this.sortTextOverlay) {
+            icon.classList.add('sort-icon-overlay');
+        } else {
+            icon.classList.add('sort-icon-inline');
+        }
         const isActive = this.currentSortField === sortFieldId;
         let glyph: string;
         if (isActive) {
@@ -432,7 +450,12 @@ export class Visual implements IVisual {
         icon.addEventListener('mousedown', (e: MouseEvent) => {
             e.stopPropagation();
         });
-        headerCell.appendChild(icon);
+        // For inline left-alignment we must prepend so the icon precedes the text node.
+        if (!this.sortTextOverlay && align === 'left') {
+            headerCell.insertBefore(icon, headerCell.firstChild);
+        } else {
+            headerCell.appendChild(icon);
+        }
     }
 
     private syncTableWidth(): void {
@@ -1287,6 +1310,47 @@ export class Visual implements IVisual {
 
             let flatRows: any[] = [];
 
+            // ── Pre-scan column tree to compute column-subtotal value-keys per measure.
+            // We need these BEFORE row-flatten runs (so the sort comparator can access
+            // column-total values). The full column flatten happens later and produces
+            // an identical `columnSubtotalValueKeys` array — these two scans must stay
+            // in sync. Keep simple: walk children, stopping above the measure level,
+            // and record `colLeafIdx*M + m` for each subtotal leaf.
+            const colSubtotalKeysPre: number[] = [];
+            const __preBaseM = (dataView.matrix.valueSources || []).length || 1;
+            if (dataView.matrix.columns) {
+                const __mCols = dataView.matrix.columns;
+                let __measureLevelDepth = -1;
+                if (__mCols.levels) {
+                    for (let i = 0; i < __mCols.levels.length; i++) {
+                        if (__mCols.levels[i].sources.length > 0 && __mCols.levels[i].sources[0].isMeasure) {
+                            __measureLevelDepth = i;
+                            break;
+                        }
+                    }
+                }
+                let __colLeafIdx = 0;
+                const __walkCol = (node: any, depth: number, isSubBranch: boolean) => {
+                    const isSub = isSubBranch || !!node.isSubtotal;
+                    const allCh = node.children || [];
+                    const nonSub = allCh.filter((c: any) => !c.isSubtotal);
+                    const subCh = allCh.filter((c: any) => c.isSubtotal);
+                    const nextIsMeasure = __measureLevelDepth >= 0 && (depth + 1) === __measureLevelDepth;
+                    if ((nonSub.length === 0 && subCh.length === 0) || nextIsMeasure) {
+                        if (isSub) {
+                            for (let m = 0; m < __preBaseM; m++) {
+                                colSubtotalKeysPre.push(__colLeafIdx * __preBaseM + m);
+                            }
+                        }
+                        __colLeafIdx++;
+                    } else {
+                        nonSub.forEach((c: any) => __walkCol(c, depth + 1, isSub));
+                        subCh.forEach((c: any) => __walkCol(c, depth + 1, true));
+                    }
+                };
+                (__mCols.root.children || []).forEach((c: any) => __walkCol(c, 0, false));
+            }
+
             // ── Sort By: decode persisted settings from metadata.objects ──
             const sortByObjects = (dataView.metadata.objects as any)?.sortBy || {};
             const _rawSortField = sortByObjects.sortByField;
@@ -1300,9 +1364,10 @@ export class Visual implements IVisual {
             this.currentSortField = sortField;
             this.currentSortDir = sortDirVal;
 
-            let sortMode: 'default' | 'measure' | 'category' = 'default';
+            let sortMode: 'default' | 'measure' | 'category' | 'colTotal' = 'default';
             let sortMeasureIdx = -1;
             let sortCategoryLevel = -1;
+            let sortColTotalMeasureIdx = -1;
             if (sortField && sortField !== '__default__') {
                 if (sortField.indexOf('m:') === 0) {
                     const idx = parseInt(sortField.slice(2), 10);
@@ -1320,6 +1385,12 @@ export class Visual implements IVisual {
                         sortMode = 'category';
                         sortCategoryLevel = lvl;
                     }
+                } else if (sortField.indexOf('t:') === 0) {
+                    const mIdx = parseInt(sortField.slice(2), 10);
+                    if (!isNaN(mIdx) && mIdx >= 0 && mIdx < __preBaseM && colSubtotalKeysPre.length > mIdx) {
+                        sortMode = 'colTotal';
+                        sortColTotalMeasureIdx = mIdx;
+                    }
                 }
             }
 
@@ -1330,9 +1401,22 @@ export class Visual implements IVisual {
                 const n = Number(v);
                 return isNaN(n) ? 0 : n;
             };
+            const getNodeColTotalValue = (node: any): number => {
+                // Column-total value lives at colSubtotalKeysPre[mIdx] in the row's value dict.
+                // Prefer the node's own values; fall back to subtotal child if present.
+                const subT = (node.children || []).find((c: any) => c.isSubtotal);
+                const valSrc = node.values || subT?.values || {};
+                const key = colSubtotalKeysPre[sortColTotalMeasureIdx];
+                const v = key !== undefined ? valSrc[key]?.value : undefined;
+                const n = Number(v);
+                return isNaN(n) ? 0 : n;
+            };
             const compareNodes = (a: any, b: any): number => {
                 if (sortMode === 'measure') {
                     return (getNodeMeasureValue(a) - getNodeMeasureValue(b)) * sortDirMul;
+                }
+                if (sortMode === 'colTotal') {
+                    return (getNodeColTotalValue(a) - getNodeColTotalValue(b)) * sortDirMul;
                 }
                 // category
                 const av = a.value, bv = b.value;
@@ -1348,6 +1432,7 @@ export class Visual implements IVisual {
             const shouldSortAtDepth = (depth: number): boolean => {
                 if (sortMode === 'default') return false;
                 if (sortMode === 'measure') return true; // sort at every level
+                if (sortMode === 'colTotal') return true; // sort at every level
                 if (sortMode === 'category') return depth === sortCategoryLevel;
                 return false;
             };
@@ -1418,6 +1503,12 @@ export class Visual implements IVisual {
                     if (sortMode === 'measure') {
                         const av = Number(a.rawValues?.[sortMeasureIdx]?.value);
                         const bv = Number(b.rawValues?.[sortMeasureIdx]?.value);
+                        return ((isNaN(av) ? 0 : av) - (isNaN(bv) ? 0 : bv)) * sortDirMul;
+                    }
+                    if (sortMode === 'colTotal') {
+                        const key = colSubtotalKeysPre[sortColTotalMeasureIdx];
+                        const av = Number(key !== undefined ? a.rawValues?.[key]?.value : NaN);
+                        const bv = Number(key !== undefined ? b.rawValues?.[key]?.value : NaN);
                         return ((isNaN(av) ? 0 : av) - (isNaN(bv) ? 0 : bv)) * sortDirMul;
                     }
                     const av = a.path?.[sortCategoryLevel];
@@ -2121,6 +2212,16 @@ interface MeasureSpecificSettings {
           measureHeaders.forEach((name, idx) => {
               sortFieldItems.push({ value: `m:${idx}`, displayName: name });
           });
+          // Column-total entries — one per base measure that has showTotalColumn enabled.
+          // Uses base-measure index so it's stable regardless of column-grouping expansion.
+          baseMeasureColTotalIncluded.forEach((included, mIdx) => {
+              if (included) {
+                  sortFieldItems.push({
+                      value: `t:${mIdx}`,
+                      displayName: `Total: ${baseMeasureHeaders[mIdx]}`
+                  });
+              }
+          });
           sortBySettings.sortByField.items = sortFieldItems;
           const rawPersistedSortField = dataViewObjects.getValue<any>(
               this.dataView.metadata.objects || {},
@@ -2155,6 +2256,40 @@ interface MeasureSpecificSettings {
               const dirMatch = sortBySettings.direction.items.find((i: any) => i.value === persistedDir);
               if (dirMatch) sortBySettings.direction.value = dirMatch;
           }
+
+          // Sync sort-button display preferences from persisted metadata so format pane
+          // reflects the current state. Defaults: showButtons=true, alignment=right, overlay=false.
+          const rawPersistedShowBtns = dataViewObjects.getValue<any>(
+              this.dataView.metadata.objects || {},
+              { objectName: "sortBy", propertyName: "showButtons" },
+              undefined
+          );
+          if (rawPersistedShowBtns !== undefined) {
+              sortBySettings.showButtons.value = !!(typeof rawPersistedShowBtns === 'boolean' ? rawPersistedShowBtns : rawPersistedShowBtns?.value);
+          }
+          const rawPersistedBtnAlign = dataViewObjects.getValue<any>(
+              this.dataView.metadata.objects || {},
+              { objectName: "sortBy", propertyName: "buttonAlignment" },
+              undefined
+          );
+          const persistedBtnAlign = typeof rawPersistedBtnAlign === 'string' ? rawPersistedBtnAlign : rawPersistedBtnAlign?.value;
+          if (persistedBtnAlign) {
+              const alignMatch = sortBySettings.buttonAlignment.items.find((i: any) => i.value === persistedBtnAlign);
+              if (alignMatch) sortBySettings.buttonAlignment.value = alignMatch;
+          }
+          const rawPersistedTextOverlay = dataViewObjects.getValue<any>(
+              this.dataView.metadata.objects || {},
+              { objectName: "sortBy", propertyName: "textOverlay" },
+              undefined
+          );
+          if (rawPersistedTextOverlay !== undefined) {
+              sortBySettings.textOverlay.value = !!(typeof rawPersistedTextOverlay === 'boolean' ? rawPersistedTextOverlay : rawPersistedTextOverlay?.value);
+          }
+          // Stash effective values onto the instance so addSortAffordance() (called later
+          // during header rendering) can read them without re-resolving the settings object.
+          this.sortShowButtons = !!sortBySettings.showButtons.value;
+          this.sortButtonAlignment = (sortBySettings.buttonAlignment.value as any)?.value || 'right';
+          this.sortTextOverlay = !!sortBySettings.textOverlay.value;
 
           // Populate specificColumn series dropdown and rebuild value slices with per-measure selector
           const specificColumnSettings = this.visualSettings.specificColumn;
@@ -3184,6 +3319,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (cthWordWrap) {
                         colTotalHeader.style.wordBreak = "break-word";
                     }
+                    // Header-click sort affordance for column total — sorts rows by this
+                    // measure's column-total value. Uses base-measure index (mIdx).
+                    this.addSortAffordance(colTotalHeader, `t:${mIdx}`);
                 }
             }
 

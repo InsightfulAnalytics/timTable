@@ -1054,7 +1054,33 @@ export class SortBySettings extends FormattingSettingsCard {
         visible: true
     });
 
-    public slices: FormattingSettingsSlice[] = [this.scope, this.sortByField, this.direction];
+    public showButtons = new formattingSettings.ToggleSwitch({
+        name: "showButtons",
+        displayName: "Show sort buttons",
+        value: true,
+        visible: true
+    });
+
+    public buttonAlignment = new formattingSettings.ItemDropdown({
+        name: "buttonAlignment",
+        displayName: "Button alignment",
+        items: [
+            { value: "left", displayName: "Left" },
+            { value: "center", displayName: "Center" },
+            { value: "right", displayName: "Right" }
+        ],
+        value: { value: "right", displayName: "Right" },
+        visible: true
+    });
+
+    public textOverlay = new formattingSettings.ToggleSwitch({
+        name: "textOverlay",
+        displayName: "Text overlay",
+        value: false,
+        visible: true
+    });
+
+    public slices: FormattingSettingsSlice[] = [this.scope, this.sortByField, this.direction, this.showButtons, this.buttonAlignment, this.textOverlay];
 }
 
 export class VisualSettings extends FormattingSettingsModel {

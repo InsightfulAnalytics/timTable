@@ -76,7 +76,6 @@
 
 .sort-icon {
     display: inline-block;
-    margin-left: 6px;
     padding: 1px 4px;
     font-size: 0.9em;
     line-height: 1;
@@ -89,6 +88,7 @@
     vertical-align: middle;
     transition: opacity 0.15s ease-in-out, background-color 0.15s ease-in-out, color 0.15s ease-in-out, border-color 0.15s ease-in-out;
     border-radius: 3px;
+    z-index: 2;
 
     &:hover {
         opacity: 1;
@@ -102,6 +102,54 @@
         color: #ffffff;
         background-color: #0078d4;
         border-color: #0078d4;
+    }
+
+    // Inline mode — icon sits next to header text and consumes layout space.
+    &.sort-icon-inline {
+        position: static;
+
+        &.sort-icon-align-left {
+            float: left;
+            margin-right: 6px;
+            margin-left: 0;
+        }
+
+        &.sort-icon-align-right {
+            float: right;
+            margin-left: 6px;
+            margin-right: 0;
+        }
+
+        &.sort-icon-align-center {
+            // Inline-center inside a table-cell is awkward; fall back to right-floated
+            // so the layout stays predictable. Center mode is best paired with overlay.
+            float: right;
+            margin-left: 6px;
+        }
+    }
+
+    // Overlay mode — icon is absolutely positioned and floats over the header text.
+    &.sort-icon-overlay {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+
+        &.sort-icon-align-left {
+            left: 4px;
+            right: auto;
+        }
+
+        &.sort-icon-align-right {
+            // Sit just before the resize handle (5px wide on the right edge).
+            right: 8px;
+            left: auto;
+        }
+
+        &.sort-icon-align-center {
+            left: 50%;
+            transform: translate(-50%, -50%);
+            right: auto;
+        }
     }
 }
 

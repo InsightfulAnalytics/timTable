@@ -233,6 +233,9 @@ export declare class SortBySettings extends FormattingSettingsCard {
     scope: formattingSettings.ItemDropdown;
     sortByField: formattingSettings.ItemDropdown;
     direction: formattingSettings.ItemDropdown;
+    showButtons: formattingSettings.ToggleSwitch;
+    buttonAlignment: formattingSettings.ItemDropdown;
+    textOverlay: formattingSettings.ToggleSwitch;
     slices: FormattingSettingsSlice[];
 }
 export declare class VisualSettings extends FormattingSettingsModel {
