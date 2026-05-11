@@ -1,0 +1,8 @@
+need to add ALL selection for row & column totals, turning off each one is annoying on large amounts of rows & columns.
+  turns totals off - even if new dimensions added
+
+show rows even if no measure is in the values field
+
+set default styles
+
+
