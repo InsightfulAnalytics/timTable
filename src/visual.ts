@@ -1546,7 +1546,7 @@ export class Visual implements IVisual {
 
             // Store references for column expansion later
             storedFlatRows = flatRows;
-            storedMeasureCount = vSources.length || 1;
+            storedMeasureCount = vSources.length; // 0 when no measures (dimension-only)
             storedRoot = root;
             storedSubtotalChild = subtotalChild;
 
@@ -1648,6 +1648,8 @@ export class Visual implements IVisual {
 
                     // Build column header grouping info for rendering multi-row headers
                     const M = storedMeasureCount;
+                    // When no measures, each column leaf occupies 1 column (not M=0)
+                    const leafSpan = M > 0 ? M : 1;
                     for (let level = 0; level < columnLevelNames.length; level++) {
                         let groups: { label: string, span: number, matrixNode?: any, path?: any[] }[] = [];
                         let lastValue: string | null = null;
@@ -1656,7 +1658,7 @@ export class Visual implements IVisual {
                         columnLeaves.forEach(leaf => {
                             const val = leaf.path[level] !== undefined ? String(leaf.path[level]) : "";
                             if (val === lastValue) {
-                                currentSpan += M;
+                                currentSpan += leafSpan;
                             } else {
                                 if (lastValue !== null) {
                                     const levelNode = nodeIdx > 0 && nodeIdx - 1 < columnNodesByLevel[level].length
@@ -1669,7 +1671,7 @@ export class Visual implements IVisual {
                                     });
                                 }
                                 lastValue = val;
-                                currentSpan = M;
+                                currentSpan = leafSpan;
                                 nodeIdx++;
                             }
                         });
@@ -1749,16 +1751,20 @@ export class Visual implements IVisual {
         }
 
         if (!values || values.length === 0) {
-            let row = this.table.insertRow();
-            let cell = row.insertCell();
-            cell.textContent = "No data available";
-            return;
+            // Allow dimension-only rendering (no measures) when row/column fields are present
+            if (!hasCategories || !categories || !categories.values || categories.values.length === 0) {
+                let row = this.table.insertRow();
+                let cell = row.insertCell();
+                cell.textContent = "No data available";
+                return;
+            }
+            values = []; // ensure array (not null/undefined) for downstream loops
         }
 
         const switchValuesToRows = valuesSettings.switchValuesToRows?.value || false;
         const reverseOrder = valuesSettings.reverseOrder?.value || false;
         const hideRowHeaders = valuesSettings.hideRowHeaders?.value || false;
-        let rowCount = hasCategories && categories.values ? categories.values.length : (values[0].values ? values[0].values.length : 1);
+        let rowCount = hasCategories && categories.values ? categories.values.length : (values.length > 0 && values[0].values ? values[0].values.length : 1);
 
         // Pre-process measure settings to populate formatting model properly
         let measureHeaders: string[] = [];
@@ -2701,7 +2707,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             dataBarsSettings.yAxisGroup.slices = yAxisSlices;
 
           // Expand values and settings arrays for column grouping (column × measure display columns)
-          if (hasColumnGrouping && columnLeaves.length > 0 && storedFlatRows) {
+          // Skip expansion when no measures — columnLeaves still used for header rendering
+          if (hasColumnGrouping && columnLeaves.length > 0 && storedFlatRows && storedMeasureCount > 0) {
               const M = storedMeasureCount;
               const baseValues = [...values];
               const baseMSettings = [...measureSettingsList];
