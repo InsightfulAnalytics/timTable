@@ -85,6 +85,7 @@ export declare class TotalsSettings extends formattingSettings.CompositeCard {
     visible: boolean;
     series: formattingSettings.ItemDropdown;
     showTotalRow: formattingSettings.ToggleSwitch;
+    showTotalRowAll: formattingSettings.ToggleSwitch;
     font: formattingSettings.FontControl;
     textColor: formattingSettings.ColorPicker;
     backgroundColor: formattingSettings.ColorPicker;
@@ -99,6 +100,7 @@ export declare class ColumnTotalsSettings extends formattingSettings.CompositeCa
     visible: boolean;
     series: formattingSettings.ItemDropdown;
     showTotalColumn: formattingSettings.ToggleSwitch;
+    showTotalColumnAll: formattingSettings.ToggleSwitch;
     font: formattingSettings.FontControl;
     textColor: formattingSettings.ColorPicker;
     backgroundColor: formattingSettings.ColorPicker;

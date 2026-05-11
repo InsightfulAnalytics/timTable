@@ -374,6 +374,13 @@ export class TotalsSettings extends formattingSettings.CompositeCard {
         visible: true
     });
 
+    public showTotalRowAll = new formattingSettings.ToggleSwitch({
+        name: "showTotalRowAll",
+        displayName: "Show Total Row",
+        value: true,
+        visible: true
+    });
+
     public font = new formattingSettings.FontControl({
         name: "font",
         displayName: "Font",
@@ -456,6 +463,13 @@ export class ColumnTotalsSettings extends formattingSettings.CompositeCard {
 
     public showTotalColumn = new formattingSettings.ToggleSwitch({
         name: "showTotalColumn",
+        displayName: "Show Total Column",
+        value: false,
+        visible: true
+    });
+
+    public showTotalColumnAll = new formattingSettings.ToggleSwitch({
+        name: "showTotalColumnAll",
         displayName: "Show Total Column",
         value: false,
         visible: true

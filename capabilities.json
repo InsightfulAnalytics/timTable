@@ -936,6 +936,11 @@
                         "bool": true
                     }
                 },
+                "showTotalRowAll": {
+                    "type": {
+                        "bool": true
+                    }
+                },
                 "totalBehavior": {
                     "type": {
                         "enumeration": [
@@ -1074,6 +1079,11 @@
                                 "displayName": "None"
                             }
                         ]
+                    }
+                },
+                "showTotalColumnAll": {
+                    "type": {
+                        "bool": true
                     }
                 }
             }

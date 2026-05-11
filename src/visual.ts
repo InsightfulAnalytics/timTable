@@ -2031,8 +2031,12 @@ interface MeasureSpecificSettings {
           });
 
           // Populate totals series dropdown and apply selector to showTotalRow
+          let globalShowAllRowOverride: boolean | undefined = undefined;
           const categoryHeaders = categories?.sources.map((src: any) => src.displayName || src.queryName) || [];
-          totalsSettings.series.items = categoryHeaders.map(name => ({ value: name, displayName: name }));
+          totalsSettings.series.items = [
+              { value: "__all__", displayName: "All" },
+              ...categoryHeaders.map(name => ({ value: name, displayName: name }))
+          ];
           const persistedTotalsSeries = dataViewObjects.getValue<string>(
               this.dataView.metadata.objects || {},
               { objectName: "totals", propertyName: "series" },
@@ -2044,70 +2048,112 @@ interface MeasureSpecificSettings {
           totalsSettings.series.value = matchedTotalsItem || totalsSettings.series.items[0] || { value: "", displayName: "" };
 
           const selectedTotalsSeriesName = totalsSettings.series.value?.value as string;
-          const selectedTotalsCategoryIdx = categoryHeaders.indexOf(selectedTotalsSeriesName);
-          const selectedTotalsSource = selectedTotalsCategoryIdx >= 0 && categories ? categories.sources[selectedTotalsCategoryIdx] : null;
-          const selectedTotalsQueryName = selectedTotalsSource?.queryName;
-          const totalsSelector = selectedTotalsQueryName ? { metadata: selectedTotalsQueryName } : undefined;
+          const isAllRowTotals = selectedTotalsSeriesName === "__all__";
 
-          // Rebuild totalsSettings.showTotalRow to use the selector
-          const tShowTotalRow = dataViewObjects.getValue<boolean>(selectedTotalsSource?.objects || {}, { objectName: "totals", propertyName: "showTotalRow" }, true);
-          totalsSettings.showTotalRow = new formattingSettings.ToggleSwitch({
-              name: "showTotalRow",
-              displayName: "Show Total Row",
-              value: tShowTotalRow,
-              visible: true,
-              selector: totalsSelector
-          });
-          const showTotalRowIdx = totalsSettings.categorySelectionGroup.slices.findIndex(s => s.name === "showTotalRow");
-          if (showTotalRowIdx >= 0) {
-              totalsSettings.categorySelectionGroup.slices[showTotalRowIdx] = totalsSettings.showTotalRow;
-          }
+          if (isAllRowTotals) {
+              // Read stored global-all value
+              const globalShowAllRowRaw = dataViewObjects.getValue<boolean>(
+                  this.dataView.metadata.objects || {},
+                  { objectName: "totals", propertyName: "showTotalRowAll" },
+                  undefined as any
+              );
 
-          // Build totalBehavior dropdowns scoped to the selected category level
-          const totalBehaviorItems = [
-              { value: "Measure", displayName: "Measure" },
-              { value: "Sum", displayName: "Sum" },
-              { value: "Average", displayName: "Average" },
-              { value: "Count", displayName: "Count" },
-              { value: "Count Distinct", displayName: "Count Distinct" },
-              { value: "Max", displayName: "Max" },
-              { value: "Min", displayName: "Min" },
-              { value: "None", displayName: "None" }
-          ];
+              const perCatIncluded: boolean[] = (categories?.sources || []).map((catSource: any) =>
+                  dataViewObjects.getValue<boolean>(catSource.objects || {}, { objectName: "totals", propertyName: "showTotalRow" }, true)
+              );
 
-          if (selectedTotalsCategoryIdx <= 0) {
-              // Top-level category (or no categories): per-measure totalBehavior for the grand total row
-              values.forEach((valueColumn) => {
-                  const objects = valueColumn.source.objects || {};
-                  const displayName = valueColumn.source.displayName || "Measure";
-                  const queryName = valueColumn.source.queryName;
-                  let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
-                  const totalBehaviorVal = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Measure");
-                  const currentBehaviorItem = totalBehaviorItems.find(x => x.value === totalBehaviorVal) || totalBehaviorItems[0];
+              if (globalShowAllRowRaw !== undefined && globalShowAllRowRaw !== null) {
+                  const allMatch = perCatIncluded.every(v => v === globalShowAllRowRaw);
+                  if (!allMatch) {
+                      const merges = (categories?.sources || []).map((catSource: any) => ({
+                          objectName: "totals",
+                          selector: catSource.queryName ? { metadata: catSource.queryName } : undefined,
+                          properties: { showTotalRow: globalShowAllRowRaw }
+                      }));
+                      this.host.persistProperties({ merge: merges });
+                  }
+                  globalShowAllRowOverride = globalShowAllRowRaw;
+              }
+
+              const allRowDisplayVal = globalShowAllRowRaw !== undefined
+                  ? globalShowAllRowRaw
+                  : (perCatIncluded.length === 0 || perCatIncluded.every(v => v));
+
+              totalsSettings.showTotalRowAll.value = allRowDisplayVal as boolean;
+              totalsSettings.showTotalRowAll.visible = true;
+
+              const showTotalRowAllIdx = totalsSettings.categorySelectionGroup.slices.findIndex(s => s.name === "showTotalRow");
+              if (showTotalRowAllIdx >= 0) {
+                  totalsSettings.categorySelectionGroup.slices[showTotalRowAllIdx] = totalsSettings.showTotalRowAll;
+              }
+              // No totalBehavior push for "All" – each category keeps its own behavior
+              totalsSettings.totalsFormattingGroup.visible = allRowDisplayVal as boolean;
+          } else {
+              const selectedTotalsCategoryIdx = categoryHeaders.indexOf(selectedTotalsSeriesName);
+              const selectedTotalsSource = selectedTotalsCategoryIdx >= 0 && categories ? categories.sources[selectedTotalsCategoryIdx] : null;
+              const selectedTotalsQueryName = selectedTotalsSource?.queryName;
+              const totalsSelector = selectedTotalsQueryName ? { metadata: selectedTotalsQueryName } : undefined;
+
+              // Rebuild totalsSettings.showTotalRow to use the selector
+              const tShowTotalRow = dataViewObjects.getValue<boolean>(selectedTotalsSource?.objects || {}, { objectName: "totals", propertyName: "showTotalRow" }, true);
+              totalsSettings.showTotalRow = new formattingSettings.ToggleSwitch({
+                  name: "showTotalRow",
+                  displayName: "Show Total Row",
+                  value: tShowTotalRow,
+                  visible: true,
+                  selector: totalsSelector
+              });
+              const showTotalRowIdx = totalsSettings.categorySelectionGroup.slices.findIndex(s => s.name === "showTotalRow");
+              if (showTotalRowIdx >= 0) {
+                  totalsSettings.categorySelectionGroup.slices[showTotalRowIdx] = totalsSettings.showTotalRow;
+              }
+
+              // Build totalBehavior dropdowns scoped to the selected category level
+              const totalBehaviorItems = [
+                  { value: "Measure", displayName: "Measure" },
+                  { value: "Sum", displayName: "Sum" },
+                  { value: "Average", displayName: "Average" },
+                  { value: "Count", displayName: "Count" },
+                  { value: "Count Distinct", displayName: "Count Distinct" },
+                  { value: "Max", displayName: "Max" },
+                  { value: "Min", displayName: "Min" },
+                  { value: "None", displayName: "None" }
+              ];
+
+              if (selectedTotalsCategoryIdx <= 0) {
+                  // Top-level category (or no categories): per-measure totalBehavior for the grand total row
+                  values.forEach((valueColumn) => {
+                      const objects = valueColumn.source.objects || {};
+                      const displayName = valueColumn.source.displayName || "Measure";
+                      const queryName = valueColumn.source.queryName;
+                      let totalBehaviorRaw = dataViewObjects.getValue<any>(objects, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
+                      const totalBehaviorVal = typeof totalBehaviorRaw === "string" ? totalBehaviorRaw : (totalBehaviorRaw.value || "Measure");
+                      const currentBehaviorItem = totalBehaviorItems.find(x => x.value === totalBehaviorVal) || totalBehaviorItems[0];
+
+                      totalsSettings.categorySelectionGroup.slices.push(new formattingSettings.ItemDropdown({
+                          name: "totalBehavior",
+                          displayName: displayName + " Measure Selection",
+                          value: currentBehaviorItem,
+                          items: totalBehaviorItems,
+                          visible: true,
+                          selector: { metadata: queryName }
+                      }));
+                  });
+              } else {
+                  // Lower-level category: per-category totalBehavior for subtotal rows at this level
+                  let catBehaviorRaw = dataViewObjects.getValue<any>(selectedTotalsSource?.objects || {}, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
+                  const catBehaviorVal = typeof catBehaviorRaw === "string" ? catBehaviorRaw : (catBehaviorRaw?.value || "Measure");
+                  const currentCatBehaviorItem = totalBehaviorItems.find(x => x.value === catBehaviorVal) || totalBehaviorItems[0];
 
                   totalsSettings.categorySelectionGroup.slices.push(new formattingSettings.ItemDropdown({
                       name: "totalBehavior",
-                      displayName: displayName + " Measure Selection",
-                      value: currentBehaviorItem,
+                      displayName: "Measure Selection",
+                      value: currentCatBehaviorItem,
                       items: totalBehaviorItems,
                       visible: true,
-                      selector: { metadata: queryName }
+                      selector: totalsSelector
                   }));
-              });
-          } else {
-              // Lower-level category: per-category totalBehavior for subtotal rows at this level
-              let catBehaviorRaw = dataViewObjects.getValue<any>(selectedTotalsSource?.objects || {}, { objectName: "totals", propertyName: "totalBehavior" }, "Measure");
-              const catBehaviorVal = typeof catBehaviorRaw === "string" ? catBehaviorRaw : (catBehaviorRaw?.value || "Measure");
-              const currentCatBehaviorItem = totalBehaviorItems.find(x => x.value === catBehaviorVal) || totalBehaviorItems[0];
-
-              totalsSettings.categorySelectionGroup.slices.push(new formattingSettings.ItemDropdown({
-                  name: "totalBehavior",
-                  displayName: "Measure Selection",
-                  value: currentCatBehaviorItem,
-                  items: totalBehaviorItems,
-                  visible: true,
-                  selector: totalsSelector
-              }));
+              }
           }
 
           // Populate columnTotals series dropdown and totalBehavior per measure
@@ -2128,7 +2174,11 @@ interface MeasureSpecificSettings {
           const baseMeasureSettings = measureSettingsList.slice();
           const baseValues = values.slice();
 
-          columnTotalsSettings.series.items = baseMeasureHeaders.map(name => ({ value: name, displayName: name }));
+          // "All" is the first item – lets user toggle totals for every measure at once
+          columnTotalsSettings.series.items = [
+              { value: "__all__", displayName: "All" },
+              ...baseMeasureHeaders.map(name => ({ value: name, displayName: name }))
+          ];
           const persistedColTotalsSeries = dataViewObjects.getValue<string>(
               this.dataView.metadata.objects || {},
               { objectName: "columnTotals", propertyName: "series" },
@@ -2140,42 +2190,93 @@ interface MeasureSpecificSettings {
           columnTotalsSettings.series.value = matchedColTotalsItem || columnTotalsSettings.series.items[0] || { value: "", displayName: "" };
 
           const selectedColTotalsSeriesName = columnTotalsSettings.series.value?.value as string;
-          const selectedColTotalsMeasureIdx = baseMeasureHeaders.indexOf(selectedColTotalsSeriesName);
-          const selectedColTotalsValueColumn = selectedColTotalsMeasureIdx >= 0 ? baseValues[selectedColTotalsMeasureIdx] : null;
-          const selectedColTotalsQueryName = selectedColTotalsValueColumn?.source?.queryName;
-          const selectedColTotalsObjects = selectedColTotalsValueColumn?.source?.objects || {};
-          const colTotalsSelector = selectedColTotalsQueryName ? { metadata: selectedColTotalsQueryName } : undefined;
+          const isAllColTotals = selectedColTotalsSeriesName === "__all__";
+          let globalShowAllOverride: boolean | undefined = undefined; // used to sync rendering in same cycle
 
-          // Read per-measure showTotalColumn for the currently selected series
-          const ctShowTotalColumn = dataViewObjects.getValue<boolean>(selectedColTotalsObjects, { objectName: "columnTotals", propertyName: "showTotalColumn" }, false);
-          columnTotalsSettings.showTotalColumn = new formattingSettings.ToggleSwitch({
-              name: "showTotalColumn",
-              displayName: "Show Total Column",
-              value: ctShowTotalColumn,
-              visible: true,
-              selector: colTotalsSelector
-          });
-          const showColTotalIdx = columnTotalsSettings.columnSelectionGroup.slices.findIndex(s => s.name === "showTotalColumn");
-          if (showColTotalIdx >= 0) {
-              columnTotalsSettings.columnSelectionGroup.slices[showColTotalIdx] = columnTotalsSettings.showTotalColumn;
+          if (isAllColTotals) {
+              // Read the stored global-all value (undefined = never explicitly set)
+              const globalShowAllRaw = dataViewObjects.getValue<boolean>(
+                  this.dataView.metadata.objects || {},
+                  { objectName: "columnTotals", propertyName: "showTotalColumnAll" },
+                  undefined as any
+              );
+
+              // Build per-measure included list so we can propagate if needed
+              const perMeasureIncluded: boolean[] = baseValues.map(valueColumn => {
+                  const objects = valueColumn.source.objects || {};
+                  return dataViewObjects.getValue<boolean>(objects, { objectName: "columnTotals", propertyName: "showTotalColumn" }, false);
+              });
+
+              // If "All" toggle was explicitly set and per-measure values don't yet match, propagate
+              if (globalShowAllRaw !== undefined && globalShowAllRaw !== null) {
+                  const allMatch = perMeasureIncluded.every(v => v === globalShowAllRaw);
+                  if (!allMatch) {
+                      const merges = baseValues.map(valueColumn => ({
+                          objectName: "columnTotals",
+                          selector: valueColumn.source.queryName ? { metadata: valueColumn.source.queryName } : undefined,
+                          properties: { showTotalColumn: globalShowAllRaw }
+                      }));
+                      this.host.persistProperties({ merge: merges });
+                  }
+                  // Carry forward to override rendering in this same cycle (avoids one-frame inversion)
+                  globalShowAllOverride = globalShowAllRaw;
+              }
+
+              // Display value: stored global-all if set, else derived from per-measure state
+              const allDisplayVal = globalShowAllRaw !== undefined
+                  ? globalShowAllRaw
+                  : (perMeasureIncluded.length > 0 && perMeasureIncluded.every(v => v));
+
+              columnTotalsSettings.showTotalColumnAll.value = allDisplayVal as boolean;
+              columnTotalsSettings.showTotalColumnAll.visible = true;
+
+              // Swap showTotalColumn slot with showTotalColumnAll (no per-measure selector)
+              const showColTotalAllIdx = columnTotalsSettings.columnSelectionGroup.slices.findIndex(s => s.name === "showTotalColumn");
+              if (showColTotalAllIdx >= 0) {
+                  columnTotalsSettings.columnSelectionGroup.slices[showColTotalAllIdx] = columnTotalsSettings.showTotalColumnAll;
+              }
+              // No totalBehavior push for "All" – each measure keeps its own behavior
+
+              // Gate formatting group on whether "All" is currently on
+              columnTotalsSettings.columnTotalsFormattingGroup.visible = allDisplayVal as boolean;
+          } else {
+              const selectedColTotalsMeasureIdx = baseMeasureHeaders.indexOf(selectedColTotalsSeriesName);
+              const selectedColTotalsValueColumn = selectedColTotalsMeasureIdx >= 0 ? baseValues[selectedColTotalsMeasureIdx] : null;
+              const selectedColTotalsQueryName = selectedColTotalsValueColumn?.source?.queryName;
+              const selectedColTotalsObjects = selectedColTotalsValueColumn?.source?.objects || {};
+              const colTotalsSelector = selectedColTotalsQueryName ? { metadata: selectedColTotalsQueryName } : undefined;
+
+              // Read per-measure showTotalColumn for the currently selected series
+              const ctShowTotalColumn = dataViewObjects.getValue<boolean>(selectedColTotalsObjects, { objectName: "columnTotals", propertyName: "showTotalColumn" }, false);
+              columnTotalsSettings.showTotalColumn = new formattingSettings.ToggleSwitch({
+                  name: "showTotalColumn",
+                  displayName: "Show Total Column",
+                  value: ctShowTotalColumn,
+                  visible: true,
+                  selector: colTotalsSelector
+              });
+              const showColTotalIdx = columnTotalsSettings.columnSelectionGroup.slices.findIndex(s => s.name === "showTotalColumn");
+              if (showColTotalIdx >= 0) {
+                  columnTotalsSettings.columnSelectionGroup.slices[showColTotalIdx] = columnTotalsSettings.showTotalColumn;
+              }
+
+              // Per-measure totalBehavior for column totals (for selected series)
+              let colTotalBehaviorRaw = dataViewObjects.getValue<any>(selectedColTotalsObjects, { objectName: "columnTotals", propertyName: "totalBehavior" }, "Measure");
+              const colTotalBehaviorVal = typeof colTotalBehaviorRaw === "string" ? colTotalBehaviorRaw : (colTotalBehaviorRaw?.value || "Measure");
+              const currentColTotalBehaviorItem = colTotalBehaviorItems.find(x => x.value === colTotalBehaviorVal) || colTotalBehaviorItems[0];
+
+              columnTotalsSettings.columnSelectionGroup.slices.push(new formattingSettings.ItemDropdown({
+                  name: "totalBehavior",
+                  displayName: "Total Type",
+                  value: currentColTotalBehaviorItem,
+                  items: colTotalBehaviorItems,
+                  visible: true,
+                  selector: colTotalsSelector
+              }));
+
+              // Gate formatting group visibility on whether current series has column total enabled
+              columnTotalsSettings.columnTotalsFormattingGroup.visible = ctShowTotalColumn;
           }
-
-          // Per-measure totalBehavior for column totals (for selected series)
-          let colTotalBehaviorRaw = dataViewObjects.getValue<any>(selectedColTotalsObjects, { objectName: "columnTotals", propertyName: "totalBehavior" }, "Measure");
-          const colTotalBehaviorVal = typeof colTotalBehaviorRaw === "string" ? colTotalBehaviorRaw : (colTotalBehaviorRaw?.value || "Measure");
-          const currentColTotalBehaviorItem = colTotalBehaviorItems.find(x => x.value === colTotalBehaviorVal) || colTotalBehaviorItems[0];
-
-          columnTotalsSettings.columnSelectionGroup.slices.push(new formattingSettings.ItemDropdown({
-              name: "totalBehavior",
-              displayName: "Total Type",
-              value: currentColTotalBehaviorItem,
-              items: colTotalBehaviorItems,
-              visible: true,
-              selector: colTotalsSelector
-          }));
-
-          // Gate formatting group visibility on whether current series has column total enabled
-          columnTotalsSettings.columnTotalsFormattingGroup.visible = ctShowTotalColumn;
 
           // Build per-BASE-measure column total inclusion flags and behaviors
           const baseMeasureColTotalIncluded: boolean[] = [];
@@ -2190,6 +2291,10 @@ interface MeasureSpecificSettings {
           });
 
           // Determine if at least one base measure has showTotalColumn enabled
+          // If "All" was just toggled this cycle, override to avoid a one-frame inversion
+          if (globalShowAllOverride !== undefined) {
+              baseMeasureColTotalIncluded.fill(globalShowAllOverride);
+          }
           showTotalColumn = baseMeasureColTotalIncluded.some(v => v);
           // Count how many total columns we will render
           const colTotalCount = baseMeasureColTotalIncluded.filter(v => v).length;
@@ -3328,6 +3433,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             const categoryShowTotals = (categories?.sources || []).map((catSource: any) => {
                 return dataViewObjects.getValue<boolean>(catSource.objects || {}, { objectName: "totals", propertyName: "showTotalRow" }, true);
             });
+            // If "All" was toggled this cycle, override to avoid a one-frame inversion
+            if (globalShowAllRowOverride !== undefined) {
+                categoryShowTotals.fill(globalShowAllRowOverride);
+            }
 
             // Per-category-level totalBehavior for subtotal rows
             const categoryLevelBehaviors: string[] = (categories?.sources || []).map((catSource: any) => {
