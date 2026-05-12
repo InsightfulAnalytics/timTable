@@ -753,6 +753,29 @@ export class Visual implements IVisual {
             this.visualSettings = this.formattingSettingsService.populateFormattingSettingsModel(VisualSettings, options.dataViews[0]);
             this.dataView = options.dataViews[0];
         }
+
+        // DIAGNOSTIC: report shape of matrix dataView so we can see exactly what PBI sends
+        // when multiple fields are bound to the Rows / Columns role.
+        if (this.dataView?.matrix) {
+            const m = this.dataView.matrix;
+            const rowLvls = m.rows?.levels ?? [];
+            const colLvls = m.columns?.levels ?? [];
+            const rowKids = m.rows?.root?.children ?? [];
+            const colKids = m.columns?.root?.children ?? [];
+            const sampleChild = rowKids[0];
+            // eslint-disable-next-line no-console
+            console.log('[timTable diag]', {
+                rowLevelsCount: rowLvls.length,
+                colLevelsCount: colLvls.length,
+                rowLevelSources: rowLvls.map(l => l.sources?.map(s => s.displayName).join('|')),
+                colLevelSources: colLvls.map(l => l.sources?.map(s => s.displayName).join('|')),
+                rowKidsCount: rowKids.length,
+                colKidsCount: colKids.length,
+                metadataCols: this.dataView.metadata?.columns?.map(c => ({ name: c.displayName, roles: Object.keys(c.roles || {}) })),
+                sampleChildHasGrandchildren: !!(sampleChild?.children && sampleChild.children.length),
+                sampleChildKeys: sampleChild ? Object.keys(sampleChild) : null,
+            });
+        }
         
         // Fix for fractional pixel offsets blurring text when scrollbar is present
         this.tableContainer.style.width = Math.floor(options.viewport.width) + "px";
