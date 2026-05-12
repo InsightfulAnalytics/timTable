@@ -2094,6 +2094,18 @@ interface MeasureSpecificSettings {
               }
               // No totalBehavior push for "All" – each category keeps its own behavior
               totalsSettings.totalsFormattingGroup.visible = allRowDisplayVal as boolean;
+
+              // Wire the toggle value into the rendering flag.
+              // When no categories exist, the categoryShowTotals path at rendering time won't
+              // override this, so this is the only place that drives actual total visibility.
+              showTotalRow = allRowDisplayVal as boolean;
+
+              // PBI behavior: if only measures in visual (no row dimensions, no column dimensions)
+              // there is nothing to total — suppress the row and hide the settings card.
+              if (!hasCategories && !hasColumnGrouping) {
+                  showTotalRow = false;
+                  totalsSettings.visible = false;
+              }
           } else {
               const selectedTotalsCategoryIdx = categoryHeaders.indexOf(selectedTotalsSeriesName);
               const selectedTotalsSource = selectedTotalsCategoryIdx >= 0 && categories ? categories.sources[selectedTotalsCategoryIdx] : null;

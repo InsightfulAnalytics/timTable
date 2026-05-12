@@ -1,7 +1,10 @@
-automatically expand (drill down) when adding new rows & columns
+automatically expand (drill down) when adding new rows & columns - done
 
-if column is a number format and is put in the rows, it behaves like a text field but should behave like a number.  
-  Behaviour of the standard pbi table is that a number in the rows behaves as a number re sorting, right alignment instead of left alignment 
+if column is a number format and is put in the rows, 
+  it behaves like a text field but should behave like a number.  
+  Behaviour of the standard pbi table is that a number 
+  in the rows behaves as a number re sorting, 
+  right alignment instead of left alignment 
 
 if only 1 measure is in the visual without any category on the rows or columns: 
   row totals should be off by default
