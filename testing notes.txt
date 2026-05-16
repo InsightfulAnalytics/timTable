@@ -5,12 +5,9 @@ not a bug
     in the rows behaves as a number re sorting, 
     right alignment instead of left alignment 
 
-bug
-  if values to rows is switched on and the columns have been manually resized (not with the column width menu)
-  when new measure is added, column widths go back to column width setting
-  expected behaviour is that the column width would stay the same
 
-bug
+
+bug - can't repro
   when values to rows is switched on, the show total row for ALL on/off switch is incorrect
   row totals randomly turn on when bringing in other measures or rearranging measures
 

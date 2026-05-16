@@ -3019,7 +3019,12 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         // Check if column width settings changed — if so, clear manual column resize overrides.
         // Use the persisted snapshot as the baseline so a Save+Refresh (which starts with an
         // empty in-memory snapshot) does NOT wipe legitimately persisted manual widths.
-        const currentColumnWidthSnapshot = JSON.stringify([categoryColumnWidth, ...valueColumnWidths, ...colTotalColumnWidths]);
+        // In switchValuesToRows mode, measures become rows — adding a measure does NOT change
+        // the column layout. Use only the scalar settings (category width + common value width +
+        // alignedColumns flag) so a new measure doesn't mistakenly trigger a manual-width clear.
+        const currentColumnWidthSnapshot = switchValuesToRows
+            ? JSON.stringify([categoryColumnWidth, columnWidthSettings.valueColumnWidth.value, columnWidthSettings.alignedColumns.value])
+            : JSON.stringify([categoryColumnWidth, ...valueColumnWidths, ...colTotalColumnWidths]);
         const baselineSnapshot = this.lastColumnWidthSnapshot || persistedManualSnapshot;
         const settingsChanged = baselineSnapshot !== "" && currentColumnWidthSnapshot !== baselineSnapshot;
         if (settingsChanged) {
