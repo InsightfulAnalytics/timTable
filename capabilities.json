@@ -114,8 +114,11 @@
             }
         },
         "dataBarsConditionalFormatting": {
+            "displayName": "Data bar conditional formatting",
+            "description": "Data bar conditional formatting",
             "properties": {
                 "applyTo": {
+                    "displayName": "Apply to",
                     "type": {
                         "enumeration": [
                             { "value": "valuesOnly", "displayName": "Values only" },
@@ -125,6 +128,8 @@
                     }
                 },
                 "dataBarColor": {
+                    "displayName": "Data bar color",
+                    "description": "Data bar color",
                     "type": {
                         "fill": {
                             "solid": {

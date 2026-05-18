@@ -2001,7 +2001,7 @@ interface MeasureSpecificSettings {
             const dbApplyToRaw = dataViewObjects.getValue<any>(
                 valueColumn.source.objects || {},
                 { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" },
-                "valuesOnly"
+                "valuesAndTotals"
             );
             const dbApplyToItem = typeof dbApplyToRaw === "string"
                 ? { value: dbApplyToRaw, displayName: dbApplyToRaw === "valuesOnly" ? "Values only" : dbApplyToRaw === "valuesAndTotals" ? "Values and totals" : "Totals only" }
@@ -3750,8 +3750,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (showDataBars && (!isSubtotalRow || showOnRowTotals)) {
                             let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
                             // Reset static color when applyTo excludes this row type
-                            const dbApplyToCheck = dataViewObjects.getValue<any>(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
-                            const dbApplyToVal = typeof dbApplyToCheck === "string" ? dbApplyToCheck : (dbApplyToCheck?.value || "valuesOnly");
+                            const dbApplyToCheck = dataViewObjects.getValue<any>(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesAndTotals");
+                            const dbApplyToVal = typeof dbApplyToCheck === "string" ? dbApplyToCheck : (dbApplyToCheck?.value || "valuesAndTotals");
                             if (dbApplyToVal === "totalsOnly" && !isSubtotalRow) cellDataBarColor = "#31b6fd";
                             const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
                             const showZeroLine = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
@@ -3770,8 +3770,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const verticalDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
                             
                             // Check for conditional formatting on data bar color
-                            const dbCFApplyToRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
-                            const dbCFApplyTo = typeof dbCFApplyToRaw === "string" ? dbCFApplyToRaw : (dbCFApplyToRaw?.value || "valuesOnly");
+                            const dbCFApplyToRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesAndTotals");
+                            const dbCFApplyTo = typeof dbCFApplyToRaw === "string" ? dbCFApplyToRaw : (dbCFApplyToRaw?.value || "valuesAndTotals");
                             const shouldApplyDbCF = (dbCFApplyTo === "valuesAndTotals") ||
                                 (dbCFApplyTo === "valuesOnly" && !isSubtotalRow) ||
                                 (dbCFApplyTo === "totalsOnly" && isSubtotalRow);
@@ -4096,8 +4096,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 let ctDataBarColor = dataViewObjects.getFillColor(ctObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
 
                                 // Apply data bar CF applyTo for column total cells
-                                const ctDbCFApplyToRaw = dataViewObjects.getValue<any>(ctObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
-                                const ctDbCFApplyTo = typeof ctDbCFApplyToRaw === "string" ? ctDbCFApplyToRaw : (ctDbCFApplyToRaw?.value || "valuesOnly");
+                                const ctDbCFApplyToRaw = dataViewObjects.getValue<any>(ctObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesAndTotals");
+                                const ctDbCFApplyTo = typeof ctDbCFApplyToRaw === "string" ? ctDbCFApplyToRaw : (ctDbCFApplyToRaw?.value || "valuesAndTotals");
                                 if (ctDbCFApplyTo === "valuesOnly") {
                                     ctDataBarColor = "#31b6fd";
                                 } else if (ctDbCFApplyTo === "valuesAndTotals" || ctDbCFApplyTo === "totalsOnly") {
@@ -4461,8 +4461,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         let totalDataBarColor = dataViewObjects.getFillColor(totalObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
 
                         // Apply data bar CF applyTo for total row
-                        const totalDbCFApplyToRaw = dataViewObjects.getValue<any>(totalObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
-                        const totalDbCFApplyTo = typeof totalDbCFApplyToRaw === "string" ? totalDbCFApplyToRaw : (totalDbCFApplyToRaw?.value || "valuesOnly");
+                        const totalDbCFApplyToRaw = dataViewObjects.getValue<any>(totalObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesAndTotals");
+                        const totalDbCFApplyTo = typeof totalDbCFApplyToRaw === "string" ? totalDbCFApplyToRaw : (totalDbCFApplyToRaw?.value || "valuesAndTotals");
                         if (totalDbCFApplyTo === "valuesOnly") {
                             totalDataBarColor = "#31b6fd";
                         } else if (totalDbCFApplyTo === "valuesAndTotals" || totalDbCFApplyTo === "totalsOnly") {
@@ -4667,8 +4667,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let gtDataBarColor = dataViewObjects.getFillColor(gtObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
 
                             // Apply data bar CF applyTo for grand total cell
-                            const gtDbCFApplyToRaw = dataViewObjects.getValue<any>(gtObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
-                            const gtDbCFApplyTo = typeof gtDbCFApplyToRaw === "string" ? gtDbCFApplyToRaw : (gtDbCFApplyToRaw?.value || "valuesOnly");
+                            const gtDbCFApplyToRaw = dataViewObjects.getValue<any>(gtObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesAndTotals");
+                            const gtDbCFApplyTo = typeof gtDbCFApplyToRaw === "string" ? gtDbCFApplyToRaw : (gtDbCFApplyToRaw?.value || "valuesAndTotals");
                             if (gtDbCFApplyTo === "valuesOnly") {
                                 gtDataBarColor = "#31b6fd";
                             } else if (gtDbCFApplyTo === "valuesAndTotals" || gtDbCFApplyTo === "totalsOnly") {
@@ -5335,8 +5335,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (showDataBars && (!transposedIsSubtotal || showOnRowTotals)) {
                             let cellDataBarColor = dataViewObjects.getFillColor(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
                             // Reset static color when applyTo excludes this column type
-                            const dbApplyToCheck = dataViewObjects.getValue<any>(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
-                            const dbApplyToVal = typeof dbApplyToCheck === "string" ? dbApplyToCheck : (dbApplyToCheck?.value || "valuesOnly");
+                            const dbApplyToCheck = dataViewObjects.getValue<any>(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesAndTotals");
+                            const dbApplyToVal = typeof dbApplyToCheck === "string" ? dbApplyToCheck : (dbApplyToCheck?.value || "valuesAndTotals");
                             if (dbApplyToVal === "totalsOnly" && !transposedIsSubtotal) cellDataBarColor = "#31b6fd";
                             const matchDataBarColor = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "matchDataBarColor" }, true);
                             const showZeroLine = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "showZeroLine" }, false);
@@ -5355,8 +5355,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const verticalDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
                             
                             // Check for conditional formatting on data bar color
-                            const dbCFApplyToRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
-                            const dbCFApplyTo = typeof dbCFApplyToRaw === "string" ? dbCFApplyToRaw : (dbCFApplyToRaw?.value || "valuesOnly");
+                            const dbCFApplyToRaw = dataViewObjects.getValue<any>(objects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesAndTotals");
+                            const dbCFApplyTo = typeof dbCFApplyToRaw === "string" ? dbCFApplyToRaw : (dbCFApplyToRaw?.value || "valuesAndTotals");
                             const shouldApplyDbCF = (dbCFApplyTo === "valuesAndTotals") ||
                                 (dbCFApplyTo === "valuesOnly" && !transposedIsSubtotal) ||
                                 (dbCFApplyTo === "totalsOnly" && transposedIsSubtotal);
@@ -5634,8 +5634,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let totalDataBarColor = dataViewObjects.getFillColor(totalObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
 
                             // Apply data bar CF applyTo for transposed row total
-                            const trTotalDbCFApplyToRaw = dataViewObjects.getValue<any>(totalObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
-                            const trTotalDbCFApplyTo = typeof trTotalDbCFApplyToRaw === "string" ? trTotalDbCFApplyToRaw : (trTotalDbCFApplyToRaw?.value || "valuesOnly");
+                            const trTotalDbCFApplyToRaw = dataViewObjects.getValue<any>(totalObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesAndTotals");
+                            const trTotalDbCFApplyTo = typeof trTotalDbCFApplyToRaw === "string" ? trTotalDbCFApplyToRaw : (trTotalDbCFApplyToRaw?.value || "valuesAndTotals");
                             if (trTotalDbCFApplyTo === "valuesOnly") {
                                 totalDataBarColor = "#31b6fd";
                             } else if (trTotalDbCFApplyTo === "valuesAndTotals" || trTotalDbCFApplyTo === "totalsOnly") {
@@ -5956,8 +5956,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 let ctDataBarColor = dataViewObjects.getFillColor(ctObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "dataBarColor" }, "#31b6fd");
 
                                 // Apply data bar CF applyTo for column total cells in transposed mode
-                                const ctDbCFApplyToRaw = dataViewObjects.getValue<any>(ctObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesOnly");
-                                const ctDbCFApplyTo = typeof ctDbCFApplyToRaw === "string" ? ctDbCFApplyToRaw : (ctDbCFApplyToRaw?.value || "valuesOnly");
+                                const ctDbCFApplyToRaw = dataViewObjects.getValue<any>(ctObjects, { objectName: "dataBarsConditionalFormatting", propertyName: "applyTo" }, "valuesAndTotals");
+                                const ctDbCFApplyTo = typeof ctDbCFApplyToRaw === "string" ? ctDbCFApplyToRaw : (ctDbCFApplyToRaw?.value || "valuesAndTotals");
                                 if (ctDbCFApplyTo === "valuesOnly") {
                                     ctDataBarColor = "#31b6fd";
                                 } else if (ctDbCFApplyTo === "valuesAndTotals" || ctDbCFApplyTo === "totalsOnly") {
