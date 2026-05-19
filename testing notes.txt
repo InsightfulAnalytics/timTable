@@ -1,3 +1,6 @@
+bug 
+  export to excel contains the formatting strings
+
 not a bug
   if column is a number format and is put in the rows, 
     it behaves like a text field but should behave like a number.  
