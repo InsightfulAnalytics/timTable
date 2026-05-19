@@ -1786,7 +1786,7 @@ interface MeasureSpecificSettings {
     italic: boolean | undefined;
     underline: boolean | undefined;
     textWrap: boolean | undefined;
-    horizontalGrid: boolean;
+    horizontalGrid: boolean | undefined;
     transparency: number;
     // Header properties
     headerTextColor: string | undefined;
@@ -1798,7 +1798,7 @@ interface MeasureSpecificSettings {
     headerItalic: boolean | undefined;
     headerUnderline: boolean | undefined;
     headerTextWrap: boolean | undefined;
-    headerHorizontalGrid: boolean;
+    headerHorizontalGrid: boolean | undefined;
     headerTransparency: number;
     // Total properties
     totalTextColor: string | undefined;
@@ -1813,7 +1813,7 @@ interface MeasureSpecificSettings {
     totalItalic: boolean | undefined;
     totalUnderline: boolean | undefined;
     totalTextWrap: boolean | undefined;
-    totalHorizontalGrid: boolean;
+    totalHorizontalGrid: boolean | undefined;
     totalTransparency: number;
 }
 
@@ -1858,7 +1858,7 @@ interface MeasureSpecificSettings {
                   italic: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "italic" }, undefined) as boolean | undefined,
                   underline: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "underline" }, undefined) as boolean | undefined,
                   textWrap: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "textWrap" }, undefined) as boolean | undefined,
-                  horizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true),
+                  horizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "horizontalGrid" }, undefined) as boolean | undefined,
                   transparency: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "transparency" }, 0),
                   // Header properties
                   headerTextColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerTextColor" }, undefined),
@@ -1870,7 +1870,7 @@ interface MeasureSpecificSettings {
                   headerItalic: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerItalic" }, undefined) as boolean | undefined,
                   headerUnderline: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerUnderline" }, undefined) as boolean | undefined,
                   headerTextWrap: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerTextWrap" }, undefined) as boolean | undefined,
-                  headerHorizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerHorizontalGrid" }, true),
+                  headerHorizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerHorizontalGrid" }, undefined) as boolean | undefined,
                   headerTransparency: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "headerTransparency" }, 0),
                   // Total properties
                   totalTextColor: dataViewObjects.getFillColor(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalTextColor" }, undefined),
@@ -1885,7 +1885,7 @@ interface MeasureSpecificSettings {
                   totalItalic: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalItalic" }, undefined) as boolean | undefined,
                   totalUnderline: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalUnderline" }, undefined) as boolean | undefined,
                   totalTextWrap: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalTextWrap" }, undefined) as boolean | undefined,
-                  totalHorizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalHorizontalGrid" }, true),
+                  totalHorizontalGrid: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalHorizontalGrid" }, undefined) as boolean | undefined,
                   totalTransparency: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalTransparency" }, 0)
               };
               measureSettingsList.push(settings);
@@ -2685,8 +2685,12 @@ interface MeasureSpecificSettings {
           const dbBorderColor = dataViewObjects.getFillColor(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "borderColor" }, "#000000");
           const dbAxisTypeObj = dataViewObjects.getValue<powerbi.EnumMemberValue>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "axisType" }, "Amount");
           const dbAxisType = typeof dbAxisTypeObj === "string" ? { value: dbAxisTypeObj, displayName: dbAxisTypeObj } : dbAxisTypeObj as unknown as powerbi.IEnumMember;
-          const dbMinValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
-          const dbMaxValue = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+          const dbMinValueRaw = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
+          const dbMaxValueRaw = dataViewObjects.getValue<number>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+          const dbMinValueEnabled = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "minValueEnabled" }, false);
+          const dbMaxValueEnabled = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "maxValueEnabled" }, false);
+          const dbMinValue = dbMinValueRaw ?? 0;
+          const dbMaxValue = dbMaxValueRaw ?? 0;
           const dbLabelsOutside = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
           const dbVerticalDataBars = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
           const dbShowOnRowTotals = dataViewObjects.getValue<boolean>(selectedDataBarsObjects, { objectName: "dataBarsFormatting", propertyName: "showOnRowTotals" }, true);
@@ -2731,8 +2735,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     visible: true,
                     selector: dataBarsSelector
                 }),
-                new formattingSettings.NumUpDown({ name: "maxValue", displayName: "Upper bound", value: dbMaxValue, visible: true, selector: dataBarsSelector, options: (dbAxisType.value === "Percentage" ? { placeholderText: "Auto", unitSymbol: "%", unitSymbolAfterInput: true } : { placeholderText: "Auto" }) as any }),
-                new formattingSettings.NumUpDown({ name: "minValue", displayName: "Lower bound", value: dbMinValue, visible: true, selector: dataBarsSelector, options: (dbAxisType.value === "Percentage" ? { placeholderText: "Auto", unitSymbol: "%", unitSymbolAfterInput: true } : { placeholderText: "Auto" }) as any })
+                new formattingSettings.ToggleSwitch({ name: "maxValueEnabled", displayName: "Set upper bound", value: dbMaxValueEnabled, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.NumUpDown({ name: "maxValue", displayName: "Upper bound", value: dbMaxValue, visible: dbMaxValueEnabled, selector: dataBarsSelector, options: (dbAxisType.value === "Percentage" ? { unitSymbol: "%", unitSymbolAfterInput: true } : {}) as any }),
+                new formattingSettings.ToggleSwitch({ name: "minValueEnabled", displayName: "Set lower bound", value: dbMinValueEnabled, visible: true, selector: dataBarsSelector }),
+                new formattingSettings.NumUpDown({ name: "minValue", displayName: "Lower bound", value: dbMinValue, visible: dbMinValueEnabled, selector: dataBarsSelector, options: (dbAxisType.value === "Percentage" ? { unitSymbol: "%", unitSymbolAfterInput: true } : {}) as any })
             ];
 
             dataBarsSettings.dataBarsGroup.slices = dataBarsSlices;
@@ -3801,6 +3807,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const axisType = typeof axisTypeRaw === "string" ? axisTypeRaw : (axisTypeRaw.value || "Amount");
                             const minValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                             const maxValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                            const minValueEnabled = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "minValueEnabled" }, false);
+                            const maxValueEnabled = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "maxValueEnabled" }, false);
                             const labelsOutside = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                             const verticalDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
                             
@@ -3836,19 +3844,21 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let domainRange = max_raw - min_raw;
                             if (domainRange <= 0) domainRange = 1;
                             
-                            if (minValueObj !== null && minValueObj !== undefined) {
+                            if (minValueEnabled) {
+                                const _minV = minValueObj ?? 0;
                                 if (axisType === "Percentage") {
-                                    min = min_raw - domainRange * (minValueObj / 100);
+                                    min = min_raw - domainRange * (_minV / 100);
                                 } else {
-                                    min = minValueObj;
+                                    min = _minV;
                                 }
                             }
                             
-                            if (maxValueObj !== null && maxValueObj !== undefined) {
+                            if (maxValueEnabled) {
+                                const _maxV = maxValueObj ?? 0;
                                 if (axisType === "Percentage") {
-                                    max = max_raw + domainRange * (maxValueObj / 100);
+                                    max = max_raw + domainRange * (_maxV / 100);
                                 } else {
-                                    max = maxValueObj;
+                                    max = _maxV;
                                 }
                             }
                             let range = max - min;
@@ -4155,6 +4165,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 const ctAxisType = typeof ctAxisTypeRaw === "string" ? ctAxisTypeRaw : (ctAxisTypeRaw.value || "Amount");
                                 const ctMinValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                                 const ctMaxValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                                const ctMinValueEnabled = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "minValueEnabled" }, false);
+                                const ctMaxValueEnabled = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "maxValueEnabled" }, false);
                                 const ctLabelsOutside = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                                 const ctVerticalDataBars = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
 
@@ -4165,11 +4177,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 let max = max_raw;
                                 let domainRange = max_raw - min_raw;
                                 if (domainRange <= 0) domainRange = 1;
-                                if (ctMinValueObj !== null && ctMinValueObj !== undefined) {
-                                    min = ctAxisType === "Percentage" ? min_raw - domainRange * (ctMinValueObj / 100) : ctMinValueObj;
+                                if (ctMinValueEnabled) {
+                                    const _minV = ctMinValueObj ?? 0;
+                                    min = ctAxisType === "Percentage" ? min_raw - domainRange * (_minV / 100) : _minV;
                                 }
-                                if (ctMaxValueObj !== null && ctMaxValueObj !== undefined) {
-                                    max = ctAxisType === "Percentage" ? max_raw + domainRange * (ctMaxValueObj / 100) : ctMaxValueObj;
+                                if (ctMaxValueEnabled) {
+                                    const _maxV = ctMaxValueObj ?? 0;
+                                    max = ctAxisType === "Percentage" ? max_raw + domainRange * (_maxV / 100) : _maxV;
                                 }
                                 let range = max - min;
                                 if (range <= 0) range = 1;
@@ -4520,6 +4534,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         const totalAxisType = typeof totalAxisTypeRaw === "string" ? totalAxisTypeRaw : (totalAxisTypeRaw.value || "Amount");
                         const totalMinValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                         const totalMaxValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                        const totalMinValueEnabled = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "minValueEnabled" }, false);
+                        const totalMaxValueEnabled = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "maxValueEnabled" }, false);
                         const totalLabelsOutside = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                         const totalVerticalDataBars = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
 
@@ -4530,11 +4546,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         let max = max_raw;
                         let domainRange = max_raw - min_raw;
                         if (domainRange <= 0) domainRange = 1;
-                        if (totalMinValueObj !== null && totalMinValueObj !== undefined) {
-                            min = totalAxisType === "Percentage" ? min_raw - domainRange * (totalMinValueObj / 100) : totalMinValueObj;
+                        if (totalMinValueEnabled) {
+                            const _minV = totalMinValueObj ?? 0;
+                            min = totalAxisType === "Percentage" ? min_raw - domainRange * (_minV / 100) : _minV;
                         }
-                        if (totalMaxValueObj !== null && totalMaxValueObj !== undefined) {
-                            max = totalAxisType === "Percentage" ? max_raw + domainRange * (totalMaxValueObj / 100) : totalMaxValueObj;
+                        if (totalMaxValueEnabled) {
+                            const _maxV = totalMaxValueObj ?? 0;
+                            max = totalAxisType === "Percentage" ? max_raw + domainRange * (_maxV / 100) : _maxV;
                         }
                         let range = max - min;
                         if (range <= 0) range = 1;
@@ -4726,6 +4744,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const gtAxisType = typeof gtAxisTypeRaw === "string" ? gtAxisTypeRaw : (gtAxisTypeRaw.value || "Amount");
                             const gtMinValueObj = dataViewObjects.getValue<number>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                             const gtMaxValueObj = dataViewObjects.getValue<number>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                            const gtMinValueEnabled = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "minValueEnabled" }, false);
+                            const gtMaxValueEnabled = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "maxValueEnabled" }, false);
                             const gtLabelsOutside = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                             const gtVerticalDataBars = dataViewObjects.getValue<boolean>(gtObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
 
@@ -4736,11 +4756,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let max = max_raw;
                             let domainRange = max_raw - min_raw;
                             if (domainRange <= 0) domainRange = 1;
-                            if (gtMinValueObj !== null && gtMinValueObj !== undefined) {
-                                min = gtAxisType === "Percentage" ? min_raw - domainRange * (gtMinValueObj / 100) : gtMinValueObj;
+                            if (gtMinValueEnabled) {
+                                const _minV = gtMinValueObj ?? 0;
+                                min = gtAxisType === "Percentage" ? min_raw - domainRange * (_minV / 100) : _minV;
                             }
-                            if (gtMaxValueObj !== null && gtMaxValueObj !== undefined) {
-                                max = gtAxisType === "Percentage" ? max_raw + domainRange * (gtMaxValueObj / 100) : gtMaxValueObj;
+                            if (gtMaxValueEnabled) {
+                                const _maxV = gtMaxValueObj ?? 0;
+                                max = gtAxisType === "Percentage" ? max_raw + domainRange * (_maxV / 100) : _maxV;
                             }
                             let range = max - min;
                             if (range <= 0) range = 1;
@@ -4932,6 +4954,11 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             const categoryShowTotalsT = (categories?.sources || []).map((catSource: any) => {
                 return dataViewObjects.getValue<boolean>(catSource.objects || {}, { objectName: "totals", propertyName: "showTotalRow" }, true);
             });
+            // If "All" was toggled this cycle, override to avoid a one-frame inversion
+            // (mirrors non-transposed path so the toggle takes effect immediately).
+            if (globalShowAllRowOverride !== undefined) {
+                categoryShowTotalsT.fill(globalShowAllRowOverride);
+            }
             showTotalRow = categoryShowTotalsT.length > 0 ? categoryShowTotalsT[0] : showTotalRow;
 
             // Create Header Row
@@ -5386,6 +5413,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const axisType = typeof axisTypeRaw === "string" ? axisTypeRaw : (axisTypeRaw.value || "Amount");
                             const minValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                             const maxValueObj = dataViewObjects.getValue<number>(objects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                            const minValueEnabled = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "minValueEnabled" }, false);
+                            const maxValueEnabled = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "maxValueEnabled" }, false);
                             const labelsOutside = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                             const verticalDataBars = dataViewObjects.getValue<boolean>(objects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
                             
@@ -5421,19 +5450,21 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let domainRange = max_raw - min_raw;
                             if (domainRange <= 0) domainRange = 1;
                             
-                            if (minValueObj !== null && minValueObj !== undefined) {
+                            if (minValueEnabled) {
+                                const _minV = minValueObj ?? 0;
                                 if (axisType === "Percentage") {
-                                    min = min_raw - domainRange * (minValueObj / 100);
+                                    min = min_raw - domainRange * (_minV / 100);
                                 } else {
-                                    min = minValueObj;
+                                    min = _minV;
                                 }
                             }
                             
-                            if (maxValueObj !== null && maxValueObj !== undefined) {
+                            if (maxValueEnabled) {
+                                const _maxV = maxValueObj ?? 0;
                                 if (axisType === "Percentage") {
-                                    max = max_raw + domainRange * (maxValueObj / 100);
+                                    max = max_raw + domainRange * (_maxV / 100);
                                 } else {
-                                    max = maxValueObj;
+                                    max = _maxV;
                                 }
                             }
                             let range = max - min;
@@ -5693,6 +5724,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const totalAxisType = typeof totalAxisTypeRaw === "string" ? totalAxisTypeRaw : (totalAxisTypeRaw.value || "Amount");
                             const totalMinValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                             const totalMaxValueObj = dataViewObjects.getValue<number>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                            const totalMinValueEnabled = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "minValueEnabled" }, false);
+                            const totalMaxValueEnabled = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "maxValueEnabled" }, false);
                             const totalLabelsOutside = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                             const totalVerticalDataBars = dataViewObjects.getValue<boolean>(totalObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
 
@@ -5703,11 +5736,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let max = max_raw;
                             let domainRange = max_raw - min_raw;
                             if (domainRange <= 0) domainRange = 1;
-                            if (totalMinValueObj !== null && totalMinValueObj !== undefined) {
-                                min = totalAxisType === "Percentage" ? min_raw - domainRange * (totalMinValueObj / 100) : totalMinValueObj;
+                            if (totalMinValueEnabled) {
+                                const _minV = totalMinValueObj ?? 0;
+                                min = totalAxisType === "Percentage" ? min_raw - domainRange * (_minV / 100) : _minV;
                             }
-                            if (totalMaxValueObj !== null && totalMaxValueObj !== undefined) {
-                                max = totalAxisType === "Percentage" ? max_raw + domainRange * (totalMaxValueObj / 100) : totalMaxValueObj;
+                            if (totalMaxValueEnabled) {
+                                const _maxV = totalMaxValueObj ?? 0;
+                                max = totalAxisType === "Percentage" ? max_raw + domainRange * (_maxV / 100) : _maxV;
                             }
                             let range = max - min;
                             if (range <= 0) range = 1;
@@ -6015,6 +6050,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 const ctAxisType = typeof ctAxisTypeRaw === "string" ? ctAxisTypeRaw : (ctAxisTypeRaw.value || "Amount");
                                 const ctMinValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "minValue" }, null);
                                 const ctMaxValueObj = dataViewObjects.getValue<number>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "maxValue" }, null);
+                                const ctMinValueEnabled = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "minValueEnabled" }, false);
+                                const ctMaxValueEnabled = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "maxValueEnabled" }, false);
                                 const ctLabelsOutside = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "labelsOutside" }, false);
                                 const ctVerticalDataBars = dataViewObjects.getValue<boolean>(ctObjects, { objectName: "dataBarsFormatting", propertyName: "verticalDataBars" }, false);
 
@@ -6025,11 +6062,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 let max = max_raw;
                                 let domainRange = max_raw - min_raw;
                                 if (domainRange <= 0) domainRange = 1;
-                                if (ctMinValueObj !== null && ctMinValueObj !== undefined) {
-                                    min = ctAxisType === "Percentage" ? min_raw - domainRange * (ctMinValueObj / 100) : ctMinValueObj;
+                                if (ctMinValueEnabled) {
+                                    const _minV = ctMinValueObj ?? 0;
+                                    min = ctAxisType === "Percentage" ? min_raw - domainRange * (_minV / 100) : _minV;
                                 }
-                                if (ctMaxValueObj !== null && ctMaxValueObj !== undefined) {
-                                    max = ctAxisType === "Percentage" ? max_raw + domainRange * (ctMaxValueObj / 100) : ctMaxValueObj;
+                                if (ctMaxValueEnabled) {
+                                    const _maxV = ctMaxValueObj ?? 0;
+                                    max = ctAxisType === "Percentage" ? max_raw + domainRange * (_maxV / 100) : _maxV;
                                 }
                                 let range = max - min;
                                 if (range <= 0) range = 1;
@@ -6535,6 +6574,12 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.borderRight = 'none';
                     cell.style.overflow = 'hidden';
                     cell.style.visibility = 'hidden';
+                    // Prevent the (now zero-width) cell's text from wrapping into many
+                    // single-character lines, which would inflate the row's height.
+                    cell.style.whiteSpace = 'nowrap';
+                    cell.style.wordBreak = 'normal';
+                    cell.style.lineHeight = '0';
+                    cell.style.fontSize = '0';
                 }
             }
         }

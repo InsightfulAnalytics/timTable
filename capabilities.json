@@ -246,6 +246,16 @@
                     "type": {
                         "bool": true
                     }
+                },
+                "maxValueEnabled": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "minValueEnabled": {
+                    "type": {
+                        "bool": true
+                    }
                 }
             }
         },
