@@ -3039,14 +3039,29 @@ let dataBarsSlices: formattingSettings.Slice[] = [
         // Check if column width settings changed — if so, clear manual column resize overrides.
         // Use the persisted snapshot as the baseline so a Save+Refresh (which starts with an
         // empty in-memory snapshot) does NOT wipe legitimately persisted manual widths.
-        // In switchValuesToRows mode, measures become rows — adding a measure does NOT change
-        // the column layout. Use only the scalar settings (category width + common value width +
-        // alignedColumns flag) so a new measure doesn't mistakenly trigger a manual-width clear.
-        const currentColumnWidthSnapshot = switchValuesToRows
-            ? JSON.stringify([categoryColumnWidth, columnWidthSettings.valueColumnWidth.value, columnWidthSettings.alignedColumns.value])
-            : JSON.stringify([categoryColumnWidth, ...valueColumnWidths, ...colTotalColumnWidths]);
+        //
+        // KEY RULE: only clear manual widths when the column COUNT is the same but a width
+        // VALUE changed (i.e. the user explicitly changed a setting in the format pane).
+        // When the count changes (measure added / removed) the column indices for existing
+        // columns are still valid — preserve their manual overrides.
+        // colTotalColumnWidths mirrors valueColumnWidths so we exclude it to avoid
+        // double-counting in the snapshot.
+        const snapshotWidths = [categoryColumnWidth, ...valueColumnWidths];
+        const currentColumnWidthSnapshot = JSON.stringify(snapshotWidths);
         const baselineSnapshot = this.lastColumnWidthSnapshot || persistedManualSnapshot;
-        const settingsChanged = baselineSnapshot !== "" && currentColumnWidthSnapshot !== baselineSnapshot;
+        let settingsChanged = false;
+        if (baselineSnapshot !== "") {
+            try {
+                const oldWidths: number[] = JSON.parse(baselineSnapshot);
+                if (oldWidths.length === snapshotWidths.length) {
+                    settingsChanged = snapshotWidths.some((w, i) => oldWidths[i] !== w);
+                }
+                // If lengths differ (measure added/removed) settingsChanged stays false —
+                // existing manual overrides for surviving column indices remain valid.
+            } catch {
+                // Unparseable baseline (e.g. legacy format) — treat as no baseline, no clear.
+            }
+        }
         if (settingsChanged) {
             this.manualColumnWidths.clear();
             // Persist the cleared state so the on-disk JSON matches the runtime map.
