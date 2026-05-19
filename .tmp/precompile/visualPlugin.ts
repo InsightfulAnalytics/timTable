@@ -5,8 +5,8 @@ import VisualConstructorOptions = powerbiVisualsApi.extensibility.visual.VisualC
 import DialogConstructorOptions = powerbiVisualsApi.extensibility.visual.DialogConstructorOptions;
 var powerbiKey: any = "powerbi";
 var powerbi: any = window[powerbiKey];
-var timTableDD1AB490372C46B5A64605746E322F55: IVisualPlugin = {
-    name: 'timTableDD1AB490372C46B5A64605746E322F55',
+var timTableDD1AB490372C46B5A64605746E322F55_DEBUG: IVisualPlugin = {
+    name: 'timTableDD1AB490372C46B5A64605746E322F55_DEBUG',
     displayName: 'TimTable',
     class: 'Visual',
     apiVersion: '5.3.0',
@@ -27,6 +27,6 @@ var timTableDD1AB490372C46B5A64605746E322F55: IVisualPlugin = {
 if (typeof powerbi !== "undefined") {
     powerbi.visuals = powerbi.visuals || {};
     powerbi.visuals.plugins = powerbi.visuals.plugins || {};
-    powerbi.visuals.plugins["timTableDD1AB490372C46B5A64605746E322F55"] = timTableDD1AB490372C46B5A64605746E322F55;
+    powerbi.visuals.plugins["timTableDD1AB490372C46B5A64605746E322F55_DEBUG"] = timTableDD1AB490372C46B5A64605746E322F55_DEBUG;
 }
-export default timTableDD1AB490372C46B5A64605746E322F55;
+export default timTableDD1AB490372C46B5A64605746E322F55_DEBUG;

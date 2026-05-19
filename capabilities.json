@@ -690,7 +690,7 @@
                         ]
                     }
                 },
-                "formatString": {
+                "customFormatString": {
                     "type": {
                         "text": true
                     }
@@ -804,7 +804,7 @@
                         ]
                     }
                 },
-                "totalFormatString": {
+                "customTotalFormatString": {
                     "type": { "text": true }
                 },
                 "totalFontFamily": {

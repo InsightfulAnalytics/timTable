@@ -1821,6 +1821,26 @@ interface MeasureSpecificSettings {
           let measureFormats: string[] = [];
           let valueColumnWidths: number[] = [];
 
+          const readSpecificColumnTextProperty = (objects: any, propertyName: string, legacyPropertyName: string): string | undefined => {
+              const currentValue = dataViewObjects.getValue<string>(
+                  objects || {},
+                  { objectName: "specificColumn", propertyName },
+                  undefined
+              );
+
+              if (currentValue !== undefined && currentValue !== null && currentValue !== "") {
+                  return currentValue;
+              }
+
+              const legacyValue = dataViewObjects.getValue<string>(
+                  objects || {},
+                  { objectName: "specificColumn", propertyName: legacyPropertyName },
+                  undefined
+              );
+
+              return legacyValue;
+          };
+
           values.forEach((valueColumn) => {
               let specObj = valueColumn.source.objects?.specificColumn;
               let settings: MeasureSpecificSettings = {
@@ -1831,7 +1851,7 @@ interface MeasureSpecificSettings {
                   alignment: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "alignment" }, undefined) as string | undefined,
                   displayUnits: 0,
                   decimalPlaces: null,
-                  formatString: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "formatString" }, undefined) as string | undefined,
+                  formatString: readSpecificColumnTextProperty(valueColumn.source.objects, "customFormatString", "formatString"),
                   fontFamily: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "fontFamily" }, undefined) as string | undefined,
                   fontSize: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "fontSize" }, undefined) as number | undefined,
                   bold: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "bold" }, undefined) as boolean | undefined,
@@ -1858,7 +1878,7 @@ interface MeasureSpecificSettings {
                   totalAlignment: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalAlignment" }, undefined) as string | undefined,
                   totalDisplayUnits: 0,
                   totalDecimalPlaces: null,
-                  totalFormatString: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalFormatString" }, undefined) as string | undefined,
+                  totalFormatString: readSpecificColumnTextProperty(valueColumn.source.objects, "customTotalFormatString", "totalFormatString"),
                   totalFontFamily: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalFontFamily" }, undefined) as string | undefined,
                   totalFontSize: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalFontSize" }, undefined) as number | undefined,
                   totalBold: dataViewObjects.getValue(valueColumn.source.objects || {}, { objectName: "specificColumn", propertyName: "totalBold" }, undefined) as boolean | undefined,
@@ -2464,7 +2484,7 @@ interface MeasureSpecificSettings {
           const scItalic = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "italic" }, undefined);
           const scUnderline = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "underline" }, undefined);
           const scAlignment = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "alignment" }, undefined);
-          const scFormatString = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "formatString" }, "");
+          const scFormatString = readSpecificColumnTextProperty(selectedObjects, "customFormatString", "formatString") || "";
           const scTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "textWrap" }, undefined);
           const scHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "horizontalGrid" }, true);
           const scTransparency = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "transparency" }, 0);
@@ -2491,7 +2511,7 @@ interface MeasureSpecificSettings {
           const scTotalItalic = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalItalic" }, undefined);
           const scTotalUnderline = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalUnderline" }, undefined);
           const scTotalAlignment = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "totalAlignment" }, undefined);
-          const scTotalFormatString = dataViewObjects.getValue<string>(selectedObjects, { objectName: "specificColumn", propertyName: "totalFormatString" }, "");
+          const scTotalFormatString = readSpecificColumnTextProperty(selectedObjects, "customTotalFormatString", "totalFormatString") || "";
           const scTotalTextWrap = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalTextWrap" }, undefined);
           const scTotalHorizontalGrid = dataViewObjects.getValue<boolean>(selectedObjects, { objectName: "specificColumn", propertyName: "totalHorizontalGrid" }, true);
           const scTotalTransparency = dataViewObjects.getValue<number>(selectedObjects, { objectName: "specificColumn", propertyName: "totalTransparency" }, 0);
@@ -2608,7 +2628,7 @@ interface MeasureSpecificSettings {
               new formattingSettings.ColorPicker({ name: "alternateTextColor", displayName: "Alternate text color", value: { value: scAltTextColor || "#333333" }, visible: true, selector }),
               new formattingSettings.ColorPicker({ name: "alternateBackgroundColor", displayName: "Alternate background color", value: { value: scAltBgColor || "#f5f5f5" }, visible: true, selector }),
               new formattingSettings.AlignmentGroup({ name: "alignment", displayName: "Alignment", value: scAlignment || "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true, selector }),
-              new formattingSettings.TextInput({ name: "formatString", displayName: "Format string", value: scFormatString || "", placeholder: "e.g. #,0.00;(#,0.00);0 or 0.00%", visible: true, selector }),
+              new formattingSettings.TextInput({ name: "customFormatString", displayName: "Format string", value: scFormatString || "", placeholder: "e.g. #,0.00;(#,0.00);0 or 0.00%", visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "textWrap", displayName: "Text wrap", value: scTextWrap ?? false, visible: true, selector }),
               new formattingSettings.NumUpDown({ name: "transparency", displayName: "Value Transparency (%)", value: scTransparency, visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "horizontalGrid", displayName: "Horizontal grid", value: scHorizontalGrid, visible: true, selector })
@@ -2628,7 +2648,7 @@ interface MeasureSpecificSettings {
               new formattingSettings.ColorPicker({ name: "totalTextColor", displayName: "Text color", value: { value: scTotalTextColor || "#00b8d4" }, visible: true, selector }),
               new formattingSettings.ColorPicker({ name: "totalBackgroundColor", displayName: "Background color", value: { value: scTotalBgColor || "#ffffff" }, visible: true, selector }),
               new formattingSettings.AlignmentGroup({ name: "totalAlignment", displayName: "Alignment", value: scTotalAlignment || "left", mode: powerbi.visuals.AlignmentGroupMode.Horizonal, visible: true, selector }),
-              new formattingSettings.TextInput({ name: "totalFormatString", displayName: "Format string", value: scTotalFormatString || "", placeholder: "e.g. #,0.00;(#,0.00);0 or 0.00%", visible: true, selector }),
+              new formattingSettings.TextInput({ name: "customTotalFormatString", displayName: "Format string", value: scTotalFormatString || "", placeholder: "e.g. #,0.00;(#,0.00);0 or 0.00%", visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "totalTextWrap", displayName: "Text wrap", value: scTotalTextWrap ?? false, visible: true, selector }),
               new formattingSettings.NumUpDown({ name: "totalTransparency", displayName: "Transparency (%)", value: scTotalTransparency, visible: true, selector }),
               new formattingSettings.ToggleSwitch({ name: "totalHorizontalGrid", displayName: "Horizontal grid", value: scTotalHorizontalGrid, visible: true, selector })
