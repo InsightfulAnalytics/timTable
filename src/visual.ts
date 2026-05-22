@@ -2056,6 +2056,57 @@ interface MeasureSpecificSettings {
 
           });
 
+          // Per-category source specificColumn overrides (parallel to measureSettingsList).
+          // Allows specific-column formatting to be persisted/read per-row-field.
+          const categorySettingsList: MeasureSpecificSettings[] = (hasCategories && categories?.sources)
+              ? (categories.sources as any[]).map((catSrc: any) => {
+                  const o = catSrc.objects || {};
+                  return {
+                      textColor: dataViewObjects.getFillColor(o, { objectName: "specificColumn", propertyName: "textColor" }, undefined),
+                      backgroundColor: dataViewObjects.getFillColor(o, { objectName: "specificColumn", propertyName: "backgroundColor" }, undefined),
+                      alternateTextColor: dataViewObjects.getFillColor(o, { objectName: "specificColumn", propertyName: "alternateTextColor" }, undefined),
+                      alternateBackgroundColor: dataViewObjects.getFillColor(o, { objectName: "specificColumn", propertyName: "alternateBackgroundColor" }, undefined),
+                      alignment: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "alignment" }, undefined) as any,
+                      displayUnits: 0,
+                      decimalPlaces: null,
+                      formatString: readSpecificColumnTextProperty(o, "customFormatString", "formatString"),
+                      fontFamily: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "fontFamily" }, undefined) as any,
+                      fontSize: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "fontSize" }, undefined) as any,
+                      bold: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "bold" }, undefined) as any,
+                      italic: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "italic" }, undefined) as any,
+                      underline: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "underline" }, undefined) as any,
+                      textWrap: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "textWrap" }, undefined) as any,
+                      horizontalGrid: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "horizontalGrid" }, undefined) as any,
+                      transparency: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "transparency" }, 0) as any,
+                      headerTextColor: dataViewObjects.getFillColor(o, { objectName: "specificColumn", propertyName: "headerTextColor" }, undefined),
+                      headerBackgroundColor: dataViewObjects.getFillColor(o, { objectName: "specificColumn", propertyName: "headerBackgroundColor" }, undefined),
+                      headerAlignment: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "headerAlignment" }, undefined) as any,
+                      headerFontFamily: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "headerFontFamily" }, undefined) as any,
+                      headerFontSize: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "headerFontSize" }, undefined) as any,
+                      headerBold: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "headerBold" }, undefined) as any,
+                      headerItalic: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "headerItalic" }, undefined) as any,
+                      headerUnderline: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "headerUnderline" }, undefined) as any,
+                      headerTextWrap: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "headerTextWrap" }, undefined) as any,
+                      headerHorizontalGrid: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "headerHorizontalGrid" }, undefined) as any,
+                      headerTransparency: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "headerTransparency" }, 0) as any,
+                      totalTextColor: dataViewObjects.getFillColor(o, { objectName: "specificColumn", propertyName: "totalTextColor" }, undefined),
+                      totalBackgroundColor: dataViewObjects.getFillColor(o, { objectName: "specificColumn", propertyName: "totalBackgroundColor" }, undefined),
+                      totalAlignment: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "totalAlignment" }, undefined) as any,
+                      totalDisplayUnits: 0,
+                      totalDecimalPlaces: null,
+                      totalFormatString: readSpecificColumnTextProperty(o, "customTotalFormatString", "totalFormatString"),
+                      totalFontFamily: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "totalFontFamily" }, undefined) as any,
+                      totalFontSize: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "totalFontSize" }, undefined) as any,
+                      totalBold: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "totalBold" }, undefined) as any,
+                      totalItalic: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "totalItalic" }, undefined) as any,
+                      totalUnderline: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "totalUnderline" }, undefined) as any,
+                      totalTextWrap: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "totalTextWrap" }, undefined) as any,
+                      totalHorizontalGrid: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "totalHorizontalGrid" }, undefined) as any,
+                      totalTransparency: dataViewObjects.getValue(o, { objectName: "specificColumn", propertyName: "totalTransparency" }, 0) as any,
+                  } as MeasureSpecificSettings;
+              })
+              : [];
+
           // Populate totals series dropdown and apply selector to showTotalRow
           let globalShowAllRowOverride: boolean | undefined = undefined;
           const categoryHeaders = categories?.sources.map((src: any) => src.displayName || src.queryName) || [];
@@ -2436,7 +2487,13 @@ interface MeasureSpecificSettings {
 
           // Populate specificColumn series dropdown and rebuild value slices with per-measure selector
           const specificColumnSettings = this.visualSettings.specificColumn;
-          specificColumnSettings.series.items = measureHeaders.map(name => ({ value: name, displayName: name }));
+          const catScItems: { value: string, displayName: string }[] = hasCategories && categories?.sources
+              ? (categories.sources as any[]).map((src: any) => ({
+                  value: `cat:${src.queryName}`,
+                  displayName: src.displayName || 'Category'
+              }))
+              : [];
+          specificColumnSettings.series.items = [...catScItems, ...measureHeaders.map(name => ({ value: name, displayName: name }))];
           // Read persisted series value from dataView metadata objects
           const rawPersistedSeries = dataViewObjects.getValue<any>(
               this.dataView.metadata.objects || {},
@@ -2451,13 +2508,26 @@ interface MeasureSpecificSettings {
               : null;
           specificColumnSettings.series.value = matchedItem || specificColumnSettings.series.items[0] || { value: "", displayName: "" };
 
-          // Find the queryName for the selected measure so slices persist to the correct per-measure objects
+          // Find the queryName for the selected series so slices persist to the correct per-field objects
           const selectedSeriesName = specificColumnSettings.series.value?.value as string;
-          const selectedMeasureIdx = measureHeaders.indexOf(selectedSeriesName);
-          const selectedValueColumn = selectedMeasureIdx >= 0 ? values[selectedMeasureIdx] : null;
-          const selectedQueryName = selectedValueColumn?.source?.queryName;
-          const selectedObjects = selectedValueColumn?.source?.objects || {};
-          const selector = selectedQueryName ? { metadata: selectedQueryName } : undefined;
+          const isScCategory = selectedSeriesName?.startsWith('cat:');
+          let selectedObjects: any = {};
+          let selector: { metadata?: string } | undefined;
+
+          if (isScCategory) {
+              const scCatQueryName = selectedSeriesName.slice(4);
+              const scCatSrc = hasCategories && categories?.sources
+                  ? (categories.sources as any[]).find((s: any) => s.queryName === scCatQueryName)
+                  : null;
+              selectedObjects = scCatSrc?.objects || {};
+              selector = scCatQueryName ? { metadata: scCatQueryName } : undefined;
+          } else {
+              const selectedMeasureIdx = measureHeaders.indexOf(selectedSeriesName);
+              const selectedValueColumn = selectedMeasureIdx >= 0 ? values?.[selectedMeasureIdx] : null;
+              const selectedQueryName = selectedValueColumn?.source?.queryName;
+              selectedObjects = selectedValueColumn?.source?.objects || {};
+              selector = selectedQueryName ? { metadata: selectedQueryName } : undefined;
+          }
 
           // Bootstrap metadata-level persistence: if specificColumn.series doesn't exist in
           // metadata.objects yet, persist the default so the framework has an existing entry
@@ -3343,6 +3413,26 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (headerWordWrap) {
                         categoryHeader.style.wordBreak = "break-word";
                     }
+                    // Apply specificColumn header overrides for this category source
+                    const catHdrSpec = categorySettingsList[levelIdx];
+                    if (catHdrSpec) {
+                        if (catHdrSpec.headerBackgroundColor) categoryHeader.style.backgroundColor = catHdrSpec.headerBackgroundColor;
+                        if (catHdrSpec.headerTextColor) {
+                            let chColor = catHdrSpec.headerTextColor;
+                            if (catHdrSpec.headerTransparency > 0) chColor = applyTransparency(chColor, catHdrSpec.headerTransparency);
+                            categoryHeader.style.color = chColor;
+                        }
+                        if (catHdrSpec.headerFontFamily) categoryHeader.style.fontFamily = catHdrSpec.headerFontFamily;
+                        if (catHdrSpec.headerFontSize !== undefined) categoryHeader.style.fontSize = `${catHdrSpec.headerFontSize}pt`;
+                        if (catHdrSpec.headerBold !== undefined) categoryHeader.style.fontWeight = catHdrSpec.headerBold ? "bold" : "normal";
+                        if (catHdrSpec.headerItalic !== undefined) categoryHeader.style.fontStyle = catHdrSpec.headerItalic ? "italic" : "normal";
+                        if (catHdrSpec.headerUnderline !== undefined) categoryHeader.style.textDecoration = catHdrSpec.headerUnderline ? "underline" : "none";
+                        if (catHdrSpec.headerAlignment) categoryHeader.style.textAlign = catHdrSpec.headerAlignment;
+                        if (catHdrSpec.headerTextWrap !== undefined) {
+                            categoryHeader.style.whiteSpace = catHdrSpec.headerTextWrap ? "normal" : "nowrap";
+                            if (catHdrSpec.headerTextWrap) categoryHeader.style.wordBreak = "break-word";
+                        }
+                    }
                     // Header-click sort affordance (icon-only — body-cell highlight unaffected).
                     if (source.queryName) {
                         this.addSortAffordance(categoryHeader, `c:${source.queryName}`);
@@ -3651,6 +3741,48 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         categoryCell.style.whiteSpace = (isTotal ? totalRowWordWrap : categoryWordWrap) ? "normal" : "nowrap";
                         if ((isTotal ? totalRowWordWrap : categoryWordWrap)) {
                             categoryCell.style.wordBreak = "break-word";
+                        }
+                        // Apply per-category specificColumn overrides (value-level or total-level for subtotal rows)
+                        const catCellSpec = categorySettingsList[lvlIdx];
+                        if (catCellSpec) {
+                            if (isTotal) {
+                                if (catCellSpec.totalBackgroundColor) categoryCell.style.backgroundColor = catCellSpec.totalBackgroundColor;
+                                if (catCellSpec.totalTextColor) {
+                                    let cv = catCellSpec.totalTextColor;
+                                    if (catCellSpec.totalTransparency > 0) cv = applyTransparency(cv, catCellSpec.totalTransparency);
+                                    categoryCell.style.color = cv;
+                                }
+                                if (catCellSpec.totalFontFamily) categoryCell.style.fontFamily = catCellSpec.totalFontFamily;
+                                if (catCellSpec.totalFontSize !== undefined) categoryCell.style.fontSize = `${catCellSpec.totalFontSize}pt`;
+                                if (catCellSpec.totalBold !== undefined) categoryCell.style.fontWeight = catCellSpec.totalBold ? "bold" : "normal";
+                                if (catCellSpec.totalItalic !== undefined) categoryCell.style.fontStyle = catCellSpec.totalItalic ? "italic" : "normal";
+                                if (catCellSpec.totalUnderline !== undefined) categoryCell.style.textDecoration = catCellSpec.totalUnderline ? "underline" : "none";
+                                if (catCellSpec.totalAlignment) categoryCell.style.textAlign = catCellSpec.totalAlignment;
+                                if (catCellSpec.totalTextWrap !== undefined) {
+                                    categoryCell.style.whiteSpace = catCellSpec.totalTextWrap ? "normal" : "nowrap";
+                                    if (catCellSpec.totalTextWrap) categoryCell.style.wordBreak = "break-word";
+                                }
+                            } else {
+                                const useAlt = !isEvenRow && catCellSpec.alternateBackgroundColor;
+                                const bg = useAlt ? catCellSpec.alternateBackgroundColor : catCellSpec.backgroundColor;
+                                if (bg) categoryCell.style.backgroundColor = bg;
+                                const useAltTxt = !isEvenRow && catCellSpec.alternateTextColor;
+                                let tc = useAltTxt ? catCellSpec.alternateTextColor : catCellSpec.textColor;
+                                if (tc) {
+                                    if (catCellSpec.transparency > 0) tc = applyTransparency(tc, catCellSpec.transparency);
+                                    categoryCell.style.color = tc;
+                                }
+                                if (catCellSpec.fontFamily) categoryCell.style.fontFamily = catCellSpec.fontFamily;
+                                if (catCellSpec.fontSize !== undefined) categoryCell.style.fontSize = `${catCellSpec.fontSize}pt`;
+                                if (catCellSpec.bold !== undefined) categoryCell.style.fontWeight = catCellSpec.bold ? "bold" : "normal";
+                                if (catCellSpec.italic !== undefined) categoryCell.style.fontStyle = catCellSpec.italic ? "italic" : "normal";
+                                if (catCellSpec.underline !== undefined) categoryCell.style.textDecoration = catCellSpec.underline ? "underline" : "none";
+                                if (catCellSpec.alignment) categoryCell.style.textAlign = catCellSpec.alignment;
+                                if (catCellSpec.textWrap !== undefined) {
+                                    categoryCell.style.whiteSpace = catCellSpec.textWrap ? "normal" : "nowrap";
+                                    if (catCellSpec.textWrap) categoryCell.style.wordBreak = "break-word";
+                                }
+                            }
                         }
                     });
                 }
@@ -4423,6 +4555,26 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     totalLabelCell.style.whiteSpace = totalRowWordWrap ? "normal" : "nowrap";
                     if (totalRowWordWrap) {
                         totalLabelCell.style.wordBreak = "break-word";
+                    }
+                    // Apply per-category specificColumn total overrides to the grand-total label cell
+                    const catTotSpec = categorySettingsList[c];
+                    if (catTotSpec) {
+                        if (catTotSpec.totalBackgroundColor) totalLabelCell.style.backgroundColor = catTotSpec.totalBackgroundColor;
+                        if (catTotSpec.totalTextColor) {
+                            let tlc = catTotSpec.totalTextColor;
+                            if (catTotSpec.totalTransparency > 0) tlc = applyTransparency(tlc, catTotSpec.totalTransparency);
+                            totalLabelCell.style.color = tlc;
+                        }
+                        if (catTotSpec.totalFontFamily) totalLabelCell.style.fontFamily = catTotSpec.totalFontFamily;
+                        if (catTotSpec.totalFontSize !== undefined) totalLabelCell.style.fontSize = `${catTotSpec.totalFontSize}pt`;
+                        if (catTotSpec.totalBold !== undefined) totalLabelCell.style.fontWeight = catTotSpec.totalBold ? "bold" : "normal";
+                        if (catTotSpec.totalItalic !== undefined) totalLabelCell.style.fontStyle = catTotSpec.totalItalic ? "italic" : "normal";
+                        if (catTotSpec.totalUnderline !== undefined) totalLabelCell.style.textDecoration = catTotSpec.totalUnderline ? "underline" : "none";
+                        if (catTotSpec.totalAlignment) totalLabelCell.style.textAlign = catTotSpec.totalAlignment;
+                        if (catTotSpec.totalTextWrap !== undefined) {
+                            totalLabelCell.style.whiteSpace = catTotSpec.totalTextWrap ? "normal" : "nowrap";
+                            if (catTotSpec.totalTextWrap) totalLabelCell.style.wordBreak = "break-word";
+                        }
                     }
                 }
             } else {
