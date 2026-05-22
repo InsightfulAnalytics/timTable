@@ -1,5 +1,6 @@
 bug 
-  export to excel contains the formatting strings
+  alternate row formatting acting weird, should respond to sort order
+  not responding to when there are multiple fields in the rows
 
 not a bug
   if column is a number format and is put in the rows, 
