@@ -1,5 +1,5 @@
 bug 
-  export to excel contains the formatting strings
+  alternate row formatting acting weird, should resond to sort order.
 
 not a bug
   if column is a number format and is put in the rows, 
