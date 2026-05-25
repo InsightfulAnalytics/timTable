@@ -890,13 +890,14 @@ export class Visual implements IVisual {
         // With ConstantOrRule + InstancesAndTotals, PBI delivers the static color per-instance,
         // not at metadata level. Extract from the first data row's objects as fallback.
         let resolvedCatTextColor = defaultCategoryTextColor;
+        let resolvedCatTextColorIsFromCF = false;
         if (metaCatCF?.textColor) {
             const metaColor = typeof metaCatCF.textColor === "string"
                 ? metaCatCF.textColor
                 : metaCatCF.textColor?.solid?.color;
-            if (metaColor) resolvedCatTextColor = metaColor;
+            if (metaColor) { resolvedCatTextColor = metaColor; resolvedCatTextColorIsFromCF = true; }
         }
-        if (resolvedCatTextColor === defaultCategoryTextColor) {
+        if (!resolvedCatTextColorIsFromCF) {
             // Try categorical per-row objects
             const catCats = this.dataView?.categorical?.categories;
             if (catCats && catCats.length > 0 && catCats[0].objects) {
@@ -906,12 +907,12 @@ export class Visual implements IVisual {
                             catCats[0].objects[r],
                             { objectName: "categoryConditionalFormatting", propertyName: "textColor" }
                         );
-                        if (c) { resolvedCatTextColor = c; break; }
+                        if (c) { resolvedCatTextColor = c; resolvedCatTextColorIsFromCF = true; break; }
                     }
                 }
             }
             // Try matrix row children objects
-            if (resolvedCatTextColor === defaultCategoryTextColor && this.dataView?.matrix) {
+            if (!resolvedCatTextColorIsFromCF && this.dataView?.matrix) {
                 const children = this.dataView.matrix.rows?.root?.children;
                 if (children) {
                     for (let r = 0; r < children.length; r++) {
@@ -920,7 +921,7 @@ export class Visual implements IVisual {
                                 children[r].objects,
                                 { objectName: "categoryConditionalFormatting", propertyName: "textColor" }
                             );
-                            if (c) { resolvedCatTextColor = c; break; }
+                            if (c) { resolvedCatTextColor = c; resolvedCatTextColorIsFromCF = true; break; }
                         }
                     }
                 }
@@ -1148,15 +1149,15 @@ export class Visual implements IVisual {
             return formatter.format(finalNum);
         };
 
-        const getCategoryTextColor = (rowIndex: number, dataView: DataView, isTotal: boolean = false): string => {
+        const getCategoryTextColor = (rowIndex: number, dataView: DataView, isTotal: boolean = false): string | null => {
             // Determine if CF should apply based on applyTo setting
             const shouldApply = (catCFApplyTo === "valuesAndTotals") ||
                 (catCFApplyTo === "valuesOnly" && !isTotal) ||
                 (catCFApplyTo === "totalsOnly" && isTotal);
 
             if (!shouldApply) {
-                // When applyTo excludes this row type, return the base text color (no static CF color)
-                return textColor;
+                // CF does not apply to this row type — return null so caller keeps its own color
+                return null;
             }
 
             // Check categorical per-row objects (categorical mode)
@@ -1187,7 +1188,12 @@ export class Visual implements IVisual {
                 }
             }
 
-            return resolvedCatTextColor;
+            // Fall back to the resolved static CF color only when one was explicitly configured
+            if (resolvedCatTextColorIsFromCF) {
+                return resolvedCatTextColor;
+            }
+
+            return null;
         };
 
         // Helper function to apply squashing row height
@@ -3735,14 +3741,15 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         categoryCell.style.fontSize = isTotal ? `${totalRowFontSize}pt` : `${cellFontSize}pt`;
                         categoryCell.style.borderRight = vertBorderValue;
                         categoryCell.style.backgroundColor = rowBgColor;
-                        categoryCell.style.color = getCategoryTextColor(i, dataView, isTotal);
+                        // Base text color — will be overridden by specificColumn and then by CF below
+                        categoryCell.style.color = isTotal ? textColor : textColor;
                         categoryCell.style.overflow = "hidden";
                         categoryCell.style.textOverflow = "ellipsis";
                         categoryCell.style.whiteSpace = (isTotal ? totalRowWordWrap : categoryWordWrap) ? "normal" : "nowrap";
                         if ((isTotal ? totalRowWordWrap : categoryWordWrap)) {
                             categoryCell.style.wordBreak = "break-word";
                         }
-                        // Apply per-category specificColumn overrides (value-level or total-level for subtotal rows)
+                        // Apply per-category specificColumn overrides first (base layer)
                         const catCellSpec = categorySettingsList[lvlIdx];
                         if (catCellSpec) {
                             if (isTotal) {
@@ -3784,10 +3791,13 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 }
                             }
                         }
+                        // Apply category CF as the final color override — same priority as value CF.
+                        // getCategoryTextColor returns null when CF is not configured or does not
+                        // apply to this row type, so the specificColumn color set above is preserved.
+                        const cfCatColor = getCategoryTextColor(i, dataView, isTotal);
+                        if (cfCatColor !== null) categoryCell.style.color = cfCatColor;
                     });
                 }
-
-                // Add measure values
                 values.forEach((valueColumn, measureIndex) => {
                     const defaultMeasureTextColor = dataViewObjects.getFillColor(
                         valueColumn.source.objects || {},
@@ -4544,10 +4554,51 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     totalLabelCell.style.fontStyle = totalRowItalic ? "italic" : "normal";
                     totalLabelCell.style.borderRight = vertBorderValue;
                     totalLabelCell.style.backgroundColor = totalBgColor;
-                    // Apply category CF to total row label if applyTo includes totals
+                    // Apply category CF to total row label if applyTo includes totals.
+                    // Apply category CF to total row label if applyTo includes totals.
+                    // Mirror value CF behaviour: prefer the CF color evaluated at the
+                    // grand-total context. PBI stores the total-context Field-value CF
+                    // color on the matrix subtotal child node even when the visual
+                    // primarily consumes the categorical projection (both shapes co-exist).
                     let totalLabelColor = textColor;
                     if (catCFApplyTo === "valuesAndTotals" || catCFApplyTo === "totalsOnly") {
-                        totalLabelColor = resolvedCatTextColor;
+                        let cfTotalColor: string | null = null;
+
+                        // 1) Preferred: matrix subtotal child node.
+                        const matrixKids: any[] | undefined = this.dataView?.matrix?.rows?.root?.children;
+                        if (matrixKids && matrixKids.length > 0) {
+                            const subtotalNode = matrixKids.find(k => k?.isSubtotal && k?.objects);
+                            if (subtotalNode) {
+                                cfTotalColor = dataViewObjects.getFillColor(
+                                    subtotalNode.objects,
+                                    { objectName: "categoryConditionalFormatting", propertyName: "textColor" }
+                                ) || null;
+                            }
+                        }
+
+                        // 2) Fallback: category column source.objects (rare; constant CF).
+                        if (!cfTotalColor) {
+                            const catSrc: any = categories?.sources?.[c];
+                            if (catSrc?.objects) {
+                                cfTotalColor = dataViewObjects.getFillColor(
+                                    catSrc.objects,
+                                    { objectName: "categoryConditionalFormatting", propertyName: "textColor" }
+                                ) || null;
+                            }
+                        }
+
+                        // 3) Fallback: metadata.objects (constant CF mode).
+                        if (!cfTotalColor) {
+                            const metaObjs: any = this.dataView?.metadata?.objects;
+                            if (metaObjs) {
+                                cfTotalColor = dataViewObjects.getFillColor(
+                                    metaObjs,
+                                    { objectName: "categoryConditionalFormatting", propertyName: "textColor" }
+                                ) || null;
+                            }
+                        }
+
+                        totalLabelColor = cfTotalColor || resolvedCatTextColor;
                     }
                     totalLabelCell.style.color = totalLabelColor;
                     totalLabelCell.style.overflow = "hidden";
@@ -5195,6 +5246,48 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         catHeader.style.wordBreak = "break-word";
                     }
 
+                    // Apply per-category specificColumn overrides.
+                    // In transposed mode, category values become column-header cells, so we apply
+                    // BOTH the Header group (cell visually IS a header) and the Values group
+                    // (cell CONTENT is a category value). Values wins on overlapping props.
+                    const catTrSpec = categorySettingsList[0];
+                    if (catTrSpec) {
+                        // Header-group overlay
+                        if (catTrSpec.headerBackgroundColor) catHeader.style.backgroundColor = catTrSpec.headerBackgroundColor;
+                        let thc = catTrSpec.headerTextColor;
+                        if (thc) {
+                            if (catTrSpec.headerTransparency > 0) thc = applyTransparency(thc, catTrSpec.headerTransparency);
+                            catHeader.style.color = thc;
+                        }
+                        if (catTrSpec.headerFontFamily) catHeader.style.fontFamily = catTrSpec.headerFontFamily;
+                        if (catTrSpec.headerFontSize !== undefined) catHeader.style.fontSize = `${catTrSpec.headerFontSize}pt`;
+                        if (catTrSpec.headerBold !== undefined) catHeader.style.fontWeight = catTrSpec.headerBold ? "bold" : "normal";
+                        if (catTrSpec.headerItalic !== undefined) catHeader.style.fontStyle = catTrSpec.headerItalic ? "italic" : "normal";
+                        if (catTrSpec.headerUnderline !== undefined) catHeader.style.textDecoration = catTrSpec.headerUnderline ? "underline" : "none";
+                        if (catTrSpec.headerAlignment) catHeader.style.textAlign = catTrSpec.headerAlignment;
+                        if (catTrSpec.headerTextWrap !== undefined) {
+                            catHeader.style.whiteSpace = catTrSpec.headerTextWrap ? "normal" : "nowrap";
+                            if (catTrSpec.headerTextWrap) catHeader.style.wordBreak = "break-word";
+                        }
+                        // Values-group overlay (wins over header on overlapping properties)
+                        if (catTrSpec.backgroundColor) catHeader.style.backgroundColor = catTrSpec.backgroundColor;
+                        let tcc = catTrSpec.textColor;
+                        if (tcc) {
+                            if (catTrSpec.transparency > 0) tcc = applyTransparency(tcc, catTrSpec.transparency);
+                            catHeader.style.color = tcc;
+                        }
+                        if (catTrSpec.fontFamily) catHeader.style.fontFamily = catTrSpec.fontFamily;
+                        if (catTrSpec.fontSize !== undefined) catHeader.style.fontSize = `${catTrSpec.fontSize}pt`;
+                        if (catTrSpec.bold !== undefined) catHeader.style.fontWeight = catTrSpec.bold ? "bold" : "normal";
+                        if (catTrSpec.italic !== undefined) catHeader.style.fontStyle = catTrSpec.italic ? "italic" : "normal";
+                        if (catTrSpec.underline !== undefined) catHeader.style.textDecoration = catTrSpec.underline ? "underline" : "none";
+                        if (catTrSpec.alignment) catHeader.style.textAlign = catTrSpec.alignment;
+                        if (catTrSpec.textWrap !== undefined) {
+                            catHeader.style.whiteSpace = catTrSpec.textWrap ? "normal" : "nowrap";
+                            if (catTrSpec.textWrap) catHeader.style.wordBreak = "break-word";
+                        }
+                    }
+
                     // Transposed: category column headers map to rowSelectionIds
                     const catSelId = this.rowSelectionIds[i];
                     if (catSelId) {
@@ -5257,6 +5350,26 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 totalHeader.style.whiteSpace = headerWordWrap ? "normal" : "nowrap";
                 if (headerWordWrap) {
                     totalHeader.style.wordBreak = "break-word";
+                }
+                // Apply per-category specificColumn Total-group overrides to the transposed grand-total header cell
+                const catTrTotSpec = categorySettingsList[0];
+                if (catTrTotSpec) {
+                    if (catTrTotSpec.totalBackgroundColor) totalHeader.style.backgroundColor = catTrTotSpec.totalBackgroundColor;
+                    let tthc = catTrTotSpec.totalTextColor;
+                    if (tthc) {
+                        if (catTrTotSpec.totalTransparency > 0) tthc = applyTransparency(tthc, catTrTotSpec.totalTransparency);
+                        totalHeader.style.color = tthc;
+                    }
+                    if (catTrTotSpec.totalFontFamily) totalHeader.style.fontFamily = catTrTotSpec.totalFontFamily;
+                    if (catTrTotSpec.totalFontSize !== undefined) totalHeader.style.fontSize = `${catTrTotSpec.totalFontSize}pt`;
+                    if (catTrTotSpec.totalBold !== undefined) totalHeader.style.fontWeight = catTrTotSpec.totalBold ? "bold" : "normal";
+                    if (catTrTotSpec.totalItalic !== undefined) totalHeader.style.fontStyle = catTrTotSpec.totalItalic ? "italic" : "normal";
+                    if (catTrTotSpec.totalUnderline !== undefined) totalHeader.style.textDecoration = catTrTotSpec.totalUnderline ? "underline" : "none";
+                    if (catTrTotSpec.totalAlignment) totalHeader.style.textAlign = catTrTotSpec.totalAlignment;
+                    if (catTrTotSpec.totalTextWrap !== undefined) {
+                        totalHeader.style.whiteSpace = catTrTotSpec.totalTextWrap ? "normal" : "nowrap";
+                        if (catTrTotSpec.totalTextWrap) totalHeader.style.wordBreak = "break-word";
+                    }
                 }
             }
 
