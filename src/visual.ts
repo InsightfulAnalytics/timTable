@@ -3923,7 +3923,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         let numValue = Number(value);
                         const specSettings = measureSettingsList[measureIndex];
                         const dynamicFormat = valueColumn.objects?.[i]?.general?.formatString as string;
-                        const cellFormat = dynamicFormat || measureFormats[measureIndex];
+                        const cellFormat = specSettings.formatString || dynamicFormat || measureFormats[measureIndex];
                         const formattedValue = formatValue(numValue, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces);
 
                         const objects = valueColumn.source.objects || {};

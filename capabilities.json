@@ -48,6 +48,8 @@
             }
         },
         "categoryConditionalFormatting": {
+            "displayName": "Category conditional formatting",
+            "description": "Category conditional formatting",
             "properties": {
                 "applyTo": {
                     "type": {
@@ -70,6 +72,8 @@
             }
         },
         "valueConditionalFormatting": {
+            "displayName": "Value conditional formatting",
+            "description": "Value conditional formatting",
             "properties": {
                 "applyTo": {
                     "type": {
@@ -92,6 +96,8 @@
             }
         },
         "valueBackgroundConditionalFormatting": {
+            "displayName": "Background conditional formatting",
+            "description": "Background conditional formatting",
             "properties": {
                 "applyTo": {
                     "type": {
