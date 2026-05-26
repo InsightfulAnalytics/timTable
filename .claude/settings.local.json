@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(where pbiviz *)",
+      "Bash(pbiviz --version)",
+      "Bash(grep -r \"Landing\" \"C:\\\\Users\\\\timos\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\powerbi-visuals-tools\" --include=\"*.js\" -l 2>/dev/null | head -10)",
+      "Read(//c/Users/timos/AppData/Roaming/npm/node_modules/powerbi-visuals-tools/**)"
+    ]
+  }
+}

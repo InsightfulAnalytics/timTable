@@ -1174,6 +1174,8 @@
             "canvas": true
         }
     },
+    "supportsLandingPage": true,
+    "supportsHighlight": true,
     "supportsMultiVisualSelection": true,
     "supportsKeyboardFocus": true,
     "privileges": []

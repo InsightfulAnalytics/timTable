@@ -77,6 +77,7 @@ export class Visual implements IVisual {
     private sortShowButtons: boolean = true;
     private sortButtonAlignment: string = 'right';
     private sortTextOverlay: boolean = false;
+    private landingPage: HTMLDivElement;
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
@@ -95,6 +96,41 @@ export class Visual implements IVisual {
             this.tableContainer.classList.add("forced-colors");
         }
         options.element.appendChild(this.tableContainer);
+
+        this.landingPage = document.createElement("div");
+        this.landingPage.className = "landing-page";
+
+        const lpIcon = document.createElement("div");
+        lpIcon.className = "landing-page-icon";
+        lpIcon.textContent = "☰";
+        this.landingPage.appendChild(lpIcon);
+
+        const lpTitle = document.createElement("div");
+        lpTitle.className = "landing-page-title";
+        lpTitle.textContent = "TimTable";
+        this.landingPage.appendChild(lpTitle);
+
+        const lpDesc = document.createElement("div");
+        lpDesc.className = "landing-page-desc";
+        lpDesc.textContent = "A flexible matrix table with conditional formatting, data bars, and custom totals.";
+        this.landingPage.appendChild(lpDesc);
+
+        const lpInstr = document.createElement("div");
+        lpInstr.className = "landing-page-instructions";
+        [["Rows", "Add category dimensions"], ["Columns", "Add column groupings (optional)"], ["Values", "Add measures"]].forEach(([label, text]) => {
+            const roleDiv = document.createElement("div");
+            roleDiv.className = "landing-page-role";
+            const badge = document.createElement("span");
+            badge.className = "role-label";
+            badge.textContent = label;
+            roleDiv.appendChild(badge);
+            roleDiv.appendChild(document.createTextNode(" " + text));
+            lpInstr.appendChild(roleDiv);
+        });
+        this.landingPage.appendChild(lpInstr);
+
+        this.landingPage.style.display = "none";
+        options.element.appendChild(this.landingPage);
 
         this.table = document.createElement('table');
         this.table.className = 'pbi-table';
@@ -749,6 +785,10 @@ export class Visual implements IVisual {
     }
 
     private updateInternal(options: VisualUpdateOptions) {
+        const hasData = !!(options.dataViews && options.dataViews[0]);
+        this.landingPage.style.display = hasData ? "none" : "flex";
+        this.tableContainer.style.display = hasData ? "" : "none";
+
         if (options.dataViews && options.dataViews[0]) {
             this.visualSettings = this.formattingSettingsService.populateFormattingSettingsModel(VisualSettings, options.dataViews[0]);
             this.dataView = options.dataViews[0];
@@ -1224,24 +1264,6 @@ export class Visual implements IVisual {
             }
         };
 
-        const applyTotalRowStyles = (cell: HTMLElement, width: number, wordWrap: boolean) => {
-            cell.style.width = `${width}px`;
-            cell.style.minWidth = `${width}px`;
-            cell.style.maxWidth = `${width}px`;
-            applyRowSquash(cell, totalRowHeight, totalRowFontSize, wordWrap);
-            cell.style.fontWeight = totalRowBold ? "bold" : "normal";
-            cell.style.textDecoration = totalRowUnderline ? "underline" : "none";
-            cell.style.fontFamily = totalRowFontFamily;
-            cell.style.fontStyle = totalRowItalic ? "italic" : "normal";
-            cell.style.backgroundColor = backgroundColor;
-            cell.style.color = textColor;
-            cell.style.overflow = "hidden";
-            cell.style.textOverflow = "ellipsis";
-            cell.style.whiteSpace = wordWrap ? "normal" : "nowrap";
-            if (wordWrap) {
-                cell.style.wordBreak = "break-word";
-            }
-        }
         // Helper function to get background color for a row, supporting conditional formatting
         const getRowBackgroundColor = (rowIndex: number, isEvenRow: boolean, dataView: DataView): string => {
             const targetColorProp = isEvenRow ? "backgroundColor" : "alternateBackgroundColor";
@@ -1267,9 +1289,6 @@ export class Visual implements IVisual {
             while (this.table.firstChild) {
                 this.table.removeChild(this.table.firstChild);
             }
-            let row = this.table.insertRow();
-            let cell = row.insertCell();
-            cell.textContent = "No data available";
             return;
         }
 
@@ -1547,6 +1566,7 @@ export class Visual implements IVisual {
             values = vSources.map((vs, mIdx) => ({
                 source: vs,
                 values: flatRows.map(r => r.rawValues[mIdx]?.value ?? null),
+                highlights: flatRows.map(r => r.rawValues[mIdx]?.highlight ?? null),
                 objects: flatRows.map(r => r.rawValues[mIdx]?.objects || undefined)
             }));
 
@@ -1750,18 +1770,12 @@ export class Visual implements IVisual {
             categories = hasCategories ? dataView.categorical.categories[0] : null;
             values = dataView.categorical.values || null;
         } else {
-            let row = this.table.insertRow();
-            let cell = row.insertCell();
-            cell.textContent = "No data available";
             return;
         }
 
         if (!values || values.length === 0) {
             // Allow dimension-only rendering (no measures) when row/column fields are present
             if (!hasCategories || !categories || !categories.values || categories.values.length === 0) {
-                let row = this.table.insertRow();
-                let cell = row.insertCell();
-                cell.textContent = "No data available";
                 return;
             }
             values = []; // ensure array (not null/undefined) for downstream loops
@@ -3678,6 +3692,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             }
 
             // Create data rows
+            let renderedRowCount = 0;
             for (let i = 0; i < rowCount; i++) {
                 // Determine if this is a subtotal row and at which category level
                 let rowTotalIdx = -1;
@@ -3694,8 +3709,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 row.className = 'table-data-row';
                 row.setAttribute('data-row-index', String(i));
                 row.style.borderBottom = horizBorderValue;
-                // Apply alternating background colors with support for conditional formatting
-                const isEvenRow = i % 2 === 0;
+                // Alternate based on rendered position so hidden/skipped rows don't break the pattern
+                const isEvenRow = renderedRowCount % 2 === 0;
+                renderedRowCount++;
                 const rowHeight = isEvenRow ? valueRowHeight : alternateValueRowHeight;
                 row.style.height = `${rowHeight}px`;
                 const rowBgColor = getRowBackgroundColor(i, isEvenRow, dataView);
@@ -3742,7 +3758,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         categoryCell.style.borderRight = vertBorderValue;
                         categoryCell.style.backgroundColor = rowBgColor;
                         // Base text color — will be overridden by specificColumn and then by CF below
-                        categoryCell.style.color = isTotal ? textColor : textColor;
+                        categoryCell.style.color = textColor;
                         categoryCell.style.overflow = "hidden";
                         categoryCell.style.textOverflow = "ellipsis";
                         categoryCell.style.whiteSpace = (isTotal ? totalRowWordWrap : categoryWordWrap) ? "normal" : "nowrap";
@@ -4536,7 +4552,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             totalRow.style.borderTop = horizBorder2xValue;
             totalRow.style.borderBottom = horizBorder2xValue;
             totalRow.style.height = `${totalRowHeight}px`;
-            const totalBgColor = backgroundColor;
+            const totalBgColor = totalsSettings.backgroundColor.value.value;
 
             if (hasCategories) {
                 const numCatCols = categories.sources.length;
@@ -4560,7 +4576,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     // grand-total context. PBI stores the total-context Field-value CF
                     // color on the matrix subtotal child node even when the visual
                     // primarily consumes the categorical projection (both shapes co-exist).
-                    let totalLabelColor = textColor;
+                    let totalLabelColor = totalsSettings.textColor.value.value;
                     if (catCFApplyTo === "valuesAndTotals" || catCFApplyTo === "totalsOnly") {
                         let cfTotalColor: string | null = null;
 
@@ -6210,8 +6226,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     totalSectionCell.className = 'table-total-label-cell';
                     totalSectionCell.style.fontWeight = "bold";
                     totalSectionCell.style.fontFamily = cellFontFamily;
-                    totalSectionCell.style.color = textColor;
-                    totalSectionCell.style.backgroundColor = backgroundColor;
+                    totalSectionCell.style.color = columnTotalsSettings.textColor.value.value;
+                    totalSectionCell.style.backgroundColor = columnTotalsSettings.backgroundColor.value.value;
                     totalSectionCell.style.borderRight = vertBorderValue;
                     applyRowSquash(totalSectionCell, valueRowHeight, cellFontSize, valueWordWrap);
                     totalSectionCell.style.overflow = "hidden";
@@ -6236,7 +6252,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             colGroupSpacer.style.maxWidth = `${categoryColumnWidth}px`;
                             applyRowSquash(colGroupSpacer, valueRowHeight, cellFontSize, valueWordWrap);
                             colGroupSpacer.style.borderRight = vertBorderValue;
-                            colGroupSpacer.style.backgroundColor = backgroundColor;
+                            colGroupSpacer.style.backgroundColor = columnTotalsSettings.backgroundColor.value.value;
                             colGroupSpacer.textContent = (isFirstColTotal && lvl === 0) ? "Total" : "";
                         }
                     }
@@ -6254,8 +6270,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     colTotalLabel.style.textDecoration = colTotalUnderline ? "underline" : "none";
                     colTotalLabel.style.fontFamily = colTotalFontFamily;
                     colTotalLabel.style.borderRight = vertBorderValue;
-                    colTotalLabel.style.backgroundColor = backgroundColor;
-                    colTotalLabel.style.color = textColor;
+                    colTotalLabel.style.backgroundColor = columnTotalsSettings.backgroundColor.value.value;
+                    colTotalLabel.style.color = columnTotalsSettings.textColor.value.value;
                     colTotalLabel.style.overflow = "hidden";
                     colTotalLabel.style.textOverflow = "ellipsis";
                     colTotalLabel.style.whiteSpace = colTotalWordWrap ? "normal" : "nowrap";
@@ -6936,6 +6952,26 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     cell.style.backgroundColor = fb;
                 }
                 leftOffset += parseInt(cell.style.width) || categoryColumnWidth;
+            }
+        }
+
+        // Apply cross-highlight dimming: dim rows that have no highlighted values
+        const hasAnyHighlight = values.length > 0 && values.some((vc: any) =>
+            vc.highlights && vc.highlights.some((h: any) => h !== null && h !== undefined)
+        );
+        if (hasAnyHighlight) {
+            const tbody2 = this.table.tBodies[0];
+            if (tbody2) {
+                for (let r = 0; r < tbody2.rows.length; r++) {
+                    const dataRow = tbody2.rows[r];
+                    if (dataRow.className.indexOf('table-data-row') < 0) continue;
+                    const rowIdx = parseInt(dataRow.getAttribute('data-row-index') || '-1', 10);
+                    if (rowIdx < 0) continue;
+                    const rowHighlighted = values.some((vc: any) =>
+                        vc.highlights && vc.highlights[rowIdx] !== null && vc.highlights[rowIdx] !== undefined
+                    );
+                    dataRow.style.opacity = rowHighlighted ? '1' : '0.3';
+                }
             }
         }
 

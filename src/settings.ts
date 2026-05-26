@@ -441,7 +441,7 @@ export class TotalsSettings extends formattingSettings.CompositeCard {
     public totalsFormattingGroup = new formattingSettings.Group({
         displayName: "Totals formatting",
         name: "totalsFormattingGroup",
-        slices: [this.font, this.textWrap]
+        slices: [this.font, this.textColor, this.backgroundColor, this.textWrap]
     });
 
     public groups: formattingSettings.Group[] = [this.categorySelectionGroup, this.totalsFormattingGroup];
@@ -535,7 +535,7 @@ export class ColumnTotalsSettings extends formattingSettings.CompositeCard {
     public columnTotalsFormattingGroup = new formattingSettings.Group({
         displayName: "Totals formatting",
         name: "columnTotalsFormattingGroup",
-        slices: [this.font, this.textWrap]
+        slices: [this.font, this.textColor, this.backgroundColor, this.textWrap]
     });
 
     public groups: formattingSettings.Group[] = [this.columnSelectionGroup, this.columnTotalsFormattingGroup];

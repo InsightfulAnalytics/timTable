@@ -35,6 +35,7 @@ export declare class Visual implements IVisual {
     private sortShowButtons;
     private sortButtonAlignment;
     private sortTextOverlay;
+    private landingPage;
     constructor(options: VisualConstructorOptions);
     /**
      * Apply ARIA roles, indices, and roving tabindex to all rows/cells. Call after every
