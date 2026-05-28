@@ -6876,6 +6876,11 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             if (m && parseFloat(m[1]) === 0) return true;
             return false;
         };
+        // On high-DPI (scaled) displays the compositor places sticky layers at a fractional
+        // physical-pixel offset, leaving a sub-pixel gap at the container's top edge through
+        // which scrolling content bleeds.  Shifting every header cell 1 CSS-px upward fills
+        // that gap; at DPR=1 (100 % scaling) no adjustment is applied so there is no effect.
+        const stickyTopAdjust = (window.devicePixelRatio || 1) > 1 ? -1 : 0;
         let cumulativeTop = 0;
         for (let r = 0; r < thead.rows.length; r++) {
             const row = thead.rows[r];
@@ -6883,8 +6888,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             for (let c = 0; c < row.cells.length; c++) {
                 const cell = row.cells[c];
                 cell.style.position = 'sticky';
-                cell.style.top = `${cumulativeTop}px`;
+                cell.style.top = `${cumulativeTop + stickyTopAdjust}px`;
                 cell.style.zIndex = '100';
+                cell.style.willChange = 'transform'; // force GPU compositor layer — prevents scroll bleed
                 // Ensure opaque bg so scrolling content is hidden behind sticky cell
                 if (isTransparentBg(cell.style.backgroundColor)) {
                     const fallback = row.style.backgroundColor && !isTransparentBg(row.style.backgroundColor)
@@ -6929,6 +6935,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         cell.style.position = 'sticky';
                         cell.style.left = `${leftOffset}px`;
                         cell.style.zIndex = '200'; // corner: above both axes
+                        cell.style.willChange = 'transform'; // force GPU compositor layer — prevents scroll bleed
                         if (isTransparentBg(cell.style.backgroundColor)) {
                             const fb = !isTransparentBg(row.style.backgroundColor) ? row.style.backgroundColor
                                 : (!isTransparentBg(headerBackgroundColor) ? headerBackgroundColor : '#f0f0f0');
@@ -6946,6 +6953,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 } else {
                     cell.style.zIndex = '50';
                 }
+                cell.style.willChange = 'transform'; // force GPU compositor layer — prevents scroll bleed
                 // Ensure opaque bg so scrolling content is hidden behind sticky cell
                 if (isTransparentBg(cell.style.backgroundColor)) {
                     const fb = !isTransparentBg(row.style.backgroundColor) ? row.style.backgroundColor : '#ffffff';

@@ -1,12 +1,18 @@
 .table-container {
     overflow: auto;
-    padding: 15px;
+    padding: 0px;
+    margin: 0;
     box-sizing: border-box;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     height: 100%;
     width: 100%;
+    background-color: #ffffff;
+    /* Paint containment guarantees no descendant rendering escapes the container's
+       padding box — kills sub-pixel sticky-cell bleed on the left/top edges. */
+    contain: paint;
+    isolation: isolate;
 }
 
 /* Custom scrollbars to prevent the native Chromium scrollbar from 
@@ -38,6 +44,7 @@
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 14px;
     background-color: #ffffff;
+    margin: 0;
 }
 
 .table-header-row {
@@ -233,7 +240,6 @@
 .pbi-table [role="rowheader"]:focus {
     outline: 2px solid #0078d4;
     outline-offset: -2px;
-    position: relative;
     z-index: 300;
 }
 
