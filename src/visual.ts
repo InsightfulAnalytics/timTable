@@ -3744,7 +3744,11 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     const isTotal = rowPaths.some((p: any) => p === "Total");
                     rowPaths.forEach((segmentValue: any, lvlIdx: number) => {
                         let categoryCell = row.insertCell();
-                        categoryCell.textContent = String(segmentValue);
+                        const _catSrc = categories.sources?.[lvlIdx];
+                        const _catFmt = _catSrc?.format;
+                        categoryCell.textContent = (_catFmt && segmentValue !== "Total" && segmentValue !== "" && segmentValue != null)
+                            ? valueFormatter.create({ format: _catFmt }).format(segmentValue)
+                            : String(segmentValue ?? "");
                         categoryCell.className = 'table-category-cell';
                         categoryCell.style.width = `${categoryColumnWidth}px`;
                         categoryCell.style.minWidth = `${categoryColumnWidth}px`;
