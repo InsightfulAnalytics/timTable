@@ -4223,7 +4223,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         rowPaths.forEach((seg: any, lvlIdx: number) => {
                             if (seg !== "Total" && seg !== "" && seg !== undefined) {
                                 const catName = categories.sources[lvlIdx]?.displayName || "Category";
-                                tooltipItems.push({ displayName: catName, value: String(seg) });
+                                const _ttFmt = categories.sources[lvlIdx]?.format;
+                                const _ttVal = _ttFmt ? valueFormatter.create({ format: _ttFmt }).format(seg) : String(seg);
+                                tooltipItems.push({ displayName: catName, value: _ttVal });
                             }
                         });
                     }
@@ -4536,7 +4538,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             rowPaths.forEach((seg: any, lvlIdx: number) => {
                                 if (seg !== "Total" && seg !== "" && seg !== undefined) {
                                     const catName = categories.sources[lvlIdx]?.displayName || "Category";
-                                    ctTooltipItems.push({ displayName: catName, value: String(seg) });
+                                    const _ttFmt = categories.sources[lvlIdx]?.format;
+                                    const _ttVal = _ttFmt ? valueFormatter.create({ format: _ttFmt }).format(seg) : String(seg);
+                                    ctTooltipItems.push({ displayName: catName, value: _ttVal });
                                 }
                             });
                         }
@@ -5943,7 +5947,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             colPaths.forEach((seg: any, lvlIdx: number) => {
                                 if (seg !== "Total" && seg !== "" && seg !== undefined) {
                                     const catName = categories.sources[lvlIdx]?.displayName || "Category";
-                                    trTooltipItems.push({ displayName: catName, value: String(seg) });
+                                    const _ttFmt = categories.sources[lvlIdx]?.format;
+                                    const _ttVal = _ttFmt ? valueFormatter.create({ format: _ttFmt }).format(seg) : String(seg);
+                                    trTooltipItems.push({ displayName: catName, value: _ttVal });
                                 }
                             });
                         }
@@ -6543,7 +6549,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 colPaths.forEach((seg: any, lvlIdx: number) => {
                                     if (seg !== "Total" && seg !== "" && seg !== undefined) {
                                         const catName = categories.sources[lvlIdx]?.displayName || "Category";
-                                        trCtTooltipItems.push({ displayName: catName, value: String(seg) });
+                                        const _ttFmt = categories.sources[lvlIdx]?.format;
+                                        const _ttVal = _ttFmt ? valueFormatter.create({ format: _ttFmt }).format(seg) : String(seg);
+                                        trCtTooltipItems.push({ displayName: catName, value: _ttVal });
                                     }
                                 });
                             }
