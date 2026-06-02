@@ -4,6 +4,10 @@ bug
 <img width="604" height="703" alt="image" src="https://github.com/user-attachments/assets/a11dfcfe-b1be-4efd-a15f-4a7cdb8bce94" />
 
 
+-----
+visual is a bit slow when resizing in larger files
+
+
 not a bug
   if column is a number format and is put in the rows, 
     it behaves like a text field but should behave like a number.  
