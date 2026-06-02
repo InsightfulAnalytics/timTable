@@ -1,6 +1,8 @@
 bug 
-  alternate row formatting acting weird, should respond to sort order
-  not responding to when there are multiple fields in the rows
+  NaN returned for not a number, change behaviour to -- instead
+
+<img width="604" height="703" alt="image" src="https://github.com/user-attachments/assets/a11dfcfe-b1be-4efd-a15f-4a7cdb8bce94" />
+
 
 not a bug
   if column is a number format and is put in the rows, 
