@@ -1316,7 +1316,13 @@ export class Visual implements IVisual {
 
         // Column grouping support (matrix columns field)
         let hasColumnGrouping = false;
-        let columnLeaves: { path: any[], matrixNode?: any }[] = [];
+        // `valueIndex` is the leaf's position in the FULL tree walk (subtotal leaves
+        // included) — rawValues / node.values are keyed `valueIndex * M + measureIdx`,
+        // whereas columnLeaves itself excludes subtotals. The two index spaces only
+        // coincide when subtotals are trailing (a single column level); with 2+ levels
+        // the interleaved inner subtotals shift every later column. Always key raw
+        // matrix lookups off valueIndex, never off the columnLeaves position.
+        let columnLeaves: { path: any[], matrixNode?: any, valueIndex: number }[] = [];
         let columnHeaderGroups: { label: string, span: number, matrixNode?: any, path?: any[] }[][] = [];
         let columnLevelNames: string[] = [];
         let storedFlatRows: any[] = null;
@@ -1349,6 +1355,12 @@ export class Visual implements IVisual {
             // in sync. Keep simple: walk children, stopping above the measure level,
             // and record `colLeafIdx*M + m` for each subtotal leaf.
             const colSubtotalKeysPre: number[] = [];
+            // Display column index -> tree-order leaf index, for the non-subtotal leaves
+            // only. The sort field is persisted in display space but resolved against the
+            // raw values dict, which is tree-keyed; this is what bridges the two. Mirrors
+            // `columnLeaves[].valueIndex`, built here because the full column flatten
+            // runs after the sort decode below.
+            const __preLeafValueIndex: number[] = [];
             const __preBaseM = (dataView.matrix.valueSources || []).length || 1;
             if (dataView.matrix.columns) {
                 const __mCols = dataView.matrix.columns;
@@ -1373,6 +1385,8 @@ export class Visual implements IVisual {
                             for (let m = 0; m < __preBaseM; m++) {
                                 colSubtotalKeysPre.push(__colLeafIdx * __preBaseM + m);
                             }
+                        } else {
+                            __preLeafValueIndex.push(__colLeafIdx);
                         }
                         __colLeafIdx++;
                     } else {
@@ -1426,10 +1440,23 @@ export class Visual implements IVisual {
                 }
             }
 
+            // `m:{idx}` is persisted as a DISPLAY column index (colLeafIdx*M + mIdx over
+            // non-subtotal leaves — see where sortFieldItems and the header affordance are
+            // built). node.values is keyed in tree order WITH subtotal leaves interleaved,
+            // so translate before looking up, or a 2+ level Columns hierarchy sorts by the
+            // wrong column. Degrades to identity when subtotals are trailing.
+            const sortValueKey = (() => {
+                if (sortMeasureIdx < 0 || __preLeafValueIndex.length === 0) return sortMeasureIdx;
+                const colIdx = Math.floor(sortMeasureIdx / __preBaseM);
+                const treeIdx = __preLeafValueIndex[colIdx];
+                if (treeIdx === undefined) return sortMeasureIdx;
+                return treeIdx * __preBaseM + (sortMeasureIdx % __preBaseM);
+            })();
+
             const getNodeMeasureValue = (node: any): number => {
                 const subT = (node.children || []).find((c: any) => c.isSubtotal);
                 const valSrc = subT?.values || node.values || {};
-                const v = valSrc[sortMeasureIdx]?.value;
+                const v = valSrc[sortValueKey]?.value;
                 const n = Number(v);
                 return isNaN(n) ? 0 : n;
             };
@@ -1658,7 +1685,7 @@ export class Visual implements IVisual {
                                     columnSubtotalValueKeys.push(allColumnLeafIndex * storedMeasureCount + m);
                                 }
                             } else {
-                                columnLeaves.push({ path: newPath, matrixNode: node });
+                                columnLeaves.push({ path: newPath, matrixNode: node, valueIndex: allColumnLeafIndex });
                             }
                             allColumnLeafIndex++;
                         } else {
@@ -2893,7 +2920,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
               for (let colIdx = 0; colIdx < columnLeaves.length; colIdx++) {
                   for (let mIdx = 0; mIdx < M; mIdx++) {
-                      const vKey = colIdx * M + mIdx;
+                      // rawValues is keyed by tree-order leaf index (subtotals included),
+                      // NOT by position in columnLeaves — see the columnLeaves declaration.
+                      const vKey = columnLeaves[colIdx].valueIndex * M + mIdx;
                       values.push({
                           source: baseValues[mIdx].source,
                           columnPath: columnLeaves[colIdx].path,
@@ -2930,7 +2959,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
               for (let i = 0; i < values.length; i++) {
                   const colIdx = Math.floor(i / M);
                   const mIdx = i % M;
-                  const vKey = colIdx * M + mIdx;
+                  // subtotalSource is a raw matrix values dict — key by tree-order leaf
+                  // index. Falls back to colIdx when the column expansion above was
+                  // skipped (no measures / no flat rows), where the spaces coincide.
+                  const vKey = (columnLeaves[colIdx]?.valueIndex ?? colIdx) * M + mIdx;
                   const stVal = subtotalSource[vKey];
                   if (stVal && stVal.value !== null && stVal.value !== undefined) {
                       displayColumnSubtotals[i] = Number(stVal.value);
@@ -3139,7 +3171,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     let colLeafTotals: number[] = [];
                     if (hasColumnGrouping && numColumnLeaves > 1) {
                         for (let colIdx = 0; colIdx < numColumnLeaves; colIdx++) {
-                            const vKey = colIdx * M + mIdx;
+                            // Raw matrix values dict — key by tree-order leaf index.
+                            const vKey = (columnLeaves[colIdx]?.valueIndex ?? colIdx) * M + mIdx;
                             const stVal = subtotalSource[vKey];
                             if (stVal && stVal.value !== null && stVal.value !== undefined) {
                                 colLeafTotals.push(Number(stVal.value));
