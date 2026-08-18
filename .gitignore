@@ -136,3 +136,10 @@ out
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Semanticus VS Code extension runtime state (pid/pipe/exe path — machine local)
+.semanticus/
+
+# PBIP local artifacts (Desktop model cache + per-machine connection settings)
+**/.pbi/cache.abf
+**/.pbi/localSettings.json

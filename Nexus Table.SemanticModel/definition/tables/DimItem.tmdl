@@ -1,0 +1,41 @@
+table DimItem
+	lineageTag: c006abd9-cb22-4339-ac01-dc91d0e54004
+
+	column 'Item Code'
+		lineageTag: e6fec021-19e4-490d-8f4d-fa6d217cd688
+		isNameInferred
+		sourceColumn: [Item Code]
+
+	column 'Item Description'
+		lineageTag: f1485786-9e1f-4e39-b03d-ca64ba57e9c9
+		isNameInferred
+		sourceColumn: [Item Description]
+
+	column Category
+		lineageTag: 530f40b9-8e04-4f9b-9e35-a9798a374380
+		isNameInferred
+		sourceColumn: [Category]
+
+	column 'Sub Category'
+		lineageTag: 28317fa7-640a-4248-ad76-c8fac7856bd4
+		isNameInferred
+		sourceColumn: [Sub Category]
+
+	column 'Unit of Measure'
+		lineageTag: 4ac54d4a-4ad7-4002-a3d4-a1b2de4c8fdb
+		isNameInferred
+		sourceColumn: [Unit of Measure]
+
+	partition DimItem = calculated
+		source =
+				DISTINCT(
+				    SELECTCOLUMNS(
+				        'Data',
+				        "Item Code",        'Data'[Item Code],
+				        "Item Description", 'Data'[Item Description],
+				        "Category",         'Data'[Category],
+				        "Sub Category",     'Data'[Sub Category],
+				        "Unit of Measure",  'Data'[Unit of Measure]
+				    )
+				)
+

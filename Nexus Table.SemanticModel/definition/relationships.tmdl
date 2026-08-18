@@ -1,0 +1,20 @@
+relationship 3f271258-8e74-bc2d-6fba-907f8bebf8ef
+	fromColumn: Data.'PO Date'
+	toColumn: DimDate.Date
+
+relationship Relationship
+	fromColumn: Data.'Supplier ID'
+	toColumn: DimSupplier.'Supplier ID'
+
+relationship 'Relationship 1'
+	fromColumn: Data.'Item Code'
+	toColumn: DimItem.'Item Code'
+
+relationship 'Relationship 3'
+	fromColumn: Data.'Cost Centre'
+	toColumn: DimCostCentre.'Cost Centre'
+
+relationship 'Relationship 2'
+	fromColumn: Data.'Contract ID'
+	toColumn: DimContract.'Contract ID'
+

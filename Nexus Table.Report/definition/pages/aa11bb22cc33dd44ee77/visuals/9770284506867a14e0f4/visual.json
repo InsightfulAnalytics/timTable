@@ -1,0 +1,200 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.9.0/schema.json",
+  "name": "9770284506867a14e0f4",
+  "position": {
+    "x": 1055,
+    "y": 85,
+    "z": 2000,
+    "height": 908.75,
+    "width": 516.25,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "nexusTableC923C22635F640B8BDD36DC675C74832",
+    "query": {
+      "queryState": {
+        "category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimCostCentre"
+                    }
+                  },
+                  "Property": "Department"
+                }
+              },
+              "queryRef": "DimCostCentre.Department",
+              "nativeQueryRef": "Department",
+              "active": true
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimItem"
+                    }
+                  },
+                  "Property": "Category"
+                }
+              },
+              "queryRef": "DimItem.Category",
+              "nativeQueryRef": "Category",
+              "active": true
+            }
+          ]
+        },
+        "measure": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "Total Spend"
+                }
+              },
+              "queryRef": "__Measures.Total Spend",
+              "nativeQueryRef": "Total Spend"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "__Measures"
+                  }
+                },
+                "Property": "Total Spend"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "objects": {
+      "sortBy": [
+        {
+          "properties": {
+            "scope": {
+              "expr": {
+                "Literal": {
+                  "Value": "'flat'"
+                }
+              }
+            },
+            "sortByField": {
+              "expr": {
+                "Literal": {
+                  "Value": "'m:0'"
+                }
+              }
+            },
+            "direction": {
+              "expr": {
+                "Literal": {
+                  "Value": "'desc'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTotals": [
+        {
+          "properties": {
+            "rowSubtotals": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "totals": [
+        {
+          "properties": {
+            "showTotalRow": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "specificColumn": [
+        {
+          "properties": {
+            "series": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Total Spend'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "columnWidth": [
+        {
+          "properties": {
+            "manualWidthsJson": {
+              "expr": {
+                "Literal": {
+                  "Value": "'{\"2\":160}'"
+                }
+              }
+            },
+            "manualWidthsSnapshot": {
+              "expr": {
+                "Literal": {
+                  "Value": "'[150,100,100]'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'08 — Sort: scope=flat, by Total Spend desc (Dept>Category collapsed flat)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

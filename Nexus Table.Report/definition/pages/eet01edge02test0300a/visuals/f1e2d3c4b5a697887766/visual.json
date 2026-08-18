@@ -1,0 +1,156 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.10.0/schema.json",
+  "name": "f1e2d3c4b5a697887766",
+  "position": {
+    "x": 20,
+    "y": 20,
+    "z": 1000,
+    "height": 480,
+    "width": 700,
+    "tabOrder": 1000
+  },
+  "visual": {
+    "visualType": "nexusTableC923C22635F640B8BDD36DC675C74832",
+    "query": {
+      "queryState": {
+        "measure": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "TEST NaN"
+                }
+              },
+              "queryRef": "__Measures.TEST NaN",
+              "nativeQueryRef": "TEST NaN"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "TEST Infinity"
+                }
+              },
+              "queryRef": "__Measures.TEST Infinity",
+              "nativeQueryRef": "TEST Infinity"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "TEST Blank"
+                }
+              },
+              "queryRef": "__Measures.TEST Blank",
+              "nativeQueryRef": "TEST Blank"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "TEST Text"
+                }
+              },
+              "queryRef": "__Measures.TEST Text",
+              "nativeQueryRef": "TEST Text"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "TEST Date"
+                }
+              },
+              "queryRef": "__Measures.TEST Date",
+              "nativeQueryRef": "TEST Date"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "Total Spend"
+                }
+              },
+              "queryRef": "__Measures.Total Spend",
+              "nativeQueryRef": "Total Spend"
+            }
+          ]
+        },
+        "category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimItem"
+                    }
+                  },
+                  "Property": "Category"
+                }
+              },
+              "queryRef": "DimItem.Category",
+              "nativeQueryRef": "Category"
+            }
+          ]
+        }
+      }
+    },
+    "objects": {
+      "specificColumn": [
+        {
+          "properties": {
+            "series": {
+              "expr": {
+                "Literal": {
+                  "Value": "'cat:DimItem.Category'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'TEST: NaN / Infinity / Blank'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "Nexus Table"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "4f295619-ff71-4a50-bd37-f1650677d4a1"
+  }
+}

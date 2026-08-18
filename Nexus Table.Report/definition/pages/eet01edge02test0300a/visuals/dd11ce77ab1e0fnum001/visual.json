@@ -1,0 +1,86 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.10.0/schema.json",
+  "name": "dd11ce77ab1e0fnum001",
+  "position": {
+    "x": 1340,
+    "y": 20,
+    "z": 1003,
+    "height": 480,
+    "width": 550,
+    "tabOrder": 1003
+  },
+  "visual": {
+    "visualType": "nexusTableC923C22635F640B8BDD36DC675C74832",
+    "query": {
+      "queryState": {
+        "measure": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "Total Spend"
+                }
+              },
+              "queryRef": "__Measures.Total Spend",
+              "nativeQueryRef": "Total Spend"
+            }
+          ]
+        },
+        "category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Data"
+                    }
+                  },
+                  "Property": "PO Year"
+                }
+              },
+              "queryRef": "Data.PO Year",
+              "nativeQueryRef": "PO Year"
+            }
+          ]
+        }
+      }
+    },
+    "objects": {
+      "specificColumn": [
+        {
+          "properties": {
+            "series": {
+              "expr": {
+                "Literal": {
+                  "Value": "'cat:Data.PO Year'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'TEST: Numeric column (PO Year) in Rows - alignment & sort'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

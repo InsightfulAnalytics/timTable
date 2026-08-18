@@ -1,0 +1,8 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
+  "name": "aa11bb22cc33dd44ee55",
+  "displayName": "Data Bars",
+  "displayOption": "ActualSize",
+  "height": 1000,
+  "width": 2000
+}

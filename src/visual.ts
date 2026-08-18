@@ -107,7 +107,7 @@ export class Visual implements IVisual {
 
         const lpTitle = document.createElement("div");
         lpTitle.className = "landing-page-title";
-        lpTitle.textContent = "TimTable";
+        lpTitle.textContent = "Nexus Table";
         this.landingPage.appendChild(lpTitle);
 
         const lpDesc = document.createElement("div");
@@ -606,6 +606,8 @@ export class Visual implements IVisual {
         };
 
         const onMouseMove = (moveEvent: MouseEvent) => {
+            // Button released outside the iframe: no mouseup fires here — end the drag.
+            if (moveEvent.buttons === 0) { onMouseUp(moveEvent); return; }
             applyGroupWidth(moveEvent.clientX - startX);
         };
 
@@ -647,6 +649,8 @@ export class Visual implements IVisual {
         document.body.style.userSelect = 'none';
 
         const onMouseMove = (moveEvent: MouseEvent) => {
+            // Button released outside the iframe: no mouseup fires here — end the drag.
+            if (moveEvent.buttons === 0) { onMouseUp(moveEvent); return; }
             const delta = moveEvent.clientX - startX;
             const newWidth = Math.max(30, startWidth + delta);
             cells.forEach(cell => {
@@ -1214,12 +1218,14 @@ export class Visual implements IVisual {
                 }
             }
 
-            // Check matrix row-level objects
+            // Check matrix row-level objects. Index into the FLATTENED rows — root.children
+            // only holds top-level nodes, so root.children[rowIndex] pointed at the wrong
+            // node for multi-level hierarchies.
             if (dataView.matrix) {
-                const root = dataView.matrix.rows?.root;
-                if (root?.children && root.children[rowIndex]?.objects) {
+                const frNode = storedFlatRows?.[rowIndex];
+                if (frNode?.objects) {
                     const color = dataViewObjects.getFillColor(
-                        root.children[rowIndex].objects,
+                        frNode.objects,
                         { objectName: "categoryConditionalFormatting", propertyName: "textColor" }
                     );
                     if (color) {
@@ -1318,6 +1324,7 @@ export class Visual implements IVisual {
         let storedRoot: any = null;
         let storedSubtotalChild: any = null;
         let columnSubtotalValueKeys: number[] = []; // value key indices for column subtotal leaves (for "Measure" column totals)
+        let columnGrandTotalKeys: number[] = []; // ROOT subtotal keys (last M in tree order) — the true grand-total column
         let matrixRowLevels: any[] = []; // hoisted for cell-level combined selection IDs
         let matrixColLevels: any[] = []; // hoisted for cell-level combined selection IDs
 
@@ -1427,14 +1434,28 @@ export class Visual implements IVisual {
                 return isNaN(n) ? 0 : n;
             };
             const getNodeColTotalValue = (node: any): number => {
-                // Column-total value lives at colSubtotalKeysPre[mIdx] in the row's value dict.
+                // Column-total value lives at the ROOT (grand-total) subtotal keys — the last
+                // __preBaseM entries in tree order. With multi-level column hierarchies the
+                // first entries belong to the first group's inner subtotal, not the grand total.
                 // Prefer the node's own values; fall back to subtotal child if present.
                 const subT = (node.children || []).find((c: any) => c.isSubtotal);
                 const valSrc = node.values || subT?.values || {};
-                const key = colSubtotalKeysPre[sortColTotalMeasureIdx];
+                const key = colSubtotalKeysPre.length >= __preBaseM
+                    ? colSubtotalKeysPre[colSubtotalKeysPre.length - __preBaseM + sortColTotalMeasureIdx]
+                    : undefined;
                 const v = key !== undefined ? valSrc[key]?.value : undefined;
                 const n = Number(v);
                 return isNaN(n) ? 0 : n;
+            };
+            // Compare two raw category values: dates by timestamp, numbers numerically,
+            // everything else as locale strings.
+            const compareRawValues = (av: any, bv: any): number => {
+                const an = av instanceof Date ? av.getTime() : av;
+                const bn = bv instanceof Date ? bv.getTime() : bv;
+                if (typeof an === 'number' && typeof bn === 'number') {
+                    return an - bn;
+                }
+                return String(an ?? '').localeCompare(String(bn ?? ''));
             };
             const compareNodes = (a: any, b: any): number => {
                 if (sortMode === 'measure') {
@@ -1444,14 +1465,7 @@ export class Visual implements IVisual {
                     return (getNodeColTotalValue(a) - getNodeColTotalValue(b)) * sortDirMul;
                 }
                 // category
-                const av = a.value, bv = b.value;
-                let r: number;
-                if (typeof av === 'number' && typeof bv === 'number') {
-                    r = av - bv;
-                } else {
-                    r = String(av ?? '').localeCompare(String(bv ?? ''));
-                }
-                return r * sortDirMul;
+                return compareRawValues(a.value, b.value) * sortDirMul;
             };
             // Apply hierarchical in-tree sort. Only sort at depths matching the chosen field.
             const shouldSortAtDepth = (depth: number): boolean => {
@@ -1488,8 +1502,10 @@ export class Visual implements IVisual {
                 const hasRegularChildren = node.children && node.children.some((c: any) => !c.isSubtotal);
 
                 if (!hasRegularChildren || node.isSubtotal) {
+                    // Use the isSubtotal flag — NOT truthiness — so genuine falsy category
+                    // values (0, "", false) don't display as "Total".
                     flatRows.push({
-                        value: newPath[depth] || "Total",
+                        value: node.isSubtotal ? "Total" : (newPath[depth] ?? ""),
                         path: pathArray,
                         identity: node.identity,
                         matrixNode: node,
@@ -1531,20 +1547,14 @@ export class Visual implements IVisual {
                         return ((isNaN(av) ? 0 : av) - (isNaN(bv) ? 0 : bv)) * sortDirMul;
                     }
                     if (sortMode === 'colTotal') {
-                        const key = colSubtotalKeysPre[sortColTotalMeasureIdx];
+                        const key = colSubtotalKeysPre.length >= __preBaseM
+                            ? colSubtotalKeysPre[colSubtotalKeysPre.length - __preBaseM + sortColTotalMeasureIdx]
+                            : undefined;
                         const av = Number(key !== undefined ? a.rawValues?.[key]?.value : NaN);
                         const bv = Number(key !== undefined ? b.rawValues?.[key]?.value : NaN);
                         return ((isNaN(av) ? 0 : av) - (isNaN(bv) ? 0 : bv)) * sortDirMul;
                     }
-                    const av = a.path?.[sortCategoryLevel];
-                    const bv = b.path?.[sortCategoryLevel];
-                    let r: number;
-                    if (typeof av === 'number' && typeof bv === 'number') {
-                        r = av - bv;
-                    } else {
-                        r = String(av ?? '').localeCompare(String(bv ?? ''));
-                    }
-                    return r * sortDirMul;
+                    return compareRawValues(a.path?.[sortCategoryLevel], b.path?.[sortCategoryLevel]) * sortDirMul;
                 });
             }
 
@@ -1672,40 +1682,57 @@ export class Visual implements IVisual {
                     rootNonSubtotal.forEach((c: any) => flattenCol(c, [], 0, false));
                     rootSubtotal.forEach((c: any) => flattenCol(c, [], 0, true));
 
+                    // The root grand-total subtotal is walked LAST, so its value keys are the
+                    // final M entries. With 2+ column levels the FIRST entries are the first
+                    // group's inner subtotal — using those showed e.g. 2023's total instead of
+                    // the all-years total in the "Total" column.
+                    if (storedMeasureCount > 0 && columnSubtotalValueKeys.length >= storedMeasureCount) {
+                        columnGrandTotalKeys = columnSubtotalValueKeys.slice(-storedMeasureCount);
+                    }
+
                     // Build column header grouping info for rendering multi-row headers
                     const M = storedMeasureCount;
                     // When no measures, each column leaf occupies 1 column (not M=0)
                     const leafSpan = M > 0 ? M : 1;
                     for (let level = 0; level < columnLevelNames.length; level++) {
                         let groups: { label: string, span: number, matrixNode?: any, path?: any[] }[] = [];
-                        let lastValue: string | null = null;
+                        // Group on the FULL path prefix (not just this level's label) so identical
+                        // labels under different parents don't merge into one spanning cell —
+                        // which would also desync nodeIdx from columnNodesByLevel and attach the
+                        // wrong selection node to every subsequent group at this level.
+                        let lastKey: string | null = null;
+                        let lastLabel: string = "";
                         let currentSpan = 0;
                         let nodeIdx = 0;
                         columnLeaves.forEach(leaf => {
-                            const val = leaf.path[level] !== undefined ? String(leaf.path[level]) : "";
-                            if (val === lastValue) {
+                            const label = leaf.path[level] !== undefined ? String(leaf.path[level]) : "";
+                            const key = leaf.path.slice(0, level + 1)
+                                .map((s: any) => (s === undefined || s === null) ? "" : String(s))
+                                .join(Visual.columnPathSeparator);
+                            if (key === lastKey) {
                                 currentSpan += leafSpan;
                             } else {
-                                if (lastValue !== null) {
+                                if (lastKey !== null) {
                                     const levelNode = nodeIdx > 0 && nodeIdx - 1 < columnNodesByLevel[level].length
                                         ? columnNodesByLevel[level][nodeIdx - 1] : undefined;
                                     groups.push({
-                                        label: lastValue,
+                                        label: lastLabel,
                                         span: currentSpan,
                                         matrixNode: levelNode?.matrixNode,
                                         path: levelNode?.path
                                     });
                                 }
-                                lastValue = val;
+                                lastKey = key;
+                                lastLabel = label;
                                 currentSpan = leafSpan;
                                 nodeIdx++;
                             }
                         });
-                        if (lastValue !== null) {
+                        if (lastKey !== null) {
                             const levelNode = nodeIdx > 0 && nodeIdx - 1 < columnNodesByLevel[level].length
                                 ? columnNodesByLevel[level][nodeIdx - 1] : undefined;
                             groups.push({
-                                label: lastValue,
+                                label: lastLabel,
                                 span: currentSpan,
                                 matrixNode: levelNode?.matrixNode,
                                 path: levelNode?.path
@@ -2162,12 +2189,18 @@ interface MeasureSpecificSettings {
               if (globalShowAllRowRaw !== undefined && globalShowAllRowRaw !== null) {
                   const allMatch = perCatIncluded.every(v => v === globalShowAllRowRaw);
                   if (!allMatch) {
-                      const merges = (categories?.sources || []).map((catSource: any) => ({
-                          objectName: "totals",
-                          selector: catSource.queryName ? { metadata: catSource.queryName } : undefined,
-                          properties: { showTotalRow: globalShowAllRowRaw }
-                      }));
-                      this.host.persistProperties({ merge: merges });
+                      // Only sources WITH a queryName — a selector-less merge writes globally,
+                      // never matches the per-field read-back, and re-persists every update.
+                      const merges = (categories?.sources || [])
+                          .filter((catSource: any) => catSource.queryName)
+                          .map((catSource: any) => ({
+                              objectName: "totals",
+                              selector: { metadata: catSource.queryName },
+                              properties: { showTotalRow: globalShowAllRowRaw }
+                          }));
+                      if (merges.length > 0) {
+                          this.host.persistProperties({ merge: merges });
+                      }
                   }
                   globalShowAllRowOverride = globalShowAllRowRaw;
               }
@@ -2320,12 +2353,18 @@ interface MeasureSpecificSettings {
               if (globalShowAllRaw !== undefined && globalShowAllRaw !== null) {
                   const allMatch = perMeasureIncluded.every(v => v === globalShowAllRaw);
                   if (!allMatch) {
-                      const merges = baseValues.map(valueColumn => ({
-                          objectName: "columnTotals",
-                          selector: valueColumn.source.queryName ? { metadata: valueColumn.source.queryName } : undefined,
-                          properties: { showTotalColumn: globalShowAllRaw }
-                      }));
-                      this.host.persistProperties({ merge: merges });
+                      // Only measures WITH a queryName — a selector-less merge writes globally,
+                      // never matches the per-measure read-back, and re-persists every update.
+                      const merges = baseValues
+                          .filter(valueColumn => valueColumn.source.queryName)
+                          .map(valueColumn => ({
+                              objectName: "columnTotals",
+                              selector: { metadata: valueColumn.source.queryName },
+                              properties: { showTotalColumn: globalShowAllRaw }
+                          }));
+                      if (merges.length > 0) {
+                          this.host.persistProperties({ merge: merges });
+                      }
                   }
                   // Carry forward to override rendering in this same cycle (avoids one-frame inversion)
                   globalShowAllOverride = globalShowAllRaw;
@@ -2859,6 +2898,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                           source: baseValues[mIdx].source,
                           columnPath: columnLeaves[colIdx].path,
                           values: storedFlatRows.map(r => r.rawValues[vKey]?.value ?? null),
+                          highlights: storedFlatRows.map(r => r.rawValues[vKey]?.highlight ?? null),
                           objects: storedFlatRows.map(r => r.rawValues[vKey]?.objects || undefined)
                       });
                       measureSettingsList.push(baseMSettings[mIdx]);
@@ -2910,8 +2950,17 @@ let dataBarsSlices: formattingSettings.Slice[] = [
           let measureMaxs: number[] = new Array(values.length).fill(0);
           let totals: number[] = new Array(values.length).fill(0);
 
+          // Per-row subtotal flags: aggregations must EXCLUDE subtotal rows or Sum/Average/
+          // Count double-count every group (leaf rows + their subtotal). Data-bar min/max
+          // intentionally keeps subtotal values in scale since bars also render on those rows.
+          const subtotalRowFlags: boolean[] = storedFlatRows ? storedFlatRows.map((r: any) => !!r.isSubtotal) : [];
+
           values.forEach((valueColumn, measureIndex) => {
             let numValues = valueColumn.values.filter(v => v !== null && v !== undefined).map(v => Number(v));
+            let aggValues = valueColumn.values
+                .map((v, ri) => ({ v, ri }))
+                .filter(({ v, ri }) => v !== null && v !== undefined && !subtotalRowFlags[ri])
+                .map(({ v }) => Number(v));
             if (numValues.length > 0) {
                 measureMins[measureIndex] = Math.min(0, ...numValues); // Standard data bars anchor to 0
                 measureMaxs[measureIndex] = Math.max(0, ...numValues);
@@ -2932,24 +2981,24 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 }
 
                 // Fallback: sum of row values (same as Sum behavior)
-                if (semanticTotal === null && numValues.length > 0) {
-                    semanticTotal = numValues.reduce((a, b) => a + b, 0);
+                if (semanticTotal === null && aggValues.length > 0) {
+                    semanticTotal = aggValues.reduce((a, b) => a + b, 0);
                 }
 
                 totals[measureIndex] = semanticTotal;
-            } else if (numValues.length > 0) {
+            } else if (aggValues.length > 0) {
                 if (totalBehavior === "Sum") {
-                    totals[measureIndex] = numValues.reduce((a, b) => a + b, 0);
+                    totals[measureIndex] = aggValues.reduce((a, b) => a + b, 0);
                 } else if (totalBehavior === "Average") {
-                    totals[measureIndex] = numValues.reduce((a, b) => a + b, 0) / numValues.length;
+                    totals[measureIndex] = aggValues.reduce((a, b) => a + b, 0) / aggValues.length;
                 } else if (totalBehavior === "Count") {
-                    totals[measureIndex] = numValues.length;
+                    totals[measureIndex] = aggValues.length;
                 } else if (totalBehavior === "Count Distinct") {
-                    totals[measureIndex] = new Set(numValues).size;
+                    totals[measureIndex] = new Set(aggValues).size;
                 } else if (totalBehavior === "Max") {
-                    totals[measureIndex] = Math.max(...numValues);
+                    totals[measureIndex] = Math.max(...aggValues);
                 } else if (totalBehavior === "Min") {
-                    totals[measureIndex] = Math.min(...numValues);
+                    totals[measureIndex] = Math.min(...aggValues);
                 }
             }
         });
@@ -2992,10 +3041,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (behavior === "Measure") {
                         // Use semantic subtotal from the matrix column subtotal (DAX engine value)
                         let semanticVal: number | null = null;
-                        if (hasColumnGrouping && storedFlatRows && columnSubtotalValueKeys.length > 0) {
-                            // columnSubtotalValueKeys has one key per measure for the column subtotal
+                        if (hasColumnGrouping && storedFlatRows && columnGrandTotalKeys.length > 0) {
+                            // columnGrandTotalKeys has one key per measure for the ROOT column subtotal
                             // Find the key for this base measure (mIdx)
-                            const subtotalKey = columnSubtotalValueKeys[mIdx];
+                            const subtotalKey = columnGrandTotalKeys[mIdx];
                             if (subtotalKey !== undefined) {
                                 const rawVal = storedFlatRows[i]?.rawValues?.[subtotalKey];
                                 if (rawVal && rawVal.value !== null && rawVal.value !== undefined) {
@@ -3067,10 +3116,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
 
                 if (colBehavior === "Measure") {
                     // Use the DAX engine's column subtotal value from the row-total row
-                    // columnSubtotalValueKeys[mIdx] is the value key for the column subtotal of measure mIdx
+                    // columnGrandTotalKeys[mIdx] is the value key for the ROOT column subtotal of measure mIdx
                     let semanticVal: number | null = null;
-                    if (hasColumnGrouping && columnSubtotalValueKeys.length > mIdx) {
-                        const subtotalKey = columnSubtotalValueKeys[mIdx];
+                    if (hasColumnGrouping && columnGrandTotalKeys.length > mIdx) {
+                        const subtotalKey = columnGrandTotalKeys[mIdx];
                         const stVal = subtotalSource[subtotalKey];
                         if (stVal && stVal.value !== null && stVal.value !== undefined) {
                             semanticVal = Number(stVal.value);
@@ -3079,8 +3128,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (semanticVal !== null) {
                         colTotalsGrandPerMeasure[mIdx] = semanticVal;
                     } else {
-                        // Fallback: sum of per-row column totals
-                        let grandValues = colTotalsPerMeasure[mIdx].filter(v => v !== null && v !== undefined) as number[];
+                        // Fallback: sum of per-row column totals (exclude subtotal rows — double count)
+                        let grandValues = colTotalsPerMeasure[mIdx].filter((v, ri) => v !== null && v !== undefined && !subtotalRowFlags[ri]) as number[];
                         if (grandValues.length > 0) {
                             colTotalsGrandPerMeasure[mIdx] = grandValues.reduce((a, b) => a + b, 0);
                         }
@@ -3098,8 +3147,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         }
                     }
                     // If no column grouping or no subtotal source, use per-row column totals
+                    // (exclude subtotal rows — they'd double-count each group)
                     if (colLeafTotals.length === 0) {
-                        colLeafTotals = colTotalsPerMeasure[mIdx].filter(v => v !== null && v !== undefined) as number[];
+                        colLeafTotals = colTotalsPerMeasure[mIdx].filter((v, ri) => v !== null && v !== undefined && !subtotalRowFlags[ri]) as number[];
                     }
                     if (colLeafTotals.length > 0) {
                         if (colBehavior === "Sum") colTotalsGrandPerMeasure[mIdx] = colLeafTotals.reduce((a, b) => a + b, 0);
@@ -3290,6 +3340,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 cell.style.cursor = "pointer";
                                 cell.addEventListener("click", (e: MouseEvent) => {
                                     e.stopPropagation();
+                                    if (!this.allowInteractions) return;
                                     this.selectionManager.select(capturedIds, e.ctrlKey || e.metaKey).then(() => {
                                         this.syncSelectionOpacity();
                                     });
@@ -3309,6 +3360,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             cell.style.cursor = "pointer";
                             cell.addEventListener("click", (e: MouseEvent) => {
                                 e.stopPropagation();
+                                if (!this.allowInteractions) return;
                                 this.selectionManager.select(groupSelId!, e.ctrlKey || e.metaKey).then(() => {
                                     this.syncSelectionOpacity();
                                 });
@@ -3540,6 +3592,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         header.style.cursor = "pointer";
                         header.addEventListener("click", (e: MouseEvent) => {
                             e.stopPropagation();
+                            if (!this.allowInteractions) return;
                             this.selectionManager.select(sid, e.ctrlKey || e.metaKey).then(() => {
                                 this.syncSelectionOpacity();
                             });
@@ -3699,7 +3752,10 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 let rowPaths_check: any[] | null = null;
                 if (hasCategories) {
                     rowPaths_check = categories.paths ? categories.paths[i] : [categories.values[i]];
-                    rowTotalIdx = rowPaths_check ? rowPaths_check.indexOf("Total") : -1;
+                    // Flag-based detection: a genuine data value "Total" must NOT be
+                    // treated as a subtotal row. Subtotal depth === path index of the marker.
+                    const _fr = storedFlatRows ? storedFlatRows[i] : null;
+                    rowTotalIdx = _fr?.isSubtotal ? _fr.depth : -1;
                     if (rowTotalIdx >= 0 && !categoryShowTotals[rowTotalIdx]) {
                         continue;
                     }
@@ -3726,6 +3782,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     row.style.cursor = "pointer";
                     row.addEventListener("click", (e: MouseEvent) => {
                         e.stopPropagation();
+                        if (!this.allowInteractions) return;
                         this.selectionManager.select(selId, e.ctrlKey || e.metaKey).then(() => {
                             this.syncSelectionOpacity();
                         });
@@ -3741,12 +3798,12 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 // Add category value
                 if (hasCategories) {
                     const rowPaths = categories.paths[i] || [categories.values[i]];
-                    const isTotal = rowPaths.some((p: any) => p === "Total");
+                    const isTotal = isSubtotalRow;
                     rowPaths.forEach((segmentValue: any, lvlIdx: number) => {
                         let categoryCell = row.insertCell();
                         const _catSrc = categories.sources?.[lvlIdx];
                         const _catFmt = _catSrc?.format;
-                        categoryCell.textContent = (_catFmt && segmentValue !== "Total" && segmentValue !== "" && segmentValue != null)
+                        categoryCell.textContent = (_catFmt && !(isTotal && segmentValue === "Total") && segmentValue !== "" && segmentValue != null)
                             ? valueFormatter.create({ format: _catFmt }).format(segmentValue)
                             : String(segmentValue ?? "");
                         categoryCell.className = 'table-category-cell';
@@ -3916,7 +3973,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             const detailValues: number[] = [];
                             for (let j = 0; j < rowCount; j++) {
                                 const jPaths = categories.paths ? categories.paths[j] : [categories.values[j]];
-                                if (!jPaths || jPaths.indexOf("Total") >= 0) continue;
+                                if (!jPaths || storedFlatRows?.[j]?.isSubtotal) continue;
                                 let match = true;
                                 for (let k = 0; k < groupPrefix.length; k++) {
                                     if (jPaths[k] !== groupPrefix[k]) { match = false; break; }
@@ -4036,7 +4093,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let leftMarginPct = 0;
                             let rightMarginPct = 0;
                             if (labelsOutside && !verticalDataBars) {
-                                const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                const dbFont = `${cellFontSize}pt ${cellFontFamily}`;
                                 const dbCellW = valueColumnWidths[measureIndex];
                                 if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
                                 if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
@@ -4221,7 +4278,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (hasCategories) {
                         const rowPaths = categories.paths[i] || [categories.values[i]];
                         rowPaths.forEach((seg: any, lvlIdx: number) => {
-                            if (seg !== "Total" && seg !== "" && seg !== undefined) {
+                            if (!(isSubtotalRow && seg === "Total") && seg !== "" && seg !== undefined) {
                                 const catName = categories.sources[lvlIdx]?.displayName || "Category";
                                 const _ttFmt = categories.sources[lvlIdx]?.format;
                                 const _ttVal = _ttFmt ? valueFormatter.create({ format: _ttFmt }).format(seg) : String(seg);
@@ -4261,6 +4318,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 cell.style.cursor = "pointer";
                                 cell.addEventListener("click", (e: MouseEvent) => {
                                     e.stopPropagation();
+                                    if (!this.allowInteractions) return;
                                     this.selectionManager.select(cellSelId, e.ctrlKey || e.metaKey).then(() => {
                                         this.syncSelectionOpacity();
                                     });
@@ -4285,8 +4343,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (colTotalVal !== null && colTotalVal !== undefined) {
                             // Use dynamic format string from semantic model (per-row, per-measure)
                             let ctDynamicFormat: string | undefined;
-                            if (hasColumnGrouping && columnSubtotalValueKeys.length > mIdx && storedFlatRows) {
-                                ctDynamicFormat = storedFlatRows[i]?.rawValues?.[columnSubtotalValueKeys[mIdx]]?.objects?.general?.formatString;
+                            if (hasColumnGrouping && columnGrandTotalKeys.length > mIdx && storedFlatRows) {
+                                ctDynamicFormat = storedFlatRows[i]?.rawValues?.[columnGrandTotalKeys[mIdx]]?.objects?.general?.formatString;
                             }
                             if (!ctDynamicFormat && values[mIdx]?.objects) {
                                 ctDynamicFormat = values[mIdx].objects[i]?.general?.formatString;
@@ -4357,7 +4415,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 let leftMarginPct = 0;
                                 let rightMarginPct = 0;
                                 if (ctLabelsOutside && !ctVerticalDataBars) {
-                                    const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                    const dbFont = `${cellFontSize}pt ${cellFontFamily}`;
                                     const dbCellW = colTotalColumnWidths[mIdx];
                                     if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
                                     if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
@@ -4536,7 +4594,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (hasCategories) {
                             const rowPaths = categories.paths[i] || [categories.values[i]];
                             rowPaths.forEach((seg: any, lvlIdx: number) => {
-                                if (seg !== "Total" && seg !== "" && seg !== undefined) {
+                                if (!(isSubtotalRow && seg === "Total") && seg !== "" && seg !== undefined) {
                                     const catName = categories.sources[lvlIdx]?.displayName || "Category";
                                     const _ttFmt = categories.sources[lvlIdx]?.format;
                                     const _ttVal = _ttFmt ? valueFormatter.create({ format: _ttFmt }).format(seg) : String(seg);
@@ -4789,7 +4847,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         let leftMarginPct = 0;
                         let rightMarginPct = 0;
                         if (totalLabelsOutside && !totalVerticalDataBars) {
-                            const dbFont = `${efFontSize}px ${efFontFamily}`;
+                            const dbFont = `${efFontSize}pt ${efFontFamily}`;
                             const dbCellW = valueColumnWidths[i];
                             if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces), dbCellW, dbFont);
                             if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces), dbCellW, dbFont);
@@ -4927,8 +4985,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                     if (grandVal !== null && grandVal !== undefined) {
                         // Use dynamic format string: try column subtotal objects from first row, then source format
                         let gtDynamicFormat: string | undefined;
-                        if (hasColumnGrouping && columnSubtotalValueKeys.length > mIdx && storedFlatRows && storedFlatRows.length > 0) {
-                            gtDynamicFormat = storedFlatRows[0]?.rawValues?.[columnSubtotalValueKeys[mIdx]]?.objects?.general?.formatString;
+                        if (hasColumnGrouping && columnGrandTotalKeys.length > mIdx && storedFlatRows && storedFlatRows.length > 0) {
+                            gtDynamicFormat = storedFlatRows[0]?.rawValues?.[columnGrandTotalKeys[mIdx]]?.objects?.general?.formatString;
                         }
                         if (!gtDynamicFormat && values[mIdx]?.objects && values[mIdx].objects.length > 0) {
                             gtDynamicFormat = values[mIdx].objects[0]?.general?.formatString;
@@ -4999,7 +5057,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let leftMarginPct = 0;
                             let rightMarginPct = 0;
                             if (gtLabelsOutside && !gtVerticalDataBars) {
-                                const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                const dbFont = `${cellFontSize}pt ${cellFontFamily}`;
                                 const dbCellW = colTotalColumnWidths[mIdx];
                                 if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
                                 if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
@@ -5249,7 +5307,15 @@ let dataBarsSlices: formattingSettings.Slice[] = [
             if (hasCategories) {
                 for (let i = 0; i < rowCount; i++) {
                     let catHeader = headerRow.insertCell();
-                    catHeader.textContent = String(categories.values[i]);
+                    // Format with the source field's format string (dates would otherwise render
+                    // as "Sat Jan 01 2022 00:00:00 GMT..."), mirroring the normal-mode fix.
+                    const _thVal = categories.values[i];
+                    const _thSub = !!(storedFlatRows && storedFlatRows[i]?.isSubtotal);
+                    const _thLvl = storedFlatRows?.[i]?.depth ?? 0;
+                    const _thFmt = categories.sources?.[_thLvl]?.format;
+                    catHeader.textContent = (_thFmt && !_thSub && _thVal !== "" && _thVal != null)
+                        ? valueFormatter.create({ format: _thFmt }).format(_thVal)
+                        : String(_thVal ?? "");
                     catHeader.className = 'table-header-cell';
                     catHeader.style.width = `${columnWidth}px`;
                     catHeader.style.minWidth = `${columnWidth}px`;
@@ -5318,6 +5384,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         catHeader.style.cursor = "pointer";
                         catHeader.addEventListener("click", (e: MouseEvent) => {
                             e.stopPropagation();
+                            if (!this.allowInteractions) return;
                             this.selectionManager.select(catSelId, e.ctrlKey || e.metaKey).then(() => {
                                 this.syncSelectionOpacity();
                             });
@@ -5599,12 +5666,9 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                 
                 // Data Cells: Values for each category (or the 1 value if no categories)
                 for (let i = 0; i < rowCount; i++) {
-                    // Check if this column is a subtotal column in transposed mode
-                    let transposedIsSubtotal = false;
-                    if (hasCategories) {
-                        const colPaths = categories.paths ? categories.paths[i] : [categories.values[i]];
-                        transposedIsSubtotal = colPaths ? colPaths.some((p: any) => p === "Total") : false;
-                    }
+                    // Check if this column is a subtotal column in transposed mode.
+                    // Flag-based — a genuine data value "Total" is not a subtotal.
+                    const transposedIsSubtotal = !!(storedFlatRows && storedFlatRows[i]?.isSubtotal);
 
                     let cell = row.insertCell();
                     cell.style.position = "relative";
@@ -5769,7 +5833,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let leftMarginPct = 0;
                             let rightMarginPct = 0;
                             if (labelsOutside && !verticalDataBars) {
-                                const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                const dbFont = `${cellFontSize}pt ${cellFontFamily}`;
                                 const dbCellW = valueColumnWidths[measureIndex];
                                 if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
                                 if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, cellFormat, specSettings.displayUnits, specSettings.decimalPlaces), dbCellW, dbFont);
@@ -5945,7 +6009,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         const colPaths = categories.paths ? categories.paths[i] : [categories.values[i]];
                         if (colPaths) {
                             colPaths.forEach((seg: any, lvlIdx: number) => {
-                                if (seg !== "Total" && seg !== "" && seg !== undefined) {
+                                if (!(transposedIsSubtotal && seg === "Total") && seg !== "" && seg !== undefined) {
                                     const catName = categories.sources[lvlIdx]?.displayName || "Category";
                                     const _ttFmt = categories.sources[lvlIdx]?.format;
                                     const _ttVal = _ttFmt ? valueFormatter.create({ format: _ttFmt }).format(seg) : String(seg);
@@ -6043,7 +6107,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                             let leftMarginPct = 0;
                             let rightMarginPct = 0;
                             if (totalLabelsOutside && !totalVerticalDataBars) {
-                                const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                const dbFont = `${cellFontSize}pt ${cellFontFamily}`;
                                 const dbCellW = valueColumnWidths[measureIndex];
                                 if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces), dbCellW, dbFont);
                                 if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, totalFormat, specSettings.totalDisplayUnits, specSettings.totalDecimalPlaces), dbCellW, dbFont);
@@ -6297,8 +6361,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (colTotalVal !== null && colTotalVal !== undefined) {
                             // Use dynamic format string from semantic model
                             let ctDynamicFormat: string | undefined;
-                            if (hasColumnGrouping && columnSubtotalValueKeys.length > mIdx && storedFlatRows) {
-                                ctDynamicFormat = storedFlatRows[i]?.rawValues?.[columnSubtotalValueKeys[mIdx]]?.objects?.general?.formatString;
+                            if (hasColumnGrouping && columnGrandTotalKeys.length > mIdx && storedFlatRows) {
+                                ctDynamicFormat = storedFlatRows[i]?.rawValues?.[columnGrandTotalKeys[mIdx]]?.objects?.general?.formatString;
                             }
                             if (!ctDynamicFormat && values[mIdx]?.objects) {
                                 ctDynamicFormat = values[mIdx].objects[i]?.general?.formatString;
@@ -6369,7 +6433,7 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                                 let leftMarginPct = 0;
                                 let rightMarginPct = 0;
                                 if (ctLabelsOutside && !ctVerticalDataBars) {
-                                    const dbFont = `${cellFontSize}px ${cellFontFamily}`;
+                                    const dbFont = `${cellFontSize}pt ${cellFontFamily}`;
                                     const dbCellW = valueColumnWidths[0] || colTotalColumnWidths[mIdx];
                                     if (min < 0) leftMarginPct = computeLabelMarginPct(formatValue(min, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
                                     if (max > 0) rightMarginPct = computeLabelMarginPct(formatValue(max, ctFormat, ctDisplayUnits, ctDecimalPlaces), dbCellW, dbFont);
@@ -6544,10 +6608,11 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         // Tooltip for transposed column total cell
                         const trCtTooltipItems: VisualTooltipDataItem[] = [];
                         if (hasCategories) {
+                            const _trCtSub = !!(storedFlatRows && storedFlatRows[i]?.isSubtotal);
                             const colPaths = categories.paths ? categories.paths[i] : [categories.values[i]];
                             if (colPaths) {
                                 colPaths.forEach((seg: any, lvlIdx: number) => {
-                                    if (seg !== "Total" && seg !== "" && seg !== undefined) {
+                                    if (!(_trCtSub && seg === "Total") && seg !== "" && seg !== undefined) {
                                         const catName = categories.sources[lvlIdx]?.displayName || "Category";
                                         const _ttFmt = categories.sources[lvlIdx]?.format;
                                         const _ttVal = _ttFmt ? valueFormatter.create({ format: _ttFmt }).format(seg) : String(seg);
@@ -6570,8 +6635,8 @@ let dataBarsSlices: formattingSettings.Slice[] = [
                         if (grandVal !== null && grandVal !== undefined) {
                             // Use dynamic format string from semantic model
                             let gtDynamicFormat: string | undefined;
-                            if (hasColumnGrouping && columnSubtotalValueKeys.length > mIdx && storedFlatRows && storedFlatRows.length > 0) {
-                                gtDynamicFormat = storedFlatRows[0]?.rawValues?.[columnSubtotalValueKeys[mIdx]]?.objects?.general?.formatString;
+                            if (hasColumnGrouping && columnGrandTotalKeys.length > mIdx && storedFlatRows && storedFlatRows.length > 0) {
+                                gtDynamicFormat = storedFlatRows[0]?.rawValues?.[columnGrandTotalKeys[mIdx]]?.objects?.general?.formatString;
                             }
                             if (!gtDynamicFormat && values[mIdx]?.objects && values[mIdx].objects.length > 0) {
                                 gtDynamicFormat = values[mIdx].objects[0]?.general?.formatString;

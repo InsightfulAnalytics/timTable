@@ -1,14 +1,14 @@
 {
-		"version": "1.0.0.2",
-		"author": {"name":"Developer","email":"dev@example.com"},
+		"version": "1.0.0.3",
+		"author": {"name":"Tim Osborn","email":"timosborn6@gmail.com"},
 		"resources": [
 			{
 				"resourceId": "rId0",
 				"sourceType": 5,
-				"file": "resources/timTableDD1AB490372C46B5A64605746E322F55.pbiviz.json"
+				"file": "resources/nexusTableC923C22635F640B8BDD36DC675C74832.pbiviz.json"
 			}
 		],
-		"visual": {"name":"timTable","displayName":"TimTable","guid":"timTableDD1AB490372C46B5A64605746E322F55","visualClassName":"Visual","version":"1.0.0.2","description":"A table visual that displays categorical dimensions as rows and measures as columns with automatic totals row","supportUrl":"https://github.com","gitHubUrl":"https://github.com"},
+		"visual": {"name":"nexusTable","displayName":"Nexus Table","guid":"nexusTableC923C22635F640B8BDD36DC675C74832","visualClassName":"Visual","version":"1.0.0.3","description":"A table visual that displays categorical dimensions as rows and measures as columns with automatic totals row","supportUrl":"https://github.com/InsightfulAnalytics/timTable/issues","gitHubUrl":"https://github.com/InsightfulAnalytics/timTable"},
 		"metadata": {
 			"pbivizjson": {
 				"resourceId": "rId0"
