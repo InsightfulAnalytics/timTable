@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0.3",
+  "author": {
+    "name": "Tim Osborn",
+    "email": "timosborn6@gmail.com"
+  },
+  "resources": [
+    {
+      "resourceId": "rId0",
+      "sourceType": 5,
+      "file": "resources/nexusTableC923C22635F640B8BDD36DC675C74832.pbiviz.json"
+    }
+  ],
+  "visual": {
+    "name": "nexusTable",
+    "displayName": "Nexus Table",
+    "guid": "nexusTableC923C22635F640B8BDD36DC675C74832",
+    "visualClassName": "Visual",
+    "version": "1.0.0.3",
+    "description": "A table visual that displays categorical dimensions as rows and measures as columns with automatic totals row",
+    "supportUrl": "https://github.com/InsightfulAnalytics/timTable/issues",
+    "gitHubUrl": "https://github.com/InsightfulAnalytics/timTable"
+  },
+  "metadata": {
+    "pbivizjson": {
+      "resourceId": "rId0"
+    }
+  }
+}

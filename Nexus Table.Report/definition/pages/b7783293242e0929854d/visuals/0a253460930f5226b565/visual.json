@@ -1,0 +1,137 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.10.0/schema.json",
+  "name": "0a253460930f5226b565",
+  "position": {
+    "x": 986.25,
+    "y": 280,
+    "z": 2,
+    "height": 568.75,
+    "width": 433.75,
+    "tabOrder": 2
+  },
+  "visual": {
+    "visualType": "nexusTableC923C22635F640B8BDD36DC675C74832",
+    "query": {
+      "queryState": {
+        "category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimDate"
+                    }
+                  },
+                  "Property": "Year"
+                }
+              },
+              "queryRef": "DimDate.Year",
+              "nativeQueryRef": "Year"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimDate"
+                    }
+                  },
+                  "Property": "Month & Year"
+                }
+              },
+              "queryRef": "DimDate.Month & Year",
+              "nativeQueryRef": "Month & Year"
+            }
+          ]
+        },
+        "measure": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "Total Savings"
+                }
+              },
+              "queryRef": "__Measures.Total Savings",
+              "nativeQueryRef": "Total Savings"
+            }
+          ]
+        }
+      }
+    },
+    "objects": {
+      "columnHeaders": [
+        {
+          "properties": {}
+        }
+      ],
+      "specificColumn": [
+        {
+          "properties": {
+            "series": {
+              "expr": {
+                "Literal": {
+                  "Value": "'cat:DimDate.Year'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "columnWidth": [
+        {
+          "properties": {
+            "manualWidthsJson": {
+              "expr": {
+                "Literal": {
+                  "Value": "'{\"0\":94,\"1\":121,\"2\":155}'"
+                }
+              }
+            },
+            "manualWidthsSnapshot": {
+              "expr": {
+                "Literal": {
+                  "Value": "'[150,100]'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "totals": [
+        {
+          "properties": {
+            "series": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Year'"
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "totalBehavior": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Sum'"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "__Measures.Total Savings"
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,338 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.9.0/schema.json",
+  "name": "2abafbe99ec62618a61b",
+  "position": {
+    "x": 1047.5,
+    "y": 48.75,
+    "z": 0,
+    "height": 545,
+    "width": 853.75,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "nexusTableC923C22635F640B8BDD36DC675C74832",
+    "query": {
+      "queryState": {
+        "measure": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "Savings %"
+                }
+              },
+              "queryRef": "__Measures.Savings %",
+              "nativeQueryRef": "Savings %"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "Avg Spend per PO"
+                }
+              },
+              "queryRef": "__Measures.Avg Spend per PO",
+              "nativeQueryRef": "Avg Spend per PO"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "Top 5 Supplier Concentration %"
+                }
+              },
+              "queryRef": "__Measures.Top 5 Supplier Concentration %",
+              "nativeQueryRef": "Top 5 Supplier Concentration %"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "__Measures"
+                    }
+                  },
+                  "Property": "Unmatched Invoice %"
+                }
+              },
+              "queryRef": "__Measures.Unmatched Invoice %",
+              "nativeQueryRef": "Unmatched Invoice %"
+            }
+          ]
+        },
+        "category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimItem"
+                    }
+                  },
+                  "Property": "Category"
+                }
+              },
+              "queryRef": "DimItem.Category",
+              "nativeQueryRef": "Category"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "__Measures"
+                  }
+                },
+                "Property": "Savings %"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "objects": {
+      "specificColumn": [
+        {
+          "properties": {
+            "series": {
+              "expr": {
+                "Literal": {
+                  "Value": "'cat:DimItem.Category'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "columnWidth": [
+        {
+          "properties": {
+            "manualWidthsJson": {
+              "expr": {
+                "Literal": {
+                  "Value": "'{\"0\":193,\"2\":117,\"3\":141,\"4\":135,\"5\":142}'"
+                }
+              }
+            },
+            "manualWidthsSnapshot": {
+              "expr": {
+                "Literal": {
+                  "Value": "'[150,100,100,100,100]'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "totals": [
+        {
+          "properties": {
+            "series": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Category'"
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "totalBehavior": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Sum'"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "__Measures.Savings %"
+          }
+        },
+        {
+          "properties": {
+            "totalBehavior": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Max'"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "__Measures.Avg Spend per PO"
+          }
+        },
+        {
+          "properties": {
+            "totalBehavior": {
+              "expr": {
+                "Literal": {
+                  "Value": "'None'"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "__Measures.Top 5 Supplier Concentration %"
+          }
+        },
+        {
+          "properties": {
+            "totalBehavior": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Average'"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "__Measures.Unmatched Invoice %"
+          }
+        }
+      ],
+      "columnTotals": [
+        {
+          "properties": {
+            "showTotalColumnAll": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            },
+            "series": {
+              "expr": {
+                "Literal": {
+                  "Value": "'__all__'"
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "showTotalColumn": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            },
+            "totalBehavior": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Count Distinct'"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "__Measures.Savings %"
+          }
+        },
+        {
+          "properties": {
+            "showTotalColumn": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "__Measures.Avg Spend per PO"
+          }
+        },
+        {
+          "properties": {
+            "showTotalColumn": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "__Measures.Top 5 Supplier Concentration %"
+          }
+        },
+        {
+          "properties": {
+            "showTotalColumn": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "__Measures.Unmatched Invoice %"
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Select Different Totals'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Savings % (Sum) Avg PO Spend (Max) Top 5 Supplier (None) Unmatched Inv (Average)'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

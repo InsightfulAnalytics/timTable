@@ -1,0 +1,816 @@
+table __Measures
+	lineageTag: e7b75a16-0173-44c2-b253-9378ed291776
+
+	measure 'Selected Dates' = ```
+			
+			-- Returns which dates (month & years) are currently selected
+			
+			/* _________________________________________________________________________________________________________________________________________________________ */
+			// Adjust this variable to change the prefix used for the period title
+			VAR __PeriodPrefix =                "Selected Period: "
+			VAR __DiverseDates =                "a range of dates in "
+			
+			// Define main start and end dates
+			VAR __StartDate =                   MIN( 'DimDate'[Date] )
+			VAR __EndDate =                     MAX( 'DimDate'[Date] )
+			
+			// Provide information about the current context
+			VAR __DaysInCurrentContext =        COUNTROWS( DimDate ) 
+			VAR __DaysBetween_StartAndEnd =     DATEDIFF( __StartDate, __EndDate, DAY )  + 1
+			VAR __IsConsecutivePeriod =         __DaysBetween_StartAndEnd = __DaysInCurrentContext
+			
+			// Day Related Variables
+			VAR __FormattedEndDate =            FORMAT( __EndDate, "d mmm yyyy" ) 
+			
+			// Month related variables
+			VAR __FormattedStartDateMonth =     FORMAT( __StartDate, "mmm yyyy" )
+			VAR __FormattedEndMonth =           FORMAT( __EndDate,   "mmm yyyy" ) // "d mmm yyyy"
+			VAR __FiltersFullMonthsOnly =
+			        VAR YearsSummary = SUMMARIZECOLUMNS( DimDate[MonthOfYear], 'DimDate'[Days In Month] )
+			        VAR DaysInYears = ADDCOLUMNS( YearsSummary, "@DaysInContext", CALCULATE( COUNTROWS( DimDate ) ) )
+			        VAR IncompleteMonths = FILTER( DaysInYears, [@DaysInContext] <> 'DimDate'[Days In Month] )
+			        VAR Result = ISEMPTY( IncompleteMonths )
+			    RETURN
+			        Result
+			
+			// Year related variables
+			VAR __IsSingleYear =                HASONEVALUE( 'DimDate'[Year] )
+			VAR __FiltersFullYearsOnly =
+			    VAR YearsSummary = 
+			        VALUES( 'DimDate'[Year] )
+			    VAR IncompleteYearFlag = 
+			        ADDCOLUMNS(
+			            YearsSummary,
+			            "@IsIncompleteYear",
+			                VAR DatesInContext = CALCULATE( COUNTROWS( DimDate ) )
+			                VAR DatesInYear = CALCULATE( MAX( 'DimDate'[Days in Year] ) )
+			                VAR IncompleteYearInContext = DatesInContext <> DatesInYear
+			            RETURN
+			                IncompleteYearInContext
+			            )
+			    VAR IncompleteYears = 
+			        FILTER(
+			            IncompleteYearFlag,
+			            [@IsIncompleteYear] = TRUE()
+			            )
+			    VAR Result = ISEMPTY( IncompleteYears )
+			RETURN
+			    Result
+			VAR __Result = 
+			    SWITCH( TRUE(),
+			/* _________________________________________________________________________________________________________________________________________________________  
+			   Logic for creating a YEAR selection string */
+			   
+			   // Perform this logic only if full years are selected
+			    __FiltersFullYearsOnly, 
+			    
+			    // Retrieve all Period Combinations that exist in the current filter context
+			    VAR SelectedYears = VALUES( 'DimDate'[Year] )
+			    // Find what the previous and next period is in the selection and add the values as a column
+			    VAR AddPrev_Next_Year = 
+			        ADDCOLUMNS(
+			            SelectedYears,
+			            "@PreviousPeriod", 
+			            MAXX(
+			                FILTER(	SelectedYears,
+			                    'DimDate'[Year] < EARLIER( 'DimDate'[Year] ) ),
+			                'DimDate'[Year] ),
+			            "@NextPeriod", 
+			            MINX(
+			                FILTER(	SelectedYears,
+			                    'DimDate'[Year] > EARLIER( 'DimDate'[Year] ) ),
+			                'DimDate'[Year] )
+			        )
+			    /* Based on whether the previous or next period combination in the context is consecutive, define logic.
+			        - The very last combination should end with a regular year value.
+			        - The start of a range should start with a period and end with a dash "-" to indicate the start of a range
+			        - All values within a range return blank, they don't need to be included
+			        - A single month (outside of a range) or the last month in a range should both show: Period and a separator ( pipe symbol ) */
+			        
+			    VAR __ConcatenationLogic = 
+			        ADDCOLUMNS( 
+			            AddPrev_Next_Year,
+			            "@PartOfRange",
+			                VAR __NextPeriod =  'DimDate'[Year] + 1
+			                VAR __PrevPeriod =  'DimDate'[Year] - 1
+			                VAR __StringElements = 
+			                    SWITCH( TRUE(),
+			                        ISBLANK( [@NextPeriod] ), 											      'DimDate'[Year], 	        // The last period in the context
+			                        __NextPeriod <> [@NextPeriod] && __PrevPeriod <> [@PreviousPeriod],       'DimDate'[Year] & " | " ,    // A period outside of a range 
+			                        __NextPeriod <> [@NextPeriod] && __PrevPeriod =  [@PreviousPeriod],       'DimDate'[Year] & " | " ,    // The last period value in a range
+			                        __NextPeriod =  [@NextPeriod] && __PrevPeriod <> [@PreviousPeriod],       'DimDate'[Year] & " - " , 	// The first [Period] in a range
+			                        __NextPeriod =  [@NextPeriod] && __PrevPeriod =  [@PreviousPeriod],       BLANK(), 					    // A period in the middle of a range
+			                        __NextPeriod <> [@NextPeriod] && __PrevPeriod =  [@PreviousPeriod],       'DimDate'[Year] & " | "      // The last period in a range
+			                    )
+			                RETURN __StringElements
+			        )
+			    RETURN
+			       __PeriodPrefix & CONCATENATEX( __ConcatenationLogic, [@PartOfRange], "", 'DimDate'[Year], ASC ),
+			        
+			/* _________________________________________________________________________________________________________________________________________________________
+			    For month selections below calculation returns the right values: */
+			        
+			   // Check if users filter full months only
+			    __FiltersFullMonthsOnly,
+			    
+			   // Retrieve all Start of Month Combinations that exist in the current filter context
+			    VAR SelectedDates = VALUES( 'DimDate'[Start Of Month] )
+			    VAR __MultipleYearsInContext = YEAR( __StartDate ) <> YEAR( __EndDate )
+			    
+			    // Find what the previous and next month-year combination is and add the values as a column
+			    VAR AddPreviousDates = 
+			        ADDCOLUMNS(
+			            SelectedDates,
+			            "@PreviousMonthYear", 
+			            MAXX(
+			                FILTER(	SelectedDates,
+			                    'DimDate'[Start Of Month] < EARLIER( 'DimDate'[Start Of Month] ) ),
+			                'DimDate'[Start Of Month] ),
+			            "@NextMonthYear", 
+			            MINX(
+			                FILTER(	SelectedDates,
+			                    'DimDate'[Start Of Month] > EARLIER( 'DimDate'[Start Of Month] ) ),
+			                'DimDate'[Start Of Month] )
+			        )
+			    /* Based on whether the previous or next month-year combination in the context is consecutive, define logic.
+			        - The very last combination should end with both the month (short) and the year value.
+			        - The start of a range should start with month (short) and end with a dash "-" to indicate the start of a range
+			        - All values within a range return blank, they don't need to be included
+			        - A single month (outside of a range) or the last month in a range should both show: Month (short) and a separator (pipe symbol ) */
+			
+			    VAR __ConcatenationLogic = 
+			        ADDCOLUMNS(
+			            AddPreviousDates,
+			            "@PartOfRange",
+			            VAR  __NextMonth = EDATE( 'DimDate'[Start Of Month], 1 )
+			            VAR  __PrevMonth = EDATE( 'DimDate'[Start Of Month], - 1 )
+			            VAR  __StringElements = 
+			            SWITCH(
+			                TRUE(),
+			                /* __________________ Multiple year logic ____________________________ */
+			                
+			                ISBLANK( [@NextMonthYear] ), FORMAT( 'DimDate'[Start Of Month], "mmm yyyy " ),   // The last period of all periods
+			                
+			                __NextMonth = [@NextMonthYear] && __PrevMonth <> [@PreviousMonthYear] && __MultipleYearsInContext, FORMAT( 'DimDate'[Start Of Month], "mmm yyyy - " ),     // The first period in a range, when multiple years are selected
+			
+			
+			                YEAR( [@NextMonthYear] ) <> YEAR( 'DimDate'[Start Of Month] ) && NOT ( __IsConsecutivePeriod ), FORMAT( 'DimDate'[Start Of Month], "mmm yyyy | " ),       // The last period in current year (in non consecutive selection)
+			                
+			                __MultipleYearsInContext && __NextMonth <> [@NextMonthYear] && __PrevMonth <> [@PreviousMonthYear], FORMAT( 'DimDate'[Start Of Month], "mmm yyyy | " ),    // A period outside of a range
+			                __MultipleYearsInContext && __NextMonth <> [@NextMonthYear] && __PrevMonth = [@PreviousMonthYear], FORMAT( 'DimDate'[Start Of Month], "mmm yyyy | " ),     // Last period value in a range
+			                
+			                /* __________________ Single Year Logic   ____________________________ */
+			                
+			                __NextMonth <> [@NextMonthYear] && __PrevMonth <> [@PreviousMonthYear], FORMAT( 'DimDate'[Start Of Month], "mmm | " ),     // A month outside of a range
+			                __NextMonth <> [@NextMonthYear] && __PrevMonth = [@PreviousMonthYear],  FORMAT( 'DimDate'[Start Of Month], "mmm | " ),     // The last date/month value in a range
+			                __NextMonth = [@NextMonthYear] && __PrevMonth <> [@PreviousMonthYear],  FORMAT( 'DimDate'[Start Of Month], "mmm - " ),     // The first period in a range, with a single year selection
+			                __NextMonth = [@NextMonthYear] && __PrevMonth = [@PreviousMonthYear],   BLANK()                                             // A month in the middle of a range
+			            )
+			            RETURN
+			            __StringElements
+			        )
+			    VAR __RemoveMiddleOfRange = FILTER( __ConcatenationLogic, [@PartOfRange] <> "" )
+			    VAR __YearRangeStartCorrection =
+			        ADDCOLUMNS(
+			            __RemoveMiddleOfRange,
+			            "@RangeElements",
+			            VAR __NextPartOfRange =
+			                MINX(
+			                    FILTER(	__RemoveMiddleOfRange, 'DimDate'[Start Of Month] > EARLIER( 'DimDate'[Start Of Month] ) ),
+			                    'DimDate'[Start Of Month] 
+			                )
+			            VAR Result =
+			            IF( 
+			                RIGHT( [@PartOfRange], 2 ) = "- " 
+			                    && YEAR( __NextPartOfRange ) = YEAR( 'DimDate'[Start Of Month] ), 
+			                LEFT( [@PartOfRange], 3 ) & RIGHT( [@PartOfRange], 3 ),
+			                [@PartOfRange]
+			            )
+			            RETURN Result
+			        )
+			                    
+			                    
+			    RETURN
+			       __PeriodPrefix & CONCATENATEX( __YearRangeStartCorrection, [@RangeElements], "", 'DimDate'[Start Of Month], ASC ),
+			       
+			/* _________________________________________________________________________________________________________________________________________________________ 
+			        When the selection consists of a single day, simply return the day */
+			
+			        __DaysInCurrentContext = 1,
+			        __PeriodPrefix & FORMAT( VALUES( 'DimDate'[Date] ), "d mmm yyyy" ),
+			       
+			/* _________________________________________________________________________________________________________________________________________________________
+			         Define non-consecutive periods within the same month , e.g. 1 jan 2023, 5 jan 2023, 6 jan 2023 -> 
+			         returns: niet openeenvolgende datums in Jan 2023 */
+			                VAR SameYearMonth =      __FormattedStartDateMonth = __FormattedEndMonth 
+			                RETURN  
+			        __IsSingleYear &&  SameYearMonth && NOT( __IsConsecutivePeriod ),
+			           __PeriodPrefix & __DiverseDates & __FormattedStartDateMonth,
+			
+			/* _________________________________________________________________________________________________________________________________________________________
+			         Define consecutive periods within the same month , e.g. 1 - 3 jan 2023
+			         returns: niet openeenvolgende datums in Jan 2023 */
+			                VAR SameYearMonth =      __FormattedStartDateMonth = __FormattedEndMonth 
+			
+			                RETURN  
+			        __IsSingleYear &&  SameYearMonth &&  __IsConsecutivePeriod,
+			                VAR __FormattedStartDayShort = FORMAT( __StartDate, "d" )
+			                VAR __FormattedEndDayMonth = FORMAT( __EndDate, "d mmm yyyy" )
+			            RETURN
+			        __PeriodPrefix & __FormattedStartDayShort & " - " & __FormattedEndDayMonth,
+			
+			/* _________________________________________________________________________________________________________________________________________________________
+			        Define consecutive date range within the year where end date is not end of the month, but start date is start of the month. 
+			        In those cases, return the short full date format of both the start and end date , e.g. 1 jan 2023 t/m 19 feb 2023-> 
+			        returns: 1 jan 2023 - 19 feb 2023*/
+			            VAR __DatesNotStartTillEndOfMonth =      __EndDate <>  EOMONTH( __EndDate, 0 ) || __StartDate =  ( EOMONTH( __StartDate, - 1 ) + 1 )
+			        RETURN
+			        __IsSingleYear && __DatesNotStartTillEndOfMonth /* && __StartDate_IsStartOfMonth */ && __IsConsecutivePeriod,
+			                VAR __FormattedStartDateShort = FORMAT( __StartDate, "d mmm" ) 
+			            RETURN 
+			            __PeriodPrefix & __FormattedStartDateShort & " - " & __FormattedEndDate
+			          
+			    )
+			RETURN     
+			    
+			    SWITCH(
+			        TRUE(),
+			        ISBLANK( __Result ), "Selected Period: See Date Slicers",
+			        __Result
+			    )
+			```
+		displayFolder: 02 Time Intelligence\Date Selection
+		lineageTag: e5871e3c-cefa-4e65-aaaf-cb104cdabeb7
+
+	measure 'Sum PO Year' = SUM('Data'[PO Year])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: e0225dea-53e3-48d3-8158-6c224128e043
+
+	measure 'Sum Supplier Tier' = SUM('Data'[Supplier Tier])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: f527b7b3-43ac-4a18-9398-a49c2216dcf2
+
+	measure 'Sum Supplier Latitude' = SUM('Data'[Supplier Latitude])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: eafb97c4-a036-4116-8c6d-c4a929d5fd2a
+
+	measure 'Sum Supplier Longitude' = SUM('Data'[Supplier Longitude])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: 76ddedaf-13db-42bc-834b-30395bc08bc6
+
+	measure 'Sum Unit Price' = SUM('Data'[Unit Price])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: a6b42b84-efd2-44fb-a6c7-1de886bb419a
+
+	measure 'Sum Quantity' = SUM('Data'[Quantity])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: f0e8d4b2-d27b-4ea8-b919-5b4e3acfb62e
+
+	measure 'Sum Discount Pct' = SUM('Data'[Discount Pct])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: d58c2572-581e-4a02-be81-d5b4cbcdbfba
+
+	measure 'Sum Discount Amount' = SUM('Data'[Discount Amount])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: 1c7e2fae-28b8-4f9b-a6e9-5790f2c292c8
+
+	measure 'Sum Tax Pct' = SUM('Data'[Tax Pct])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: 3bccb512-d073-434a-8d00-7e15c236fbe6
+
+	measure 'Sum Tax Amount' = SUM('Data'[Tax Amount])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: 712358a0-0f55-4358-831f-1ee350bc0fc7
+
+	measure 'Sum Line Total Gross' = SUM('Data'[Line Total Gross])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: f1701ab1-5676-498e-92a3-807a94ca3682
+
+	measure 'Sum Line Net' = SUM('Data'[Line Net])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: 86f96acc-c8f9-41f1-a046-40f582c7bc6a
+
+	measure 'Sum Line Total Inc Tax' = SUM('Data'[Line Total Inc Tax])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: ebdc54c1-3619-4f87-8416-e7f8c5f95136
+
+	measure 'Sum Budget Unit Price' = SUM('Data'[Budget Unit Price])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: e37d2bb8-9f0b-4910-926d-fa0140efe5fa
+
+	measure 'Sum Budget Total' = SUM('Data'[Budget Total])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: 27892b90-740c-4190-b046-eee5dbf14522
+
+	measure 'Sum Savings Amount' = SUM('Data'[Savings Amount])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: d90c4a0e-6a95-40ec-aac5-6746a241852f
+
+	measure 'Sum Savings Pct' = SUM('Data'[Savings Pct])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: 359f8814-8809-43a0-94c7-b8d4f208f1d8
+
+	measure 'Sum Days Late' = SUM('Data'[Days Late])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: 0ecc3c6a-0907-4c17-8359-270da2b76f30
+
+	measure 'Sum Lead Time Days' = SUM('Data'[Lead Time Days])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: da52c2bf-f855-40d0-8405-96644b5cd2f0
+
+	measure 'Sum Supplier ESG Score' = SUM('Data'[Supplier ESG Score])
+		isHidden
+		displayFolder: 99 Hidden\Sum Helpers
+		lineageTag: 9196532f-0a95-4d1a-9aff-173c738b6e21
+
+	measure 'Total Spend' = SUM('Data'[Line Net])
+		formatString: #,0
+		displayFolder: 01 KPIs;03 Spend
+		lineageTag: d1174ed6-0610-46a6-8472-6a9a6cd1f0b6
+
+		annotation PBI_FormatHint = {"isDecimal":true}
+
+	measure 'Total Budget' = SUM('Data'[Budget Total])
+		formatString: #,0
+		displayFolder: 01 KPIs;04 Budget & Variance
+		lineageTag: 05c3c4ae-a3f8-411e-a34d-c17b74d0d44f
+
+		annotation PBI_FormatHint = {"isDecimal":true}
+
+	measure 'PO Count' = DISTINCTCOUNT('Data'[PO Number])
+		formatString: #,0
+		displayFolder: 01 KPIs;03 Spend
+		lineageTag: a968316d-3ea4-4a03-9b7f-3ea12c41d9a5
+
+	measure 'Avg Spend per PO' = DIVIDE([Total Spend], [PO Count])
+		formatString: #,0.00
+		displayFolder: 01 KPIs;03 Spend
+		lineageTag: dfa0d3cb-0117-4f96-98ae-3b0475a450d2
+
+	measure 'Spend PY' = CALCULATE([Total Spend], SAMEPERIODLASTYEAR('DimDate'[Date]))
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\YoY
+		lineageTag: c587ad28-f0a4-4676-83e5-1819036ff473
+
+	measure 'Spend YoY $' =
+			VAR _py = [Spend PY]
+			RETURN IF(NOT ISBLANK(_py), [Total Spend] - _py)
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\YoY
+		lineageTag: 6ffce91c-3615-42fe-bcea-c51fabdaf1a6
+
+	measure 'Spend YoY %' = DIVIDE([Spend YoY $], [Spend PY])
+		formatString: 0.0%
+		displayFolder: 02 Time Intelligence\YoY
+		lineageTag: a456026f-1b14-4af4-b0d3-89e2d24a3c63
+
+	measure 'Spend YTD' = TOTALYTD([Total Spend], 'DimDate'[Date])
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\YTD
+		lineageTag: 2e34ed9a-751f-4f24-a7a1-a195bfb1dd8e
+
+	measure 'Spend PYTD' = CALCULATE([Total Spend], DATESYTD(SAMEPERIODLASTYEAR('DimDate'[Date])))
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\YTD
+		lineageTag: 4e91bdb0-838c-41fc-8571-14a0d5fbc762
+
+	measure 'Spend YTD vs PYTD $' =
+			VAR _pytd = [Spend PYTD]
+			RETURN IF(NOT ISBLANK(_pytd), [Spend YTD] - _pytd)
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\YTD
+		lineageTag: 50a97ee4-43f2-4128-91be-98e8f7c0f313
+
+	measure 'Spend YTD vs PYTD %' = DIVIDE([Spend YTD vs PYTD $], [Spend PYTD])
+		formatString: 0.0%
+		displayFolder: 02 Time Intelligence\YTD
+		lineageTag: e8b4e94b-ae4d-4cdc-9fee-79e38e0ca000
+
+	measure 'Spend MTD' = TOTALMTD([Total Spend], 'DimDate'[Date])
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\MTD QTD
+		lineageTag: ceb0353d-9593-4fc0-bad5-9e5fdc337ea8
+
+	measure 'Spend QTD' = TOTALQTD([Total Spend], 'DimDate'[Date])
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\MTD QTD
+		lineageTag: 148d1012-07fd-41ea-ae6e-64a50c7b78e4
+
+	measure 'Spend PM' = CALCULATE([Total Spend], DATEADD('DimDate'[Date], -1, MONTH))
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\MoM
+		lineageTag: b11e0fe7-a28d-4a44-9f1c-4f71b68b0d05
+
+	measure 'Spend MoM $' =
+			VAR _pm = [Spend PM]
+			RETURN IF(NOT ISBLANK(_pm), [Total Spend] - _pm)
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\MoM
+		lineageTag: b759f4ef-2bec-43d4-bf34-b5bf04df65c4
+
+	measure 'Spend MoM %' = DIVIDE([Spend MoM $], [Spend PM])
+		formatString: 0.0%
+		displayFolder: 02 Time Intelligence\MoM
+		lineageTag: bfc90634-6182-4ee5-8ecf-4885998f911c
+
+	measure 'Spend Rolling 12M' =
+			CALCULATE(
+			    [Total Spend],
+			    DATESINPERIOD('DimDate'[Date], LASTDATE('DimDate'[Date]), -12, MONTH)
+			)
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\Rolling
+		lineageTag: 9eb747f7-c9d1-4584-a0ca-a7fedcb59d1a
+
+	measure 'Spend vs Budget $' =
+			VAR _bud = [Total Budget]
+			RETURN IF(NOT ISBLANK(_bud), [Total Spend] - _bud)
+		formatString: #,0.00
+		displayFolder: 04 Budget & Variance
+		lineageTag: f41e93c9-d145-4749-bfcf-132e31daca2a
+
+	measure 'Spend vs Budget %' = DIVIDE([Spend vs Budget $], [Total Budget])
+		formatString: 0.0%
+		displayFolder: 04 Budget & Variance
+		lineageTag: 6d5773a5-5a38-4ceb-9762-1a1bf9f2d114
+
+	measure 'Spend Cumulative' =
+			CALCULATE(
+			    [Total Spend],
+			    FILTER(
+			        ALL('DimDate'[Date]),
+			        'DimDate'[Date] <= MAX('DimDate'[Date])
+			    )
+			)
+		formatString: #,0.00
+		displayFolder: 02 Time Intelligence\Rolling
+		lineageTag: 80b87308-33f4-4800-988e-ddadb5b64c3a
+
+	measure 'On-Time Deliveries' = CALCULATE([PO Count], 'Data'[On Time Delivery] = "Yes")
+		formatString: #,##0
+		displayFolder: 07 Delivery & Lead Time
+		lineageTag: 959dbe3d-9aba-422d-a2e0-df5b650f95df
+
+	measure 'Late Deliveries' = CALCULATE([PO Count], 'Data'[On Time Delivery] = "No")
+		formatString: #,##0
+		displayFolder: 07 Delivery & Lead Time
+		lineageTag: 96e0fc3f-ff83-44bb-95bf-b0cd293227b4
+
+	measure 'On-Time Delivery %' = DIVIDE([On-Time Deliveries], [PO Count])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 01 KPIs;07 Delivery & Lead Time
+		lineageTag: 19649568-ec94-4ac2-b8a2-392e75db928b
+
+	measure 'Avg Days Late' = AVERAGEX(FILTER('Data', 'Data'[On Time Delivery] = "No"), 'Data'[Days Late])
+		formatString: 0.00
+		displayFolder: 07 Delivery & Lead Time
+		lineageTag: 5bb83e59-24fc-4f73-9925-da3d8c75cefa
+
+	measure 'Avg Lead Time Days' = AVERAGE('Data'[Lead Time Days])
+		formatString: 0.00
+		displayFolder: 01 KPIs;07 Delivery & Lead Time
+		lineageTag: 0046ce80-c013-4a80-a78b-078ed6b9265d
+
+	measure 'Max Days Late' = MAX('Data'[Days Late])
+		formatString: 0.00
+		displayFolder: 07 Delivery & Lead Time
+		lineageTag: 48047a5d-f301-4b22-a51e-1a8bf7184466
+
+	measure 'Total Savings' = SUM('Data'[Savings Amount])
+		formatString: #,##0;-#,##0;0
+		displayFolder: 01 KPIs;05 Savings
+		lineageTag: 53b7cda8-f96d-444e-8a00-ed7542a06c62
+
+	measure 'Savings % 5' = DIVIDE([Total Savings], [Total Budget])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 05 Savings
+		lineageTag: b2b5125b-4524-4cbd-83ba-9206943c187b
+
+	measure 'Avg Savings % per PO' = AVERAGE('Data'[Savings Pct])
+		formatString: #,##0;-#,##0;0
+		displayFolder: 05 Savings
+		lineageTag: 10e4b247-e11e-4aaa-88fd-45515f8c7017
+
+	measure 'Maverick Spend' = CALCULATE([Total Spend], 'Data'[Maverick Spend] = "Yes")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 08 Compliance\Maverick
+		lineageTag: dbf2639b-838c-413e-8a26-c5fd2ad8eeb6
+
+	measure 'Maverick Spend %' = DIVIDE([Maverick Spend], [Total Spend])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 01 KPIs;08 Compliance\Maverick
+		lineageTag: d8cd9a05-1902-4992-9f43-4dab56f7b6a1
+
+	measure 'Maverick PO Count' = CALCULATE([PO Count], 'Data'[Maverick Spend] = "Yes")
+		formatString: #,##0
+		displayFolder: 08 Compliance\Maverick
+		lineageTag: d44815bd-073b-49c3-9413-692440fc6064
+
+	measure 'Single Source Spend' = CALCULATE([Total Spend], 'Data'[Single Source Flag] = "Yes")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\Single Source
+		lineageTag: 8210239f-d757-49ae-bf3b-b7a85715042c
+
+	measure 'Preferred Supplier Spend' = CALCULATE([Total Spend], 'Data'[Preferred Supplier] = "Yes")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\Preferred
+		lineageTag: 368f7b2b-7587-498f-b2ae-4d64a3702246
+
+	measure 'Non-Preferred Supplier Spend' = CALCULATE([Total Spend], 'Data'[Preferred Supplier] = "No")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\Preferred
+		lineageTag: 9e1c3a0a-45f9-47f7-b46c-d8884f8b3c66
+
+	measure 'Preferred Supplier Spend %' = DIVIDE([Preferred Supplier Spend], [Total Spend])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 01 KPIs;06 Suppliers\Preferred
+		lineageTag: 9e34f4fb-7893-45bb-a335-59b916679f9f
+
+	measure 'Distinct Suppliers' = DISTINCTCOUNT('Data'[Supplier ID])
+		formatString: #,##0
+		displayFolder: 06 Suppliers\Counts
+		lineageTag: 01af3c42-eaa4-4b22-b66d-717aeda8dfab
+
+	measure 'Active Suppliers' = CALCULATE(DISTINCTCOUNT('Data'[Supplier ID]), 'Data'[PO Status] IN { "Open", "Closed" })
+		formatString: #,##0
+		displayFolder: 06 Suppliers\Counts
+		lineageTag: d3218e50-2791-4089-b23c-b4d6b4ab8938
+
+	measure 'Avg Supplier ESG Score' = AVERAGEX(VALUES('DimSupplier'[Supplier ID]), CALCULATE(MAX('DimSupplier'[Supplier ESG Score])))
+		formatString: 0.00
+		displayFolder: 06 Suppliers\ESG
+		lineageTag: ec7cb5b6-40be-44c4-852f-f8890e24fb0f
+
+	measure 'Spend Weighted ESG Score' = DIVIDE(SUMX('Data', 'Data'[Line Net] * 'Data'[Supplier ESG Score]), [Total Spend])
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\ESG
+		lineageTag: 2d7e99dc-82dc-4c6a-bc8b-1064763aa05b
+
+	measure 'High Risk Spend' = CALCULATE([Total Spend], 'Data'[Supplier Risk] = "High")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\Risk
+		lineageTag: 64a3b5ce-83f9-4944-8921-d7ff9c8c925a
+
+	measure 'High Risk Spend %' = DIVIDE([High Risk Spend], [Total Spend])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 01 KPIs;06 Suppliers\Risk
+		lineageTag: 442a66e5-ef78-4ea1-9f35-73debf436c47
+
+	measure 'Medium Risk Spend' = CALCULATE([Total Spend], 'Data'[Supplier Risk] = "Medium")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\Risk
+		lineageTag: e90319bf-86fb-45b6-83a3-638cfd2ae23a
+
+	measure 'Low Risk Spend' = CALCULATE([Total Spend], 'Data'[Supplier Risk] = "Low")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\Risk
+		lineageTag: ec51039a-0d7f-4813-bd37-7c5c3498f515
+
+	measure 'Local Spend' = CALCULATE([Total Spend], 'Data'[Local International] = "Local")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\Geography
+		lineageTag: 53a633c1-d127-4503-8444-cda52b89d0cc
+
+	measure 'International Spend' = CALCULATE([Total Spend], 'Data'[Local International] = "International")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\Geography
+		lineageTag: 76efa3b1-02cf-4b3b-a9e4-0d683fa408af
+
+	measure 'Local Spend %' = DIVIDE([Local Spend], [Total Spend])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 06 Suppliers\Geography
+		lineageTag: 5812f194-dd38-405a-93e7-01aa5ccdf70a
+
+	measure 'Invoices Paid' = CALCULATE([PO Count], 'Data'[Invoice Status] = "Paid")
+		formatString: #,##0
+		displayFolder: 09 Invoice & Payment\Status
+		lineageTag: aa7a3428-5a26-41af-82e0-f17bab5fea5e
+
+	measure 'Invoices Overdue' = CALCULATE([PO Count], 'Data'[Invoice Status] = "Overdue")
+		formatString: #,##0
+		displayFolder: 09 Invoice & Payment\Status
+		lineageTag: ec2258d7-950f-4722-ae0b-30e59d17061a
+
+	measure 'Invoices Disputed' = CALCULATE([PO Count], 'Data'[Invoice Status] = "Disputed")
+		formatString: #,##0
+		displayFolder: 09 Invoice & Payment\Status
+		lineageTag: a89150a1-d950-4df1-a546-7f425de6d6ad
+
+	measure 'Invoices Pending' = CALCULATE([PO Count], 'Data'[Invoice Status] = "Pending")
+		formatString: #,##0
+		displayFolder: 09 Invoice & Payment\Status
+		lineageTag: e8659bc6-11c4-4f49-8a19-19c63f159194
+
+	measure 'Invoices Overdue %' = DIVIDE([Invoices Overdue], [PO Count])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 01 KPIs;09 Invoice & Payment\Status
+		lineageTag: 28e7455f-c197-4bc0-a3a3-c32d769e8774
+
+	measure 'Invoices Disputed %' = DIVIDE([Invoices Disputed], [PO Count])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 09 Invoice & Payment\Status
+		lineageTag: bbeb29a6-c842-46cb-aa51-2773d1d33b25
+
+	measure 'Spend Overdue' = CALCULATE([Total Spend], 'Data'[Invoice Status] = "Overdue")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 09 Invoice & Payment\Spend
+		lineageTag: 636ce99e-57f7-4410-bad9-6d439449dda5
+
+	measure 'Spend Disputed' = CALCULATE([Total Spend], 'Data'[Invoice Status] = "Disputed")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 09 Invoice & Payment\Spend
+		lineageTag: ba02a1b5-f53b-4d49-aafa-4d2b6382196d
+
+	measure 'Spend On Hold' = CALCULATE([Total Spend], 'Data'[Payment Status] = "On Hold")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 09 Invoice & Payment\Spend
+		lineageTag: 78750ba4-0719-4ad0-b0a5-8a00c0c402b6
+
+	measure '3-Way Match %' = DIVIDE(CALCULATE([PO Count], 'Data'[Invoice Match Type] = "3-Way Match"), [PO Count])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 09 Invoice & Payment\Match
+		lineageTag: 1b077e76-460b-4aa2-82f6-2a17a554ffea
+
+	measure 'Unmatched Invoice %' = DIVIDE(CALCULATE([PO Count], 'Data'[Invoice Match Type] = "No Match"), [PO Count])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 01 KPIs;09 Invoice & Payment\Match
+		lineageTag: 06f66103-c935-4164-ba35-d4038edbf0e2
+
+	measure 'Unmatched Spend' = CALCULATE([Total Spend], 'Data'[Invoice Match Type] = "No Match")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 09 Invoice & Payment\Match
+		lineageTag: af5c866b-d9ed-497c-a374-8611c950beda
+
+	measure 'Open PO Count' = CALCULATE([PO Count], 'Data'[PO Status] = "Open")
+		formatString: #,##0
+		displayFolder: 10 PO Lifecycle
+		lineageTag: 3838bdd9-f2b7-4735-959a-89c50eb65385
+
+	measure 'Cancelled PO Count' = CALCULATE([PO Count], 'Data'[PO Status] = "Cancelled")
+		formatString: #,##0
+		displayFolder: 10 PO Lifecycle
+		lineageTag: bbc7ec5e-4be3-4620-82a3-c490a55af7da
+
+	measure 'Disputed PO Count' = CALCULATE([PO Count], 'Data'[PO Status] = "Disputed")
+		formatString: #,##0
+		displayFolder: 10 PO Lifecycle
+		lineageTag: a994370b-2b7d-4101-9768-e846d664d64a
+
+	measure 'Cancelled PO %' = DIVIDE([Cancelled PO Count], [PO Count])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 10 PO Lifecycle
+		lineageTag: 88c95084-d908-4616-bece-f64155c83e12
+
+	measure 'Emergency PO Spend' = CALCULATE([Total Spend], 'Data'[PO Type] = "Emergency")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 10 PO Lifecycle
+		lineageTag: 6d28d12a-c1c3-469e-9b4b-958b0d361fde
+
+	measure 'Emergency PO Spend %' = DIVIDE([Emergency PO Spend], [Total Spend])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 10 PO Lifecycle
+		lineageTag: 55b87767-61bf-48e0-a96b-ae3da21d93de
+
+	measure 'Distinct Categories' = DISTINCTCOUNT('Data'[Category])
+		formatString: #,##0
+		displayFolder: 08 Compliance\Categories & Departments
+		lineageTag: 5a4b0113-6e8a-479e-b2bb-ac352341ad3f
+
+	measure 'Distinct Departments' = DISTINCTCOUNT('Data'[Department])
+		formatString: #,##0
+		displayFolder: 08 Compliance\Categories & Departments
+		lineageTag: bc12ad27-7a85-4225-ad9a-eee9a9159601
+
+	measure 'Distinct Contracts' = CALCULATE(DISTINCTCOUNT('Data'[Contract ID]), 'Data'[Contract ID] <> "NO-CONTRACT")
+		formatString: #,##0
+		displayFolder: 08 Compliance\Contracts
+		lineageTag: 79804bcb-8dc4-46ae-aad3-b61543e4d14d
+
+	measure 'No-Contract Spend' = CALCULATE([Total Spend], 'Data'[Contract ID] = "NO-CONTRACT")
+		formatString: #,##0;-#,##0;0
+		displayFolder: 08 Compliance\Maverick
+		lineageTag: 110fa549-88bc-4d64-bb76-a6a64c62de30
+
+	measure 'No-Contract Spend %' = DIVIDE([No-Contract Spend], [Total Spend])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 01 KPIs;08 Compliance\Maverick
+		lineageTag: 9ab4cae7-9971-4269-804c-ddb433e2d361
+
+	measure 'Top 1 Supplier Spend' = MAXX(VALUES('DimSupplier'[Supplier ID]), [Total Spend])
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\Concentration
+		lineageTag: 3b3086cb-7861-4ea8-a812-4cc577e81691
+
+	measure 'Top 5 Suppliers Spend' = VAR _t = TOPN(5, VALUES('DimSupplier'[Supplier ID]), [Total Spend], DESC) RETURN SUMX(_t, [Total Spend])
+		formatString: #,##0;-#,##0;0
+		displayFolder: 06 Suppliers\Concentration
+		lineageTag: d472e988-5c48-458b-adc4-412216753c23
+
+	measure 'Top 5 Supplier Concentration %' = DIVIDE([Top 5 Suppliers Spend], [Total Spend])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 01 KPIs;06 Suppliers\Concentration
+		lineageTag: 1615b4e8-a850-4845-ab75-1769014a230f
+
+	measure 'Savings % 2' = DIVIDE([Total Savings], [Total Budget])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 05 Savings
+		lineageTag: 390102ad-724b-4c8f-9d11-9347d68557c2
+
+	measure 'Savings % 3' = DIVIDE([Total Savings], [Total Budget])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 05 Savings
+		lineageTag: 7678fcb7-caf3-47ba-91c4-b18f8b1b1426
+
+	measure 'Savings % 4' =
+			
+			DIVIDE([Total Savings], [Total Budget])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 05 Savings
+		lineageTag: 0ffc623e-bb1f-4dff-92b1-2c4003df6c9c
+
+	measure 'Single Source Spend %' = DIVIDE([Single Source Spend], [Total Spend])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 01 KPIs;06 Suppliers\Single Source
+		lineageTag: ec362c93-b634-46b2-9f33-c88b20d45a0a
+
+	measure 'Top Savings Colour' = ```
+			
+			VAR __top = "#ffb703"
+			VAR __main = "#1E6FD9"
+			
+			VAR __formatting =
+				IF (
+					[Savings % 2] > 0.11 , __top,
+					__main
+				)
+				
+			RETURN
+				FORMAT ( __formatting, "0" )
+			```
+		displayFolder: 05 Savings
+		lineageTag: 87409264-ba2f-4c6d-9ee6-d78119c2d767
+
+	measure 'Savings %' =
+			
+			DIVIDE([Total Savings], [Total Budget])
+		formatString: 0.0%;-0.0%;0.0%
+		displayFolder: 05 Savings
+		lineageTag: 81881498-9709-4242-be46-99acdb78f89d
+
+	measure 'TEST NaN' = 0/0
+		formatString: #,0.00
+		displayFolder: 99 Hidden\Test
+		lineageTag: c1cd9451-f3a6-4dc2-ab33-c0b73063db41
+
+	measure 'TEST Infinity' = 1/0
+		formatString: #,0.00
+		displayFolder: 99 Hidden\Test
+		lineageTag: 1745d88a-e873-4491-a90c-bcfa292857b4
+
+	measure 'TEST Blank' = BLANK()
+		formatString: #,0.00
+		displayFolder: 99 Hidden\Test
+		lineageTag: afc284db-b546-4379-b83a-4c47ae58b763
+
+	measure 'TEST Text' = IF([Total Spend] > 0, "On track", "Behind")
+		displayFolder: 99 Hidden\Test
+		lineageTag: 55c1a4a2-9f3e-4a51-b1c2-0d9e8f7a6b5c
+
+	measure 'TEST Date' = MAX('DimDate'[Date])
+		formatString: dd/mm/yyyy
+		displayFolder: 99 Hidden\Test
+		lineageTag: 66d2b5b3-af4f-4b62-c2d3-1eaf9f8b7c6d
+
+	partition __Measures = m
+		mode: import
+		source =
+				let
+				    Source = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText("i44FAA==", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type nullable text) meta [Serialized.Text = true]) in type table [Column1 = _t]),
+				    #"Changed Type" = Table.TransformColumnTypes(Source,{{"Column1", type text}}),
+				    #"Removed Columns" = Table.RemoveColumns(#"Changed Type",{"Column1"})
+				in
+				    #"Removed Columns"
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

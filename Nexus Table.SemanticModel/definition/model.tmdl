@@ -1,0 +1,27 @@
+model Model
+	culture: en-AU
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-AU
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_QueryOrder = ["Data","Vocabulary & Notes","DimDate","__Measures"]
+
+annotation PBI_ProTooling = ["DevMode"]
+
+annotation __TEdtr = 1
+
+ref table Data
+ref table 'Vocabulary & Notes'
+ref table DimDate
+ref table __Measures
+ref table DimSupplier
+ref table DimItem
+ref table DimCostCentre
+ref table DimContract
+
+ref cultureInfo en-AU
+

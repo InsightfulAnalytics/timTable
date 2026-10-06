@@ -1,0 +1,81 @@
+table DimSupplier
+	lineageTag: 3a4c5f2a-ec98-485c-b5d7-19e092c2cfe2
+
+	column 'Supplier ID'
+		lineageTag: 4628ad73-47d7-4d2d-b040-c2886e268281
+		isNameInferred
+		sourceColumn: Data[Supplier ID]
+
+	column 'Supplier Name'
+		lineageTag: 4a240e49-7177-4fb5-b3db-1862e04a4487
+		isNameInferred
+		sourceColumn: Data[Supplier Name]
+
+	column 'Supplier Country'
+		lineageTag: 2f279c0a-e86b-4e42-88e6-9d9c0211e415
+		isNameInferred
+		sourceColumn: Data[Supplier Country]
+
+	column 'Supplier Region'
+		lineageTag: 72ce444f-c317-4203-922b-0326c0e18f74
+		isNameInferred
+		sourceColumn: Data[Supplier Region]
+
+	column 'Supplier Status'
+		lineageTag: 3209e569-3d16-4d02-9146-c4012efbe32b
+		isNameInferred
+		sourceColumn: Data[Supplier Status]
+
+	column 'Supplier Risk'
+		lineageTag: 492a96ca-421c-4f81-97be-6f5fd39426e6
+		isNameInferred
+		sourceColumn: Data[Supplier Risk]
+
+	column 'Preferred Supplier'
+		lineageTag: 16665f4a-d80c-43f6-9ac7-dc8301901426
+		isNameInferred
+		sourceColumn: Data[Preferred Supplier]
+
+	column 'Local International'
+		lineageTag: 9478f8cf-ec3f-4279-993f-61ac7c83d35d
+		isNameInferred
+		sourceColumn: Data[Local International]
+
+	column 'Supplier Tier'
+		lineageTag: ff88b4bf-630a-4493-b69b-dac491cbcb57
+		isNameInferred
+		sourceColumn: [Supplier Tier]
+
+	column 'Supplier Latitude'
+		lineageTag: 0e998afb-e90e-468d-8bbe-99dd000e9a6d
+		isNameInferred
+		sourceColumn: [Supplier Latitude]
+
+	column 'Supplier Longitude'
+		lineageTag: 218a1c30-25f5-4331-8117-4fe4d573ac42
+		isNameInferred
+		sourceColumn: [Supplier Longitude]
+
+	column 'Supplier ESG Score'
+		lineageTag: 8b7d7c76-5cd5-4bc2-8c6e-357bc9f562fe
+		isNameInferred
+		sourceColumn: [Supplier ESG Score]
+
+	partition DimSupplier = calculated
+		source =
+				SUMMARIZE(
+				    'Data',
+				    'Data'[Supplier ID],
+				    'Data'[Supplier Name],
+				    'Data'[Supplier Country],
+				    'Data'[Supplier Region],
+				    'Data'[Supplier Status],
+				    'Data'[Supplier Risk],
+				    'Data'[Preferred Supplier],
+				    'Data'[Local International],
+				    "Supplier Tier",       MAX('Data'[Supplier Tier]),
+				    "Supplier Latitude",   MAX('Data'[Supplier Latitude]),
+				    "Supplier Longitude",  MAX('Data'[Supplier Longitude]),
+				    "Supplier ESG Score",  MAX('Data'[Supplier ESG Score])
+				)
+

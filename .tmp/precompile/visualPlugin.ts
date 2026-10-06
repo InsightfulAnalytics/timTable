@@ -5,9 +5,9 @@ import VisualConstructorOptions = powerbiVisualsApi.extensibility.visual.VisualC
 import DialogConstructorOptions = powerbiVisualsApi.extensibility.visual.DialogConstructorOptions;
 var powerbiKey: any = "powerbi";
 var powerbi: any = window[powerbiKey];
-var timTableDD1AB490372C46B5A64605746E322F55: IVisualPlugin = {
-    name: 'timTableDD1AB490372C46B5A64605746E322F55',
-    displayName: 'TimTable',
+var nexusTableC923C22635F640B8BDD36DC675C74832: IVisualPlugin = {
+    name: 'nexusTableC923C22635F640B8BDD36DC675C74832',
+    displayName: 'Nexus Table',
     class: 'Visual',
     apiVersion: '5.3.0',
     create: (options?: VisualConstructorOptions) => {
@@ -27,6 +27,6 @@ var timTableDD1AB490372C46B5A64605746E322F55: IVisualPlugin = {
 if (typeof powerbi !== "undefined") {
     powerbi.visuals = powerbi.visuals || {};
     powerbi.visuals.plugins = powerbi.visuals.plugins || {};
-    powerbi.visuals.plugins["timTableDD1AB490372C46B5A64605746E322F55"] = timTableDD1AB490372C46B5A64605746E322F55;
+    powerbi.visuals.plugins["nexusTableC923C22635F640B8BDD36DC675C74832"] = nexusTableC923C22635F640B8BDD36DC675C74832;
 }
-export default timTableDD1AB490372C46B5A64605746E322F55;
+export default nexusTableC923C22635F640B8BDD36DC675C74832;

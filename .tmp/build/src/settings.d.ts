@@ -188,7 +188,6 @@ export declare class SpecificColumnSettings extends formattingSettings.Composite
     alternateTextColor: formattingSettings.ColorPicker;
     alternateBackgroundColor: formattingSettings.ColorPicker;
     textWrap: formattingSettings.ToggleSwitch;
-    switchValuesToRows: formattingSettings.ToggleSwitch;
     alignment: formattingSettings.AlignmentGroup;
     displayUnits: formattingSettings.AutoDropdown;
     decimalPlaces: formattingSettings.NumUpDown;
@@ -225,6 +224,7 @@ export declare class SubTotalsSettings extends FormattingSettingsCard {
     displayName: string;
     visible: boolean;
     rowSubtotals: formattingSettings.ToggleSwitch;
+    columnSubtotals: formattingSettings.ToggleSwitch;
     levelSubtotalEnabled: formattingSettings.ToggleSwitch;
     slices: FormattingSettingsSlice[];
 }

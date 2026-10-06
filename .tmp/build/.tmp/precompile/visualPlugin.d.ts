@@ -1,4 +1,4 @@
 import powerbiVisualsApi from "powerbi-visuals-api";
 import IVisualPlugin = powerbiVisualsApi.visuals.plugins.IVisualPlugin;
-declare var timTableDD1AB490372C46B5A64605746E322F55: IVisualPlugin;
-export default timTableDD1AB490372C46B5A64605746E322F55;
+declare var nexusTableC923C22635F640B8BDD36DC675C74832: IVisualPlugin;
+export default nexusTableC923C22635F640B8BDD36DC675C74832;

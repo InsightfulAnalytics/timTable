@@ -7,5 +7,27 @@
       "Bash(grep -r \"Landing\" \"C:\\\\Users\\\\timos\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\powerbi-visuals-tools\" --include=\"*.js\" -l 2>/dev/null | head -10)",
       "Read(//c/Users/timos/AppData/Roaming/npm/node_modules/powerbi-visuals-tools/**)"
     ]
+  },
+  "enabledPlugins": {
+    "custom-visuals@skills-dir": true,
+    "etl@skills-dir": false,
+    "fabric-admin@skills-dir": false,
+    "fabric-cli@skills-dir": false,
+    "pbi-desktop@skills-dir": false,
+    "pbip@skills-dir": true,
+    "reports@skills-dir": true,
+    "semantic-models@skills-dir": false,
+    "tabular-editor@skills-dir": false,
+    "tim-web@skills-dir": true,
+    "tim-apps@skills-dir": false,
+    "tim-docs@skills-dir": false,
+    "tim-maker@skills-dir": false,
+    "tim-theme@skills-dir": false,
+    "obsidian@obsidian-skills": false,
+    "skill-creator@claude-plugins-official": false,
+    "frontend-design@claude-plugins-official": false,
+    "impeccable@impeccable": true,
+    "cloudflare@cloudflare": false,
+    "fabric-data-app@skills-dir": false
   }
 }

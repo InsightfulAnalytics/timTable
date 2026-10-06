@@ -898,12 +898,6 @@ export class SpecificColumnSettings extends formattingSettings.CompositeCard {
         visible: true
     });
 
-    public switchValuesToRows = new formattingSettings.ToggleSwitch({
-        name: "switchValuesToRows",
-        displayName: "Switch values to rows",
-        value: false,
-        visible: true
-    });
     public alignment = new formattingSettings.AlignmentGroup({
         name: "alignment",
         displayName: "Alignment",
@@ -1014,13 +1008,22 @@ export class ColumnWidthSettings extends FormattingSettingsCard {
 export class SubTotalsSettings extends FormattingSettingsCard {
     public name: string = "subTotals";
     public displayName: string = "Subtotals";
-    public visible: boolean = false;
+    // Must be visible: on API 5.x the host never calls enumerateObjectInstances once
+    // getFormattingModel exists, so this card is the ONLY way users can toggle subtotals.
+    public visible: boolean = true;
 
     public rowSubtotals = new formattingSettings.ToggleSwitch({
         name: "rowSubtotals",
         displayName: "Row subtotals",
         value: true,
-        visible: false
+        visible: true
+    });
+
+    public columnSubtotals = new formattingSettings.ToggleSwitch({
+        name: "columnSubtotals",
+        displayName: "Column subtotals",
+        value: true,
+        visible: true
     });
 
     public levelSubtotalEnabled = new formattingSettings.ToggleSwitch({
@@ -1030,7 +1033,7 @@ export class SubTotalsSettings extends FormattingSettingsCard {
         visible: false
     });
 
-    public slices: FormattingSettingsSlice[] = [this.rowSubtotals, this.levelSubtotalEnabled];
+    public slices: FormattingSettingsSlice[] = [this.rowSubtotals, this.columnSubtotals, this.levelSubtotalEnabled];
 }
 
 export class SortBySettings extends FormattingSettingsCard {

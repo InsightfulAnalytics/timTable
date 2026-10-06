@@ -1,0 +1,63 @@
+table DimContract
+	lineageTag: 8dad18ea-86ba-477d-98d1-40165e370c3d
+
+	column 'Contract ID'
+		lineageTag: a548797a-1045-4881-a35b-f9b20479c1a1
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Contract ID]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Contract Type'
+		lineageTag: 0a5c76c0-6192-43ba-bc1b-42dec5294c06
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Contract Type]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Contract Start'
+		formatString: General Date
+		lineageTag: cd72ed53-5d66-4f8a-b18c-0ec836e990ae
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Contract Start]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Contract End'
+		formatString: General Date
+		lineageTag: c2dcdda4-23a6-4258-b7de-f081f15d4232
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Contract End]
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Payment Terms'
+		lineageTag: d7dcdf19-8c6a-4a8e-8c0d-cffca8285840
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Payment Terms]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DimContract = calculated
+		source =
+				SELECTCOLUMNS(
+				    SUMMARIZE(
+				        FILTER('Data', NOT ISBLANK('Data'[Contract ID])),
+				        'Data'[Contract ID],
+				        "@ContractType",  CALCULATE(MAX('Data'[Contract Type])),
+				        "@ContractStart", CALCULATE(MIN('Data'[Contract Start])),
+				        "@ContractEnd",   CALCULATE(MAX('Data'[Contract End])),
+				        "@PaymentTerms",  CALCULATE(MAX('Data'[Payment Terms]))
+				    ),
+				    "Contract ID",    'Data'[Contract ID],
+				    "Contract Type",  [@ContractType],
+				    "Contract Start", [@ContractStart],
+				    "Contract End",   [@ContractEnd],
+				    "Payment Terms",  [@PaymentTerms]
+				)
+

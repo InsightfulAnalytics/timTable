@@ -1,0 +1,23 @@
+table DimCostCentre
+	lineageTag: efc7398e-7490-4703-ab84-5e30c58f9278
+
+	column 'Cost Centre'
+		lineageTag: b29fcd43-2ed5-4836-84aa-b2438b853fc5
+		isNameInferred
+		sourceColumn: [Cost Centre]
+
+	column Department
+		lineageTag: cc66429c-1fa7-4add-b10c-84b5eea38fe5
+		isNameInferred
+		sourceColumn: [Department]
+
+	partition DimCostCentre = calculated
+		source =
+				DISTINCT(
+				    SELECTCOLUMNS(
+				        'Data',
+				        "Cost Centre", 'Data'[Cost Centre],
+				        "Department",  'Data'[Department]
+				    )
+				)
+

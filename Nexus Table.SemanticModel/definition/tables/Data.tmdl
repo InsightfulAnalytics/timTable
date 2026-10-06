@@ -1,0 +1,552 @@
+table Data
+	lineageTag: 97596083-2b24-4b3c-b540-88995488ed61
+
+	measure 'Total Spend 2' = [Total Spend]
+		formatString: #,0
+		lineageTag: aadf5298-60b5-4906-bde9-b91cb779c849
+
+		annotation PBI_FormatHint = {"isDecimal":true}
+
+	column 'PO Number'
+		dataType: string
+		lineageTag: 4b71caf8-0b84-44c9-a47d-8542af228624
+		summarizeBy: none
+		sourceColumn: PO Number
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'PO Date'
+		dataType: dateTime
+		formatString: dd-mmm-yy
+		lineageTag: 4f8f1231-9ad2-4d33-8d5b-bde4b187bf0b
+		summarizeBy: none
+		sourceColumn: PO Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+		annotation PBI_FormatHint = {"isDateTimeCustom":true}
+
+	column 'PO Year'
+		dataType: int64
+		formatString: 0
+		lineageTag: e92a2d7e-71f9-4a44-9504-82d52826dfc6
+		summarizeBy: sum
+		sourceColumn: PO Year
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'PO Quarter'
+		dataType: string
+		lineageTag: cf7b34f3-ff12-42a1-b36c-9e218b90004f
+		summarizeBy: none
+		sourceColumn: PO Quarter
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'PO Month'
+		dataType: string
+		lineageTag: ef5fcad0-815c-43c0-b6a3-e54e17eec737
+		summarizeBy: none
+		sourceColumn: PO Month
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'PO Type'
+		dataType: string
+		lineageTag: d1212036-f115-43f9-870c-7f9cdf65f9e2
+		summarizeBy: none
+		sourceColumn: PO Type
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'PO Status'
+		dataType: string
+		lineageTag: 6517b196-a1e8-4286-8a8c-b13d87439d26
+		summarizeBy: none
+		sourceColumn: PO Status
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Supplier ID'
+		dataType: string
+		lineageTag: c66af05d-9fda-4b7a-9e94-70379ffe4775
+		summarizeBy: none
+		sourceColumn: Supplier ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Supplier Name'
+		dataType: string
+		lineageTag: a34a09e3-a7d7-468e-afba-7d8b7c293cb7
+		summarizeBy: none
+		sourceColumn: Supplier Name
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Supplier Country'
+		dataType: string
+		lineageTag: baef1e81-b1ce-4cd6-9b1d-496ef3b2264b
+		summarizeBy: none
+		sourceColumn: Supplier Country
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Supplier Region'
+		dataType: string
+		lineageTag: 2e674698-4cf2-40fb-ae69-69a32171960b
+		summarizeBy: none
+		sourceColumn: Supplier Region
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Supplier Tier'
+		dataType: int64
+		formatString: 0
+		lineageTag: b008ab54-d1b7-4a8e-9717-1196cd22cce5
+		summarizeBy: sum
+		sourceColumn: Supplier Tier
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Supplier Status'
+		dataType: string
+		lineageTag: f8f39fc6-2bc3-4901-a398-a7e3fb4fa5c1
+		summarizeBy: none
+		sourceColumn: Supplier Status
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Supplier Risk'
+		dataType: string
+		lineageTag: 2388f6b6-d975-41ba-96fd-f8319a2667e0
+		summarizeBy: none
+		sourceColumn: Supplier Risk
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Supplier Latitude'
+		dataType: double
+		lineageTag: 100ca4ad-947a-4677-a7d3-37e654bec6ca
+		summarizeBy: sum
+		sourceColumn: Supplier Latitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Supplier Longitude'
+		dataType: double
+		lineageTag: c0d54746-13f9-4eef-aa70-3c2a46a63af1
+		summarizeBy: sum
+		sourceColumn: Supplier Longitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Payment Terms'
+		dataType: string
+		lineageTag: 0641bd1c-00ae-4c24-9e24-c5442936b3d6
+		summarizeBy: none
+		sourceColumn: Payment Terms
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Item Code'
+		dataType: string
+		lineageTag: 9988f947-e450-494d-b31d-e10b83016623
+		summarizeBy: none
+		sourceColumn: Item Code
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Item Description'
+		dataType: string
+		lineageTag: ea898b6a-5108-4609-9263-641af7a80a42
+		summarizeBy: none
+		sourceColumn: Item Description
+
+		annotation SummarizationSetBy = Automatic
+
+	column Category
+		dataType: string
+		lineageTag: d51381a2-0c53-4be2-9a09-734b33a2f3c2
+		summarizeBy: none
+		sourceColumn: Category
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Sub Category'
+		dataType: string
+		lineageTag: 2e15cb2c-2dcb-40c3-a4f3-0a1c380b0c38
+		summarizeBy: none
+		sourceColumn: Sub Category
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Unit of Measure'
+		dataType: string
+		lineageTag: 5ea96697-f173-466f-bc66-1b1c615d1131
+		summarizeBy: none
+		sourceColumn: Unit of Measure
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Unit Price'
+		dataType: double
+		lineageTag: 8511c551-1e55-44a2-ad7a-81b26b4bf981
+		summarizeBy: sum
+		sourceColumn: Unit Price
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Quantity
+		dataType: int64
+		formatString: 0
+		lineageTag: 78b787c3-8cea-4561-aa07-b1b5b10a0efb
+		summarizeBy: sum
+		sourceColumn: Quantity
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Discount Pct'
+		dataType: int64
+		formatString: 0
+		lineageTag: 7a6954a5-a5f2-49b2-9069-98c5b5233b95
+		summarizeBy: sum
+		sourceColumn: Discount Pct
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Discount Amount'
+		dataType: double
+		lineageTag: 3cb82bd1-68ac-4de0-be73-5fe4b248d503
+		summarizeBy: sum
+		sourceColumn: Discount Amount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Tax Pct'
+		dataType: int64
+		formatString: 0
+		lineageTag: 27ec4006-4945-4b52-a7f5-9e1cfbab3ca6
+		summarizeBy: sum
+		sourceColumn: Tax Pct
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Tax Amount'
+		dataType: double
+		lineageTag: 60fab047-a827-4d2a-a34c-7944ba70b724
+		summarizeBy: sum
+		sourceColumn: Tax Amount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Line Total Gross'
+		dataType: double
+		lineageTag: a7d38423-d6ed-4bd5-81b1-71d8f29c68b7
+		summarizeBy: sum
+		sourceColumn: Line Total Gross
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Line Net'
+		dataType: double
+		lineageTag: 9c85b5a8-d568-436e-9308-ed5431d584ab
+		summarizeBy: sum
+		sourceColumn: Line Net
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Line Total Inc Tax'
+		dataType: double
+		lineageTag: be3cd7f4-3e67-433f-bacc-fd8c8eeae077
+		summarizeBy: sum
+		sourceColumn: Line Total Inc Tax
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Currency
+		dataType: string
+		lineageTag: 276a8f6a-b7da-4c7a-915c-7215690e1e05
+		summarizeBy: none
+		sourceColumn: Currency
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Budget Unit Price'
+		dataType: double
+		lineageTag: f0f582ee-c0bd-4717-ab55-4c39d0354c60
+		summarizeBy: sum
+		sourceColumn: Budget Unit Price
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Budget Total'
+		dataType: double
+		lineageTag: e95c8b70-e232-4028-9b07-26b6222dbf91
+		summarizeBy: sum
+		sourceColumn: Budget Total
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Savings Amount'
+		dataType: double
+		lineageTag: 775fccc6-fa9e-402c-aeed-618c214754ea
+		summarizeBy: sum
+		sourceColumn: Savings Amount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Savings Pct'
+		dataType: double
+		lineageTag: 729edc3a-bccb-40cf-8005-ffecfe7d2a30
+		summarizeBy: sum
+		sourceColumn: Savings Pct
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Requested Delivery'
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 26c09fa6-1b25-4f5a-a1ff-22ed8149f594
+		summarizeBy: none
+		sourceColumn: Requested Delivery
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Actual Delivery'
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: fb19e7c1-1722-489f-99bf-4311c4dc99cb
+		summarizeBy: none
+		sourceColumn: Actual Delivery
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Days Late'
+		dataType: int64
+		formatString: 0
+		lineageTag: c66befb6-93b1-4a2e-bb0a-3db4eb6bc3ca
+		summarizeBy: sum
+		sourceColumn: Days Late
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'On Time Delivery'
+		dataType: string
+		lineageTag: 2b0232f2-bb96-4044-99cd-65c471219661
+		summarizeBy: none
+		sourceColumn: On Time Delivery
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Lead Time Days'
+		dataType: int64
+		formatString: 0
+		lineageTag: edaf51a2-c3da-46ad-9ccf-05288873c314
+		summarizeBy: sum
+		sourceColumn: Lead Time Days
+
+		annotation SummarizationSetBy = Automatic
+
+	column Department
+		dataType: string
+		lineageTag: c6f1a44c-38d7-4715-9a9f-00bd623d6007
+		summarizeBy: none
+		sourceColumn: Department
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Cost Centre'
+		dataType: string
+		lineageTag: 26c2c235-c3bc-4114-85f9-c26705cfbf3e
+		summarizeBy: none
+		sourceColumn: Cost Centre
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Requestor Name'
+		dataType: string
+		lineageTag: da9efafb-e284-44ee-afa6-ee5ec4e7ab6e
+		summarizeBy: none
+		sourceColumn: Requestor Name
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Approver Name'
+		dataType: string
+		lineageTag: 79ec2535-236b-4501-86bc-3a10d7806c86
+		summarizeBy: none
+		sourceColumn: Approver Name
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Contract ID'
+		dataType: string
+		lineageTag: aa507ebd-b404-4ac2-83af-dd92ea206714
+		summarizeBy: none
+		sourceColumn: Contract ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Contract Type'
+		dataType: string
+		lineageTag: 8be7c9f3-1428-4f5d-bd3a-c2e28ebedead
+		summarizeBy: none
+		sourceColumn: Contract Type
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Contract Start'
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: bfe94001-a081-48f0-bf65-b61968ac9af7
+		summarizeBy: none
+		sourceColumn: Contract Start
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Contract End'
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 485efebe-ac49-45a2-80e8-730953644a8d
+		summarizeBy: none
+		sourceColumn: Contract End
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Invoice Status'
+		dataType: string
+		lineageTag: b8e0a106-16b7-48a7-93ab-0b77dff1436e
+		summarizeBy: none
+		sourceColumn: Invoice Status
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Payment Status'
+		dataType: string
+		lineageTag: 06ae77a7-d38a-4f00-af9f-e4619d5056bb
+		summarizeBy: none
+		sourceColumn: Payment Status
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Invoice Match Type'
+		dataType: string
+		lineageTag: 6636c80a-0c84-41e6-8781-3a20dac06ecb
+		summarizeBy: none
+		sourceColumn: Invoice Match Type
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Maverick Spend'
+		dataType: string
+		lineageTag: 298dd5ac-56a6-4ec8-8a4c-954fb7d91ca8
+		summarizeBy: none
+		sourceColumn: Maverick Spend
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Single Source Flag'
+		dataType: string
+		lineageTag: 50e6a786-777f-4965-bdfe-ad9cc2339822
+		summarizeBy: none
+		sourceColumn: Single Source Flag
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Preferred Supplier'
+		dataType: string
+		lineageTag: 3e3e26e3-d555-44ba-aaeb-37223fd02186
+		summarizeBy: none
+		sourceColumn: Preferred Supplier
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Local International'
+		dataType: string
+		lineageTag: 2783a187-3cc0-43c4-98b0-785c17dbf840
+		summarizeBy: none
+		sourceColumn: Local International
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Supplier ESG Score'
+		dataType: double
+		lineageTag: 1dc2367e-f607-4367-8e9d-036d0bc5bc68
+		summarizeBy: sum
+		sourceColumn: Supplier ESG Score
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Column58
+		dataType: string
+		lineageTag: 2e36e342-8d8a-400e-8ff2-4fdd3d64321a
+		summarizeBy: none
+		sourceColumn: Column58
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Data = m
+		mode: import
+		source = ```
+				let
+				    Source = Excel.Workbook(File.Contents("B:\IT & Data\Data\Challenges\FP20 Procurement\FP20_Procurement_C37 Dataset.xlsx"), null, true),
+				    Data_Sheet = Source{[Item="Data",Kind="Sheet"]}[Data],
+				    #"Promoted Headers" = Table.PromoteHeaders(Data_Sheet, [PromoteAllScalars=true]),
+				    #"Removed Top Rows" = Table.Skip(#"Promoted Headers",1),
+				    #"Promoted Headers1" = Table.PromoteHeaders(#"Removed Top Rows", [PromoteAllScalars=true]),
+				    ChangeTypes = Table.TransformColumnTypes(#"Promoted Headers1",{{"PO Number", type text}, {"PO Date", type date}, {"PO Year", Int64.Type}, {"PO Quarter", type text}, {"PO Month", type text}, {"PO Type", type text}, {"PO Status", type text}, {"Supplier ID", type text}, {"Supplier Name", type text}, {"Supplier Country", type text}, {"Supplier Region", type text}, {"Supplier Tier", Int64.Type}, {"Supplier Status", type text}, {"Supplier Risk", type text}, {"Supplier Latitude", type number}, {"Supplier Longitude", type number}, {"Payment Terms", type text}, {"Item Code", type text}, {"Item Description", type text}, {"Category", type text}, {"Sub Category", type text}, {"Unit of Measure", type text}, {"Unit Price", type number}, {"Quantity", Int64.Type}, {"Discount Pct", Int64.Type}, {"Discount Amount", type number}, {"Tax Pct", Int64.Type}, {"Tax Amount", type number}, {"Line Total Gross", type number}, {"Line Net", type number}, {"Line Total Inc Tax", type number}, {"Currency", type text}, {"Budget Unit Price", type number}, {"Budget Total", type number}, {"Savings Amount", type number}, {"Savings Pct", type number}, {"Requested Delivery", type date}, {"Actual Delivery", type date}, {"Days Late", Int64.Type}, {"On Time Delivery", type text}, {"Lead Time Days", Int64.Type}, {"Department", type text}, {"Cost Centre", type text}, {"Requestor Name", type text}, {"Approver Name", type text}, {"Contract ID", type text}, {"Contract Type", type text}, {"Contract Start", type date}, {"Contract End", type date}, {"Invoice Status", type text}, {"Payment Status", type text}, {"Invoice Match Type", type text}, {"Maverick Spend", type text}, {"Single Source Flag", type text}, {"Preferred Supplier", type text}, {"Local International", type text}, {"Supplier ESG Score", type number}, {"Column58", type any}}),
+				
+				    // Table.ReplaceValue swaps the specified old value with a new value
+				    // Replacer.ReplaceValue is the function that handles exact matches
+				    // Table.ColumnNames dynamically fetches all columns in the table to apply the replacement across the board
+				    ReplaceZeroWithNull = Table.ReplaceValue(
+				        ChangeTypes, 
+				        0, 
+				        null, 
+				        Replacer.ReplaceValue, 
+				        Table.ColumnNames(ChangeTypes)
+				    )
+				in
+				    ReplaceZeroWithNull
+				```
+
+	annotation PBI_ResultType = Table
+
+	annotation PBI_NavigationStepName = Navigation
+
