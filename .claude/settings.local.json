@@ -30,5 +30,9 @@
     "fabric-data-app@skills-dir": false,
     "data@synced": false,
     "cowork-plugin-management@synced": false
+  },
+  "skillOverrides": {
+    "claude-api": "name-only",
+    "desktop-screen-capture": "off"
   }
 }
