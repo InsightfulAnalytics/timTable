@@ -10,26 +10,9 @@
   },
   "enabledPlugins": {
     "custom-visuals@skills-dir": true,
-    "etl@skills-dir": false,
-    "fabric-admin@skills-dir": false,
-    "fabric-cli@skills-dir": false,
-    "pbi-desktop@skills-dir": false,
-    "pbip@skills-dir": true,
-    "reports@skills-dir": true,
-    "semantic-models@skills-dir": false,
-    "tabular-editor@skills-dir": false,
-    "tim-web@skills-dir": false,
-    "tim-apps@skills-dir": false,
-    "tim-docs@skills-dir": false,
-    "tim-maker@skills-dir": false,
-    "tim-theme@skills-dir": false,
-    "obsidian@obsidian-skills": false,
-    "skill-creator@claude-plugins-official": false,
-    "frontend-design@claude-plugins-official": false,
     "impeccable@impeccable": true,
-    "fabric-data-app@skills-dir": false,
-    "data@synced": false,
-    "cowork-plugin-management@synced": false
+    "pbip@skills-dir": true,
+    "reports@skills-dir": true
   },
   "skillOverrides": {
     "claude-api": "name-only",
