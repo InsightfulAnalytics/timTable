@@ -18,7 +18,7 @@
     "reports@skills-dir": true,
     "semantic-models@skills-dir": false,
     "tabular-editor@skills-dir": false,
-    "tim-web@skills-dir": true,
+    "tim-web@skills-dir": false,
     "tim-apps@skills-dir": false,
     "tim-docs@skills-dir": false,
     "tim-maker@skills-dir": false,
@@ -27,7 +27,8 @@
     "skill-creator@claude-plugins-official": false,
     "frontend-design@claude-plugins-official": false,
     "impeccable@impeccable": true,
-    "cloudflare@cloudflare": false,
-    "fabric-data-app@skills-dir": false
+    "fabric-data-app@skills-dir": false,
+    "data@synced": false,
+    "cowork-plugin-management@synced": false
   }
 }
