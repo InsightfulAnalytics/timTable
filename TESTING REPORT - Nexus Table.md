@@ -122,7 +122,7 @@ The review fan-out completed; adversarial verification finished for the items ab
 - **Edge Tests** page in `Nexus Table.pbip` — 6 test visuals demonstrating blockers 2.1–2.3 live.
 - 5 hidden test measures in `__Measures` (`99 Hidden\Test` folder): TEST NaN / Infinity / Blank / Text / Date.
 - `test-evidence/edge-tests.png` (annotated by the visuals' titles), `test-evidence/totals-page.png`.
-- Full static-review detail (36 findings with traces): workflow journal at `C:\Users\timos\.claude\projects\b--VS-Code-Files-Visuals-timTable\aa9dc603-d614-4485-a22c-f71827cd790b\subagents\workflows\wf_b6aa8667-943\journal.jsonl`.
+- Full static-review detail (36 findings with traces): workflow journal at `C:\Users\timos\.claude\projects\W--visuals-timtable\aa9dc603-d614-4485-a22c-f71827cd790b\subagents\workflows\wf_b6aa8667-943\journal.jsonl`.
 
 Delete the Edge Tests page + TEST measures whenever you're done with them.
 
