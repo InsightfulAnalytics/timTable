@@ -10,12 +10,14 @@
   },
   "enabledPlugins": {
     "custom-visuals@skills-dir": true,
+    "design@skills-dir": true,
     "impeccable@impeccable": true,
     "pbip@skills-dir": true,
     "reports@skills-dir": true
   },
   "skillOverrides": {
     "claude-api": "name-only",
-    "desktop-screen-capture": "off"
+    "desktop-screen-capture": "off",
+    "dataviz": "off"
   }
 }
